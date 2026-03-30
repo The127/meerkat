@@ -7,20 +7,22 @@ use testcontainers_modules::postgres::Postgres;
 use tokio::net::TcpListener;
 
 use meerkat_api::state::AppState;
-use meerkat_application::context::AppContext;
+use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
+use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 
-fn build_mediator() -> Mediator<AppContext, ApplicationError> {
+fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
+    mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator
 }
 
@@ -66,6 +68,8 @@ async fn hurl_integration_tests() {
 
     let output = Command::new("hurl")
         .arg("--test")
+        .arg("--jobs")
+        .arg("1")
         .arg("--variable")
         .arg(format!("host={}", server_host))
         .args(&hurl_files)

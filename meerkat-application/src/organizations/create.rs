@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use meerkat_domain::models::organization::{Organization, OrganizationId, OrganizationSlug};
 
-use crate::context::AppContext;
+use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::mediator::{Command, Handler};
 
@@ -18,13 +18,13 @@ impl Command for CreateOrganization {
 pub struct CreateOrganizationHandler;
 
 #[async_trait]
-impl Handler<CreateOrganization, ApplicationError, AppContext> for CreateOrganizationHandler {
+impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrganizationHandler {
     async fn handle(
         &self,
         cmd: CreateOrganization,
-        ctx: &AppContext,
+        ctx: &RequestContext,
     ) -> Result<OrganizationId, ApplicationError> {
-        let org = Organization::new(cmd.name, cmd.slug, ctx.clock.as_ref())
+        let org = Organization::new(cmd.name, cmd.slug, ctx.clock())
             .map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
         let id = org.id().clone();
@@ -41,7 +41,7 @@ mod tests {
 
     use meerkat_domain::models::organization::OrganizationSlug;
 
-    use crate::context::AppContext;
+    use crate::context::RequestContext;
     use crate::error::ApplicationError;
     use crate::mediator::Handler;
     use crate::ports::organization_store::MockWriteOrganizationStore;
@@ -55,7 +55,7 @@ mod tests {
         let mut store = MockWriteOrganizationStore::new();
         store.expect_insert().times(1).returning(|_| ());
 
-        let ctx = AppContext::test()
+        let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_store(store)));
 
         let handler = CreateOrganizationHandler;
@@ -75,7 +75,7 @@ mod tests {
     #[tokio::test]
     async fn given_empty_name_when_creating_organization_it_should_return_validation_error() {
         // arrange
-        let ctx = AppContext::test();
+        let ctx = RequestContext::test();
         let handler = CreateOrganizationHandler;
         let cmd = CreateOrganization {
             name: "  ".to_string(),

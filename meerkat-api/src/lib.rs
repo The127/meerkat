@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, organizations};
+use crate::handlers::{health, organizations, projects};
 use crate::state::AppState;
 
 pub mod error;
@@ -14,11 +14,14 @@ pub mod state;
     paths(
         health::liveness,
         organizations::create_organization,
+        projects::create_project,
     ),
     components(schemas(
         health::HealthDto,
         organizations::CreateOrganizationRequestDto,
         organizations::CreateOrganizationResponseDto,
+        projects::CreateProjectRequestDto,
+        projects::CreateProjectResponseDto,
     ))
 )]
 struct ApiDoc;
@@ -27,8 +30,12 @@ pub fn router(state: AppState) -> Router {
     let org_routes = Router::new()
         .route("/", post(organizations::create_organization));
 
+    let project_routes = Router::new()
+        .route("/", post(projects::create_project));
+
     let api_v1_routes = Router::new()
-        .nest("/api/v1/organizations", org_routes);
+        .nest("/api/v1/organizations", org_routes)
+        .nest("/api/v1/projects", project_routes);
 
     Router::new()
         .merge(api_v1_routes)

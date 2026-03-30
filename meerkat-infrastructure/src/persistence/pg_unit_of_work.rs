@@ -3,14 +3,18 @@ use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::organization_store::WriteOrganizationStore;
+use meerkat_application::ports::project_store::WriteProjectStore;
 use meerkat_application::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 use meerkat_domain::models::organization::OrganizationChange;
+use meerkat_domain::models::project::ProjectChange;
 
 use crate::persistence::pg_organization_store::PgWriteOrganizationStore;
+use crate::persistence::pg_project_store::PgWriteProjectStore;
 
 pub struct PgUnitOfWork {
     pool: PgPool,
     org_store: PgWriteOrganizationStore,
+    project_store: PgWriteProjectStore,
 }
 
 impl PgUnitOfWork {
@@ -18,6 +22,7 @@ impl PgUnitOfWork {
         Self {
             pool,
             org_store: PgWriteOrganizationStore::new(),
+            project_store: PgWriteProjectStore::new(),
         }
     }
 }
@@ -28,10 +33,15 @@ impl UnitOfWork for PgUnitOfWork {
         &self.org_store
     }
 
+    fn projects(&self) -> &dyn WriteProjectStore {
+        &self.project_store
+    }
+
     async fn save_changes(&mut self) -> Result<(), ApplicationError> {
         let mut orgs = self.org_store.take_buffered();
+        let mut projects = self.project_store.take_buffered();
 
-        if orgs.is_empty() {
+        if orgs.is_empty() && projects.is_empty() {
             return Ok(());
         }
 
@@ -73,6 +83,53 @@ impl UnitOfWork for PgUnitOfWork {
                 .bind(new_version.as_u64() as i64)
                 .bind(org.id().as_uuid())
                 .bind(org.version().as_u64() as i64)
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+
+                if result.rows_affected() == 0 {
+                    return Err(ApplicationError::Conflict);
+                }
+            }
+        }
+
+        for project in &mut projects {
+            let changes = project.pull_changes();
+
+            if changes.is_empty() {
+                continue;
+            }
+
+            let is_new = changes.iter().any(|c| matches!(c, ProjectChange::Created { .. }));
+
+            if is_new {
+                sqlx::query(
+                    "INSERT INTO projects (id, organization_id, name, slug, created_at, updated_at, version) \
+                     VALUES ($1, $2, $3, $4, $5, $6, $7)"
+                )
+                .bind(project.id().as_uuid())
+                .bind(project.organization_id().as_uuid())
+                .bind(project.name())
+                .bind(project.slug().as_str())
+                .bind(project.created_at())
+                .bind(project.updated_at())
+                .bind(project.version().as_u64() as i64)
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+            } else {
+                let new_version = project.version().increment();
+
+                let result = sqlx::query(
+                    "UPDATE projects SET name = $1, slug = $2, updated_at = $3, version = $4 \
+                     WHERE id = $5 AND version = $6"
+                )
+                .bind(project.name())
+                .bind(project.slug().as_str())
+                .bind(project.updated_at())
+                .bind(new_version.as_u64() as i64)
+                .bind(project.id().as_uuid())
+                .bind(project.version().as_u64() as i64)
                 .execute(&mut *tx)
                 .await
                 .map_err(map_sqlx_error)?;

@@ -4,6 +4,7 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use meerkat_application::context::RequestContext;
 use meerkat_application::organizations::create::CreateOrganization;
 use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
 
@@ -45,7 +46,8 @@ pub(crate) async fn create_organization(
         slug: body.slug,
     };
 
-    let id = state.mediator.dispatch(cmd, &state.context).await?;
+    let req_ctx = RequestContext::new(state.context.clone());
+    let id = state.mediator.dispatch(cmd, &req_ctx).await?;
 
     Ok((StatusCode::CREATED, Json(CreateOrganizationResponseDto { id })))
 }

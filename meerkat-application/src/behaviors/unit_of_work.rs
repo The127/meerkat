@@ -2,20 +2,20 @@ use std::any::Any;
 
 use async_trait::async_trait;
 
-use crate::context::AppContext;
+use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::mediator::{PipelineBehavior, PipelineNext};
 
 pub struct UnitOfWorkBehavior;
 
 #[async_trait]
-impl PipelineBehavior<AppContext, ApplicationError> for UnitOfWorkBehavior {
+impl PipelineBehavior<RequestContext, ApplicationError> for UnitOfWorkBehavior {
     async fn handle(
         &self,
-        ctx: &AppContext,
+        ctx: &RequestContext,
         next: PipelineNext<'_, ApplicationError>,
     ) -> Result<Box<dyn Any + Send>, ApplicationError> {
-        let uow = ctx.uow_factory.create().await?;
+        let uow = ctx.uow_factory().create().await?;
         ctx.scope_uow(uow);
 
         let result = next.run().await;

@@ -7,11 +7,12 @@ use sqlx::PgPool;
 use tokio::sync::watch;
 use tracing::info;
 use meerkat_api::state::AppState;
-use meerkat_application::context::AppContext;
+use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
+use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
@@ -85,10 +86,11 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
         .context("Failed to connect to database")
 }
 
-fn build_mediator() -> Mediator<AppContext, ApplicationError> {
+fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
+    mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator
 }
 

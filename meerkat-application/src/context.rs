@@ -5,11 +5,11 @@ use meerkat_domain::ports::clock::Clock;
 use crate::ports::error_observer::ErrorObserver;
 use crate::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
+/// Shared, long-lived application services. Safe to share across requests.
 pub struct AppContext {
     pub clock: Arc<dyn Clock>,
     pub uow_factory: Arc<dyn UnitOfWorkFactory>,
     pub error_observer: Arc<dyn ErrorObserver>,
-    scoped_uow: Mutex<Option<Box<dyn UnitOfWork>>>,
 }
 
 impl AppContext {
@@ -22,8 +22,30 @@ impl AppContext {
             clock,
             uow_factory,
             error_observer,
+        }
+    }
+}
+
+/// Per-request context. Created fresh for each mediator dispatch.
+pub struct RequestContext {
+    pub app: Arc<AppContext>,
+    scoped_uow: Mutex<Option<Box<dyn UnitOfWork>>>,
+}
+
+impl RequestContext {
+    pub fn new(app: Arc<AppContext>) -> Self {
+        Self {
+            app,
             scoped_uow: Mutex::new(None),
         }
+    }
+
+    pub fn clock(&self) -> &dyn Clock {
+        self.app.clock.as_ref()
+    }
+
+    pub fn uow_factory(&self) -> &dyn UnitOfWorkFactory {
+        self.app.uow_factory.as_ref()
     }
 
     pub fn scope_uow(&self, uow: Box<dyn UnitOfWork>) {
@@ -45,20 +67,14 @@ impl AppContext {
 }
 
 #[cfg(any(test, feature = "test-utils"))]
-impl AppContext {
-    /// Creates a test context with no-op defaults.
-    /// Override individual fields with `with_clock`, `with_uow`, etc.
+impl RequestContext {
     pub fn test() -> Self {
-        Self::new(
+        let app = Arc::new(AppContext::new(
             Arc::new(meerkat_domain::ports::clock::MockClock::new(chrono::Utc::now())),
             Arc::new(crate::ports::unit_of_work::MockUnitOfWorkFactory::new()),
             Arc::new(crate::ports::error_observer::ErrorPipeline::new(vec![])),
-        )
-    }
-
-    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
-        self.clock = clock;
-        self
+        ));
+        Self::new(app)
     }
 
     pub fn with_scoped_uow(self, uow: Box<dyn UnitOfWork>) -> Self {
