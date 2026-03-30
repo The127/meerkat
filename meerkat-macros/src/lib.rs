@@ -160,8 +160,19 @@ pub fn slug_id(input: TokenStream) -> TokenStream {
     let name = parse_macro_input!(input as syn::Ident);
 
     let expanded = quote! {
-        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ::serde::Serialize, ::serde::Deserialize)]
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ::serde::Serialize)]
+        #[serde(transparent)]
         pub struct #name(String);
+
+        impl<'de> ::serde::Deserialize<'de> for #name {
+            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+            where
+                D: ::serde::Deserializer<'de>,
+            {
+                let s = String::deserialize(deserializer)?;
+                Self::new(s).map_err(::serde::de::Error::custom)
+            }
+        }
 
         impl #name {
             pub fn new(value: String) -> Result<Self, String> {
