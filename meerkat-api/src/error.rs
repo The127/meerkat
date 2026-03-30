@@ -1,8 +1,81 @@
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
+use axum::Json;
 use serde::Serialize;
 use utoipa::ToSchema;
 
+use meerkat_application::error::ApplicationError;
+use meerkat_application::mediator::MediatorError;
+use meerkat_application::ports::error_observer::{ErrorReport, ErrorSeverity};
+
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub(crate) struct ErrorBody {
+pub(crate) struct ErrorDto {
+    #[serde(rename = "code")]
     pub code: String,
+    #[serde(rename = "message")]
     pub message: String,
+}
+
+pub(crate) struct ApiError(MediatorError<ApplicationError>);
+
+impl From<MediatorError<ApplicationError>> for ApiError {
+    fn from(err: MediatorError<ApplicationError>) -> Self {
+        Self(err)
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, code, internal_message, client_message, severity) = match &self.0 {
+            MediatorError::HandlerError(ApplicationError::Validation(msg)) => (
+                StatusCode::BAD_REQUEST,
+                "validation_error",
+                msg.clone(),
+                msg.clone(),
+                ErrorSeverity::Warning,
+            ),
+            MediatorError::HandlerError(ApplicationError::NotFound) => (
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "resource not found".to_string(),
+                "resource not found".to_string(),
+                ErrorSeverity::Warning,
+            ),
+            MediatorError::HandlerError(ApplicationError::Conflict) => (
+                StatusCode::CONFLICT,
+                "conflict",
+                "resource was modified by another request".to_string(),
+                "resource was modified by another request".to_string(),
+                ErrorSeverity::Warning,
+            ),
+            MediatorError::HandlerError(ApplicationError::Internal(msg)) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                msg.clone(),
+                "an unexpected error occurred".to_string(),
+                ErrorSeverity::Error,
+            ),
+            MediatorError::NoHandlerRegistered(type_id) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                format!("no handler registered for {:?}", type_id),
+                "an unexpected error occurred".to_string(),
+                ErrorSeverity::Critical,
+            ),
+        };
+
+        let report = ErrorReport {
+            message: internal_message,
+            severity,
+            source: "api".to_string(),
+        };
+
+        let mut response = (status, Json(ErrorDto {
+            code: code.to_string(),
+            message: client_message,
+        })).into_response();
+
+        response.extensions_mut().insert(report);
+        response
+    }
 }

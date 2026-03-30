@@ -8,4 +8,5 @@ meerkat-application = { path = "../meerkat-application" }
 meerkat-domain = { path = "../meerkat-domain" }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 async-trait = "0.1"
+tracing = "0.1"
 sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "json"] }

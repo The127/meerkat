@@ -5,6 +5,7 @@ version.workspace = true
 
 [dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
+uuid = { version = "1", features = ["serde"] }
 utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 async-trait = "0.1"
 axum = "0.8"

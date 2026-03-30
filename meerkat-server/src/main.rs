@@ -7,7 +7,14 @@ use sqlx::PgPool;
 use tokio::sync::watch;
 use tracing::info;
 use meerkat_api::state::AppState;
+use meerkat_application::context::AppContext;
+use meerkat_application::error::ApplicationError;
+use meerkat_application::mediator::Mediator;
+use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
+use meerkat_application::ports::error_observer::ErrorPipeline;
+use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
+use meerkat_infrastructure::tracing_error_observer::TracingErrorObserver;
 use crate::config::MeerkatConfig;
 
 #[derive(Debug, Parser)]
@@ -65,6 +72,12 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
         .context("Failed to connect to database")
 }
 
+fn build_mediator() -> Mediator<AppContext, ApplicationError> {
+    let mut mediator = Mediator::new();
+    mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
+    mediator
+}
+
 async fn run_api(
     pool: PgPool,
     listen_addr: &str,
@@ -72,8 +85,25 @@ async fn run_api(
 ) -> anyhow::Result<()> {
     let health_checker = Arc::new(PgHealthChecker::new(pool.clone()));
 
+    // TODO: replace with PgUnitOfWorkFactory once infrastructure adapter is implemented
+    let uow_factory = Arc::new(TodoUnitOfWorkFactory);
+
+    let error_observer = Arc::new(ErrorPipeline::new(vec![
+        Arc::new(TracingErrorObserver),
+    ]));
+
+    let context = Arc::new(AppContext {
+        clock: Arc::new(SystemClock),
+        uow_factory,
+        error_observer,
+    });
+
+    let mediator = Arc::new(build_mediator());
+
     let state = AppState {
         health_checker,
+        mediator,
+        context,
     };
 
     let router = meerkat_api::router(state);
@@ -92,4 +122,14 @@ async fn run_api(
         .context("Server error")?;
 
     Ok(())
+}
+
+// Temporary placeholder until the Postgres UoW adapter is implemented
+struct TodoUnitOfWorkFactory;
+
+#[async_trait::async_trait]
+impl meerkat_application::ports::unit_of_work::UnitOfWorkFactory for TodoUnitOfWorkFactory {
+    async fn create(&self) -> Result<Box<dyn meerkat_application::ports::unit_of_work::UnitOfWork>, ApplicationError> {
+        Err(ApplicationError::Internal("UnitOfWork not yet implemented".to_string()))
+    }
 }
