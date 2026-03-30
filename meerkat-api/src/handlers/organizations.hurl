@@ -1,21 +1,20 @@
 # Create organization - valid
-# NOTE: returns 500 until PgUnitOfWorkFactory is implemented
 POST {{host}}/api/v1/organizations
 Content-Type: application/json
 {
     "name": "Meerkat Inc.",
     "slug": "meerkat-inc"
 }
-HTTP 500
+HTTP 201
 [Asserts]
-jsonpath "$.code" == "internal_error"
+jsonpath "$.id" isString
 
 # Create organization - empty name
 POST {{host}}/api/v1/organizations
 Content-Type: application/json
 {
     "name": "  ",
-    "slug": "meerkat-inc"
+    "slug": "some-slug"
 }
 HTTP 400
 [Asserts]

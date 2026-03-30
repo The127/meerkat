@@ -7,7 +7,6 @@ edition = "2024"
 meerkat-api = { path = "../meerkat-api" }
 meerkat-application = { path = "../meerkat-application" }
 meerkat-infrastructure = { path = "../meerkat-infrastructure" }
-async-trait = "0.1"
 clap = { version = "4.6.0", features = ["derive"] }
 anyhow = "1.0.102"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
@@ -20,6 +19,7 @@ sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres",
 cargo-husky = { version = "1", default-features = false, features = ["user-hooks"] }
 meerkat-domain = { path = "../meerkat-domain", features = ["test-utils"] }
 meerkat-application = { path = "../meerkat-application", features = ["test-utils"] }
-chrono = { version = "0.4", default-features = false, features = ["clock"] }
 glob = "0.3"
+testcontainers = "0.23"
+testcontainers-modules = { version = "0.11", features = ["postgres"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net"] }
