@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, slug_id, Reconstitute};
-use crate::version::Version;
+use crate::shared::version::Version;
+use crate::shared::change_tracker::ChangeTracker;
 use meerkat_application::ports::clock::Clock;
 
 uuid_id!(OrganizationId);
@@ -14,6 +15,22 @@ pub struct Organization {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     version: Version,
+    #[reconstitute_ignore]
+    changes: ChangeTracker<OrganizationChange>,
+}
+
+#[derive(Debug, Clone)]
+pub enum OrganizationChange {
+    Created {
+        id: OrganizationId,
+        name: String,
+        slug: OrganizationSlug,
+    },
+    NameUpdated {
+        id: OrganizationId,
+        old_name: String,
+        new_name: String,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -29,14 +46,26 @@ impl Organization {
             return Err(OrganizationError::EmptyName);
         }
 
+        let id = OrganizationId::new();
+        let name_str = name.to_string();
+        let change = OrganizationChange::Created {
+            id: id.clone(),
+            name: name_str.clone(),
+            slug: slug.clone(),
+        };
+
         let now = clock.now();
+        let mut changes = ChangeTracker::new();
+        changes.record(change);
+
         Ok(Organization{
-            id: OrganizationId::new(),
-            name: name.to_string(),
+            id,
+            name: name_str,
             slug,
             created_at: now,
             updated_at: now,
             version: Version::initial(),
+            changes,
         })
     }
 
@@ -46,11 +75,28 @@ impl Organization {
             return Err(OrganizationError::EmptyName);
         }
 
-        self.name = new_name.to_string();
+        if new_name == self.name {
+            return Ok(());
+        }
+
+        let old_name = self.name.clone();
+        let new_name_str = new_name.to_string();
+
+        self.changes.record(OrganizationChange::NameUpdated {
+            id: self.id.clone(),
+            old_name,
+            new_name: new_name_str.clone(),
+        });
+
+        self.name = new_name_str;
         self.updated_at = clock.now();
         self.version = self.version.increment();
 
         Ok(())
+    }
+
+    pub fn pull_changes(&mut self) -> Vec<OrganizationChange> {
+        self.changes.pull_changes()
     }
 
     pub fn id (&self) -> &OrganizationId {
@@ -85,7 +131,7 @@ mod tests {
     use meerkat_application::ports::clock::MockClock;
 
     #[test]
-    fn given_valid_name_and_slug_organization_creation_should_succeed() {
+    fn given_valid_name_and_slug_organization_creation_should_succeed_and_record_creation_event() {
         // arrange
         let name = "Meerkat Inc.".to_string();
         let slug = OrganizationSlug::from_str("meerkat-inc").unwrap();
@@ -93,15 +139,26 @@ mod tests {
         let clock = MockClock::new(expected_now);
 
         // act
-        let org = Organization::new(name.clone(), slug.clone(), &clock).expect("Failed to create organization");
+        let mut org = Organization::new(name.clone(), slug.clone(), &clock).expect("Failed to create organization");
 
         // assert
         assert_eq!(org.name(), "Meerkat Inc.");
         assert_eq!(org.slug(), &slug);
-        assert_eq!(org.version().as_u64(), 1);
+        assert_eq!(org.version(), &Version::initial());
         assert!(!org.id().as_uuid().is_nil());
         assert_eq!(org.created_at(), &expected_now);
         assert_eq!(org.updated_at(), &expected_now);
+
+        let changes = org.pull_changes();
+        assert_eq!(changes.len(), 1);
+        match &changes[0] {
+            OrganizationChange::Created { id, name: event_name, slug: event_slug } => {
+                assert_eq!(id, org.id());
+                assert_eq!(event_name, "Meerkat Inc.");
+                assert_eq!(event_slug, &slug);
+            },
+            _ => panic!("Expected Created change"),
+        }
     }
 
     #[test]
@@ -138,13 +195,14 @@ mod tests {
     }
 
     #[test]
-    fn given_an_existing_organization_updating_its_name_should_succeed_and_update_metadata() {
+    fn given_an_existing_organization_updating_its_name_should_succeed_and_record_change_event() {
         // arrange
         let initial_name = "Old Name".to_string();
         let slug = OrganizationSlug::from_str("org-slug").unwrap();
         let initial_now = Utc::now();
         let clock = MockClock::new(initial_now);
         let mut org = Organization::new(initial_name, slug, &clock).unwrap();
+        let _ = org.pull_changes(); // clear creation event
 
         let new_name = "New Name".to_string();
         let updated_now = initial_now + chrono::Duration::hours(1);
@@ -157,8 +215,20 @@ mod tests {
         assert_eq!(org.name(), "New Name");
         assert_eq!(org.updated_at(), &updated_now);
         assert_eq!(org.created_at(), &initial_now);
-        assert_eq!(org.version().as_u64(), 2);
+        assert_eq!(org.version(), &Version::initial().increment());
+
+        let changes = org.pull_changes();
+        assert_eq!(changes.len(), 1);
+        match &changes[0] {
+            OrganizationChange::NameUpdated { id, old_name, new_name } => {
+                assert_eq!(id, org.id());
+                assert_eq!(old_name, "Old Name");
+                assert_eq!(new_name, "New Name");
+            },
+            _ => panic!("Expected NameUpdated change"),
+        }
     }
+
 
     #[test]
     fn given_an_existing_organization_updating_its_name_to_empty_should_fail() {
@@ -179,6 +249,25 @@ mod tests {
             Err(OrganizationError::EmptyName) => (),
             _ => panic!("Expected EmptyName error, got {:?}", result),
         }
+    }
+
+    #[test]
+    fn given_the_same_name_updating_organization_name_should_do_nothing() {
+        // arrange
+        let name = "Same Name".to_string();
+        let slug = OrganizationSlug::from_str("org-slug").unwrap();
+        let now = Utc::now();
+        let clock = MockClock::new(now);
+        let mut org = Organization::new(name.clone(), slug, &clock).unwrap();
+        let _ = org.pull_changes(); // clear creation event
+
+        // act
+        org.update_name(name.clone(), &clock).expect("Update should succeed");
+
+        // assert
+        assert_eq!(org.name(), &name);
+        assert_eq!(org.version(), &Version::initial()); // version should not increment
+        assert!(org.pull_changes().is_empty()); // no event should be recorded
     }
 }
 

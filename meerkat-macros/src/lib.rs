@@ -43,7 +43,7 @@ use syn::{Data, DeriveInput, Fields, parse_macro_input};
 ///
 /// Only named-field structs are supported. Enums and tuple structs will
 /// produce a clear compile error.
-#[proc_macro_derive(Reconstitute)]
+#[proc_macro_derive(Reconstitute, attributes(reconstitute_ignore))]
 pub fn derive_reconstitute(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -89,7 +89,9 @@ pub fn derive_reconstitute(input: TokenStream) -> TokenStream {
         }
     };
 
-    let state_fields = fields.iter().map(|f| {
+    let state_fields = fields.iter().filter(|f| {
+        !f.attrs.iter().any(|attr| attr.path().is_ident("reconstitute_ignore"))
+    }).map(|f| {
         let name = &f.ident;
         let ty = &f.ty;
         quote! { pub #name: #ty }
@@ -97,7 +99,11 @@ pub fn derive_reconstitute(input: TokenStream) -> TokenStream {
 
     let field_mappings = fields.iter().map(|f| {
         let name = &f.ident;
-        quote! { #name: state.#name }
+        if f.attrs.iter().any(|attr| attr.path().is_ident("reconstitute_ignore")) {
+            quote! { #name: Default::default() }
+        } else {
+            quote! { #name: state.#name }
+        }
     });
 
     let expanded = quote! {
