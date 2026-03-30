@@ -43,3 +43,26 @@ impl AppContext {
         f(uow.as_ref())
     }
 }
+
+#[cfg(any(test, feature = "test-utils"))]
+impl AppContext {
+    /// Creates a test context with no-op defaults.
+    /// Override individual fields with `with_clock`, `with_uow`, etc.
+    pub fn test() -> Self {
+        Self::new(
+            Arc::new(meerkat_domain::ports::clock::MockClock::new(chrono::Utc::now())),
+            Arc::new(crate::ports::unit_of_work::MockUnitOfWorkFactory::new()),
+            Arc::new(crate::ports::error_observer::ErrorPipeline::new(vec![])),
+        )
+    }
+
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    pub fn with_scoped_uow(self, uow: Box<dyn UnitOfWork>) -> Self {
+        self.scope_uow(uow);
+        self
+    }
+}

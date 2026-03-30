@@ -38,35 +38,26 @@ impl Handler<CreateOrganization, ApplicationError, AppContext> for CreateOrganiz
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-    use std::sync::Arc;
 
     use meerkat_domain::models::organization::OrganizationSlug;
-    use meerkat_domain::ports::clock::MockClock;
 
     use crate::context::AppContext;
     use crate::error::ApplicationError;
     use crate::mediator::Handler;
-    use crate::ports::error_observer::ErrorPipeline;
     use crate::ports::organization_store::MockWriteOrganizationStore;
-    use crate::ports::unit_of_work::{MockUnitOfWork, MockUnitOfWorkFactory};
+    use crate::ports::unit_of_work::MockUnitOfWork;
 
     use super::{CreateOrganization, CreateOrganizationHandler};
-
-    fn base_context() -> AppContext {
-        AppContext::new(
-            Arc::new(MockClock::new(chrono::Utc::now())),
-            Arc::new(MockUnitOfWorkFactory::new()),
-            Arc::new(ErrorPipeline::new(vec![])),
-        )
-    }
 
     #[tokio::test]
     async fn given_valid_input_when_creating_organization_it_should_return_an_id() {
         // arrange
-        let ctx = base_context();
         let mut store = MockWriteOrganizationStore::new();
         store.expect_insert().times(1).returning(|_| ());
-        ctx.scope_uow(Box::new(MockUnitOfWork::new_with_store(store)));
+
+        let ctx = AppContext::test()
+            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_store(store)));
+
         let handler = CreateOrganizationHandler;
         let cmd = CreateOrganization {
             name: "Meerkat Inc.".to_string(),
@@ -84,7 +75,7 @@ mod tests {
     #[tokio::test]
     async fn given_empty_name_when_creating_organization_it_should_return_validation_error() {
         // arrange
-        let ctx = base_context();
+        let ctx = AppContext::test();
         let handler = CreateOrganizationHandler;
         let cmd = CreateOrganization {
             name: "  ".to_string(),

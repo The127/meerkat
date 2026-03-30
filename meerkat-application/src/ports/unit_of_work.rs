@@ -19,26 +19,29 @@ pub trait UnitOfWorkFactory: Send + Sync {
 // Hand-rolled mock embeds MockWriteOrganizationStore from mockall.
 #[cfg(any(test, feature = "test-utils"))]
 pub struct MockUnitOfWork {
-    pub org_store: crate::ports::organization_store::MockWriteOrganizationStore,
+    org_store: crate::ports::organization_store::MockWriteOrganizationStore,
     save_changes_result: Option<Result<(), ApplicationError>>,
+}
+
+#[cfg(any(test, feature = "test-utils"))]
+impl Default for MockUnitOfWork {
+    fn default() -> Self {
+        Self {
+            org_store: crate::ports::organization_store::MockWriteOrganizationStore::new(),
+            save_changes_result: Some(Ok(())),
+        }
+    }
 }
 
 #[cfg(any(test, feature = "test-utils"))]
 impl MockUnitOfWork {
     pub fn new() -> Self {
-        let mut store = crate::ports::organization_store::MockWriteOrganizationStore::new();
-        store.expect_insert().returning(|_| ());
-        Self {
-            org_store: store,
-            save_changes_result: Some(Ok(())),
-        }
+        Self::default()
     }
 
-    pub fn new_with_store(store: crate::ports::organization_store::MockWriteOrganizationStore) -> Self {
-        Self {
-            org_store: store,
-            save_changes_result: Some(Ok(())),
-        }
+    pub fn with_organization_store(mut self, store: crate::ports::organization_store::MockWriteOrganizationStore) -> Self {
+        self.org_store = store;
+        self
     }
 
     pub fn with_save_changes_result(mut self, result: Result<(), ApplicationError>) -> Self {
