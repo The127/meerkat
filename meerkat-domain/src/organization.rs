@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, slug_id, Reconstitute};
 use crate::shared::version::Version;
 use crate::shared::change_tracker::ChangeTracker;
-use meerkat_application::ports::clock::Clock;
+use crate::ports::clock::Clock;
 
 uuid_id!(OrganizationId);
 slug_id!(OrganizationSlug);
@@ -128,7 +128,7 @@ impl Organization {
 mod tests {
     use super::*;
     use std::str::FromStr;
-    use meerkat_application::ports::clock::MockClock;
+    use crate::ports::clock::MockClock;
 
     #[test]
     fn given_valid_name_and_slug_organization_creation_should_succeed_and_record_creation_event() {

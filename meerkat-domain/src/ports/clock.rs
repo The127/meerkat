@@ -4,12 +4,12 @@ pub trait Clock: Send + Sync {
     fn now(&self) -> DateTime<Utc>;
 }
 
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 pub struct MockClock {
     now: std::sync::Arc<parking_lot::RwLock<DateTime<Utc>>>,
 }
 
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 impl MockClock {
     pub fn new(now: DateTime<Utc>) -> Self {
         Self {
@@ -28,7 +28,7 @@ impl MockClock {
     }
 }
 
-#[cfg(feature = "test-utils")]
+#[cfg(any(test, feature = "test-utils"))]
 impl Clock for MockClock {
     fn now(&self) -> DateTime<Utc> {
         let guard = self.now.read();

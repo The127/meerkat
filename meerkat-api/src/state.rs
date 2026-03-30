@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use meerkat_application::ports::health::HealthChecker;
+use meerkat_domain::ports::health::HealthChecker;
 
 #[derive(Clone)]
 pub struct AppState {

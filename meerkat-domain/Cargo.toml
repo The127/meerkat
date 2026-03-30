@@ -3,13 +3,17 @@ name = "meerkat-domain"
 edition.workspace = true
 version.workspace = true
 
+[features]
+test-utils = ["parking_lot"]
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 meerkat-macros = { path = "../meerkat-macros" }
-meerkat-application = { path = "../meerkat-application" }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 thiserror = "2"
+async-trait = "0.1"
+parking_lot = { version = "0.12", optional = true }
 
 [dev-dependencies]
-meerkat-application = { path = "../meerkat-application", features = ["test-utils"] }
+parking_lot = "0.12"
