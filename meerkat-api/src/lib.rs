@@ -29,5 +29,6 @@ pub fn router(state: AppState) -> Router {
         .merge(api_routes)
         .route("/api/openapi.json", get(|| async { axum::Json(ApiDoc::openapi()) }))
         .route("/health", get(health::liveness))
+        .route("/health/ready", get(health::readiness))
         .with_state(state)
 }

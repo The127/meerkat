@@ -9,3 +9,5 @@ utoipa = { version = "5", features = ["axum_extras", "chrono", "uuid"] }
 async-trait = "0.1"
 axum = "0.8"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+meerkat-application = { path = "../meerkat-application" }
+meerkat-domain = { path = "../meerkat-domain" }
