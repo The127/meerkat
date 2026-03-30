@@ -10,3 +10,7 @@ test-utils = ["parking_lot"]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 thiserror = "2"
 parking_lot = { version = "0.12", optional = true }
+async-trait = "0.1.89"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
