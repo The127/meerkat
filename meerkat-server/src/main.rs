@@ -29,6 +29,8 @@ struct Cli {
 enum Commands {
     /// Run only the API server
     Api,
+    /// Run database migrations
+    Migrate,
 }
 
 #[tokio::main]
@@ -44,13 +46,17 @@ async fn main() -> anyhow::Result<()> {
     let config = MeerkatConfig::from_env()?;
 
     match cli.command {
-        Commands::Api => {
+        Commands::Migrate => {
             let pool = create_pool(&config).await?;
-
+            info!("Running database migrations...");
             sqlx::migrate!()
                 .run(&pool)
                 .await
                 .context("Failed to run database migrations")?;
+            info!("Migrations complete.");
+        }
+        Commands::Api => {
+            let pool = create_pool(&config).await?;
 
             let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
