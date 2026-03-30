@@ -39,43 +39,46 @@ impl UnitOfWork for PgUnitOfWork {
 
         for org in &mut orgs {
             let changes = org.pull_changes();
-            for change in changes {
-                match change {
-                    OrganizationChange::Created { id, name, slug } => {
-                        sqlx::query(
-                            "INSERT INTO organizations (id, name, slug, created_at, updated_at, version) \
-                             VALUES ($1, $2, $3, $4, $5, $6)"
-                        )
-                        .bind(id.as_uuid())
-                        .bind(&name)
-                        .bind(slug.as_str())
-                        .bind(org.created_at())
-                        .bind(org.updated_at())
-                        .bind(org.version().as_u64() as i64)
-                        .execute(&mut *tx)
-                        .await
-                        .map_err(map_sqlx_error)?;
-                    }
-                    OrganizationChange::NameUpdated { id, old_name: _, new_name } => {
-                        let previous_version = (org.version().as_u64() - 1) as i64;
 
-                        let result = sqlx::query(
-                            "UPDATE organizations SET name = $1, updated_at = $2, version = $3 \
-                             WHERE id = $4 AND version = $5"
-                        )
-                        .bind(&new_name)
-                        .bind(org.updated_at())
-                        .bind(org.version().as_u64() as i64)
-                        .bind(id.as_uuid())
-                        .bind(previous_version)
-                        .execute(&mut *tx)
-                        .await
-                        .map_err(map_sqlx_error)?;
+            if changes.is_empty() {
+                continue;
+            }
 
-                        if result.rows_affected() == 0 {
-                            return Err(ApplicationError::Conflict);
-                        }
-                    }
+            let is_new = changes.iter().any(|c| matches!(c, OrganizationChange::Created { .. }));
+
+            if is_new {
+                sqlx::query(
+                    "INSERT INTO organizations (id, name, slug, created_at, updated_at, version) \
+                     VALUES ($1, $2, $3, $4, $5, $6)"
+                )
+                .bind(org.id().as_uuid())
+                .bind(org.name())
+                .bind(org.slug().as_str())
+                .bind(org.created_at())
+                .bind(org.updated_at())
+                .bind(org.version().as_u64() as i64)
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+            } else {
+                let new_version = org.version().increment();
+
+                let result = sqlx::query(
+                    "UPDATE organizations SET name = $1, slug = $2, updated_at = $3, version = $4 \
+                     WHERE id = $5 AND version = $6"
+                )
+                .bind(org.name())
+                .bind(org.slug().as_str())
+                .bind(org.updated_at())
+                .bind(new_version.as_u64() as i64)
+                .bind(org.id().as_uuid())
+                .bind(org.version().as_u64() as i64)
+                .execute(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+
+                if result.rows_affected() == 0 {
+                    return Err(ApplicationError::Conflict);
                 }
             }
         }

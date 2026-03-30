@@ -90,7 +90,6 @@ impl Organization {
 
         self.name = new_name_str;
         self.updated_at = clock.now();
-        self.version = self.version.increment();
 
         Ok(())
     }
@@ -215,7 +214,7 @@ mod tests {
         assert_eq!(org.name(), "New Name");
         assert_eq!(org.updated_at(), &updated_now);
         assert_eq!(org.created_at(), &initial_now);
-        assert_eq!(org.version(), &Version::initial().increment());
+        assert_eq!(org.version(), &Version::initial());
 
         let changes = org.pull_changes();
         assert_eq!(changes.len(), 1);
