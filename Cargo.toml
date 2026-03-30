@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = [
+    "meerkat-api",
+    "meerkat-application",
+    "meerkat-domain",
+    "meerkat-infrastructure",
+    "meerkat-macros",
+    "meerkat-server"
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"

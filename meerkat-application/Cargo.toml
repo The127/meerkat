@@ -1,0 +1,7 @@
+[package]
+name = "meerkat-application"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+thiserror = "2"

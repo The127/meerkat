@@ -1,0 +1,6 @@
+[package]
+name = "meerkat-domain"
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
