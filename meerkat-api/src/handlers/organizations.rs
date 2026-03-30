@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
+use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -39,6 +41,7 @@ pub(crate) struct CreateOrganizationResponseDto {
 )]
 pub(crate) async fn create_organization(
     State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
     Json(body): Json<CreateOrganizationRequestDto>,
 ) -> Result<(StatusCode, Json<CreateOrganizationResponseDto>), ApiError> {
     let cmd = CreateOrganization {
@@ -46,7 +49,6 @@ pub(crate) async fn create_organization(
         slug: body.slug,
     };
 
-    let req_ctx = RequestContext::new(state.context.clone());
     let id = state.mediator.dispatch(cmd, &req_ctx).await?;
 
     Ok((StatusCode::CREATED, Json(CreateOrganizationResponseDto { id })))

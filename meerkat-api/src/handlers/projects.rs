@@ -1,6 +1,8 @@
+use std::sync::Arc;
+
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::Json;
+use axum::{Extension, Json};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -43,6 +45,7 @@ pub(crate) struct CreateProjectResponseDto {
 )]
 pub(crate) async fn create_project(
     State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
     Json(body): Json<CreateProjectRequestDto>,
 ) -> Result<(StatusCode, Json<CreateProjectResponseDto>), ApiError> {
     let cmd = CreateProject {
@@ -51,7 +54,6 @@ pub(crate) async fn create_project(
         slug: body.slug,
     };
 
-    let req_ctx = RequestContext::new(state.context.clone());
     let id = state.mediator.dispatch(cmd, &req_ctx).await?;
 
     Ok((StatusCode::CREATED, Json(CreateProjectResponseDto { id })))

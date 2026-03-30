@@ -43,5 +43,6 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health::liveness))
         .route("/health/ready", get(health::readiness))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::error_observer))
+        .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context))
         .with_state(state)
 }
