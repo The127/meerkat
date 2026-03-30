@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
-use meerkat_domain::ports::health::HealthChecker;
+use meerkat_application::ports::health::HealthChecker;
 
 pub struct PgHealthChecker {
     pool: PgPool,
