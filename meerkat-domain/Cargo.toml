@@ -4,3 +4,11 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
+uuid = { version = "1", features = ["v4", "serde"] }
+meerkat-macros = { path = "../meerkat-macros" }
+meerkat-application = { path = "../meerkat-application" }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+thiserror = "2"
+
+[dev-dependencies]
+meerkat-application = { path = "../meerkat-application", features = ["test-utils"] }

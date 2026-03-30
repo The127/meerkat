@@ -3,6 +3,11 @@ name = "meerkat-application"
 edition.workspace = true
 version.workspace = true
 
+[features]
+test-utils = ["parking_lot"]
+
 [dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 async-trait = "0.1"
 thiserror = "2"
+parking_lot = { version = "0.12", optional = true }
