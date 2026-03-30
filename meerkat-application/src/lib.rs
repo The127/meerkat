@@ -1,3 +1,4 @@
+pub mod behaviors;
 pub mod context;
 pub mod error;
 pub mod mediator;

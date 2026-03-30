@@ -10,6 +10,7 @@ use meerkat_api::state::AppState;
 use meerkat_application::context::AppContext;
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
+use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
@@ -86,6 +87,7 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
 
 fn build_mediator() -> Mediator<AppContext, ApplicationError> {
     let mut mediator = Mediator::new();
+    mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator
 }
@@ -103,11 +105,11 @@ async fn run_api(
         Arc::new(TracingErrorObserver),
     ]));
 
-    let context = Arc::new(AppContext {
-        clock: Arc::new(SystemClock),
+    let context = Arc::new(AppContext::new(
+        Arc::new(SystemClock),
         uow_factory,
         error_observer,
-    });
+    ));
 
     let mediator = Arc::new(build_mediator());
 

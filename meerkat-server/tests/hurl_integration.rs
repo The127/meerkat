@@ -10,6 +10,7 @@ use meerkat_api::state::AppState;
 use meerkat_application::context::AppContext;
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
+use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
@@ -18,6 +19,7 @@ use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 
 fn build_mediator() -> Mediator<AppContext, ApplicationError> {
     let mut mediator = Mediator::new();
+    mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator
 }
@@ -38,11 +40,11 @@ async fn hurl_integration_tests() {
     let state = AppState {
         health_checker: Arc::new(PgHealthChecker::new(pool.clone())),
         mediator: Arc::new(build_mediator()),
-        context: Arc::new(AppContext {
-            clock: Arc::new(SystemClock),
-            uow_factory: Arc::new(PgUnitOfWorkFactory::new(pool)),
-            error_observer: Arc::new(ErrorPipeline::new(vec![])),
-        }),
+        context: Arc::new(AppContext::new(
+            Arc::new(SystemClock),
+            Arc::new(PgUnitOfWorkFactory::new(pool)),
+            Arc::new(ErrorPipeline::new(vec![])),
+        )),
     };
 
     let router = meerkat_api::router(state);

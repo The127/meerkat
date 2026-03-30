@@ -24,8 +24,31 @@ type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 type ErasedHandler<CTX, ERR> =
     dyn Fn(Box<dyn Any + Send>, &CTX) -> BoxFuture<Result<Box<dyn Any + Send>, ERR>> + Send + Sync;
 
+type PipelineFn<'a, ERR> =
+    Box<dyn FnOnce() -> BoxFuture<'a, Result<Box<dyn Any + Send>, ERR>> + Send + 'a>;
+
+pub struct PipelineNext<'a, ERR> {
+    f: PipelineFn<'a, ERR>,
+}
+
+impl<'a, ERR> PipelineNext<'a, ERR> {
+    pub async fn run(self) -> Result<Box<dyn Any + Send>, ERR> {
+        (self.f)().await
+    }
+}
+
+#[async_trait]
+pub trait PipelineBehavior<CTX, ERR>: Send + Sync {
+    async fn handle(
+        &self,
+        ctx: &CTX,
+        next: PipelineNext<'_, ERR>,
+    ) -> Result<Box<dyn Any + Send>, ERR>;
+}
+
 pub struct Mediator<CTX, ERR: Debug> {
     handlers: HashMap<TypeId, Box<ErasedHandler<CTX, ERR>>>,
+    behaviors: Vec<std::sync::Arc<dyn PipelineBehavior<CTX, ERR>>>,
 }
 
 #[derive(Debug, Error)]
@@ -44,7 +67,12 @@ where
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
+            behaviors: Vec::new(),
         }
+    }
+
+    pub fn add_behavior(&mut self, behavior: std::sync::Arc<dyn PipelineBehavior<CTX, ERR>>) {
+        self.behaviors.push(behavior);
     }
 
     pub fn register<CMD, H>(&mut self, handler: H)
@@ -83,13 +111,33 @@ where
             .get(&TypeId::of::<CMD>())
             .ok_or(MediatorError::NoHandlerRegistered(TypeId::of::<CMD>()))?;
 
-        let result = handler(Box::new(command), ctx)
+        let result = Self::run_pipeline(&self.behaviors, ctx, handler, Box::new(command))
             .await
             .map_err(MediatorError::HandlerError)?;
 
         Ok(*result
             .downcast::<CMD::Output>()
             .expect("Invalid handler output"))
+    }
+
+    fn run_pipeline<'a>(
+        behaviors: &'a [std::sync::Arc<dyn PipelineBehavior<CTX, ERR>>],
+        ctx: &'a CTX,
+        handler: &'a ErasedHandler<CTX, ERR>,
+        command: Box<dyn Any + Send>,
+    ) -> BoxFuture<'a, Result<Box<dyn Any + Send>, ERR>> {
+        Box::pin(async move {
+            if behaviors.is_empty() {
+                return handler(command, ctx).await;
+            }
+
+            let (first, rest) = behaviors.split_first().unwrap();
+            let next = PipelineNext {
+                f: Box::new(move || Self::run_pipeline(rest, ctx, handler, command)),
+            };
+
+            first.handle(ctx, next).await
+        })
     }
 }
 

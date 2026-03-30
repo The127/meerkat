@@ -29,9 +29,7 @@ impl Handler<CreateOrganization, ApplicationError, AppContext> for CreateOrganiz
 
         let id = org.id().clone();
 
-        let mut uow = ctx.uow_factory.create().await?;
-        uow.organizations().insert(org);
-        uow.save_changes().await?;
+        ctx.with_uow(|uow| uow.organizations().insert(org));
 
         Ok(id)
     }
@@ -54,26 +52,21 @@ mod tests {
 
     use super::{CreateOrganization, CreateOrganizationHandler};
 
-    fn test_context() -> AppContext {
-        let mut factory = MockUnitOfWorkFactory::new();
-        factory.expect_create().returning(|| {
-            let mut store = MockWriteOrganizationStore::new();
-            store.expect_insert().times(1).returning(|_| ());
-
-            Ok(Box::new(MockUnitOfWork::new_with_store(store)))
-        });
-
-        AppContext {
-            clock: Arc::new(MockClock::new(chrono::Utc::now())),
-            uow_factory: Arc::new(factory),
-            error_observer: Arc::new(ErrorPipeline::new(vec![])),
-        }
+    fn base_context() -> AppContext {
+        AppContext::new(
+            Arc::new(MockClock::new(chrono::Utc::now())),
+            Arc::new(MockUnitOfWorkFactory::new()),
+            Arc::new(ErrorPipeline::new(vec![])),
+        )
     }
 
     #[tokio::test]
     async fn given_valid_input_when_creating_organization_it_should_return_an_id() {
         // arrange
-        let ctx = test_context();
+        let ctx = base_context();
+        let mut store = MockWriteOrganizationStore::new();
+        store.expect_insert().times(1).returning(|_| ());
+        ctx.scope_uow(Box::new(MockUnitOfWork::new_with_store(store)));
         let handler = CreateOrganizationHandler;
         let cmd = CreateOrganization {
             name: "Meerkat Inc.".to_string(),
@@ -91,7 +84,7 @@ mod tests {
     #[tokio::test]
     async fn given_empty_name_when_creating_organization_it_should_return_validation_error() {
         // arrange
-        let ctx = test_context();
+        let ctx = base_context();
         let handler = CreateOrganizationHandler;
         let cmd = CreateOrganization {
             name: "  ".to_string(),
