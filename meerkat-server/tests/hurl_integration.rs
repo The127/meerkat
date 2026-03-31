@@ -14,7 +14,12 @@ use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
+use meerkat_application::ports::unit_of_work::UnitOfWorkFactory;
+use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig};
+use meerkat_domain::models::organization::{Organization, OrganizationSlug};
+use meerkat_domain::shared::url::Url;
 use meerkat_infrastructure::clock::SystemClock;
+use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 
@@ -36,6 +41,29 @@ async fn hurl_integration_tests() {
     let pool = PgPool::connect(&db_url).await.unwrap();
     sqlx::migrate!().run(&pool).await.unwrap();
 
+    // Bootstrap a master organization so subdomain middleware resolves bare-domain requests
+    let clock = SystemClock;
+    let uow_factory = PgUnitOfWorkFactory::new(pool.clone());
+    let oidc_config = OidcConfig::new(
+        "Default".to_string(),
+        ClientId::new("test-client").unwrap(),
+        Url::new("https://auth.example.com").unwrap(),
+        Audience::new("test-api").unwrap(),
+        None,
+        &clock,
+    )
+    .unwrap();
+    let master_org = Organization::new(
+        "Master".to_string(),
+        OrganizationSlug::new("master").unwrap(),
+        oidc_config,
+        &clock,
+    )
+    .unwrap();
+    let mut uow = uow_factory.create().await.unwrap();
+    uow.organizations().add(master_org);
+    uow.save_changes().await.unwrap();
+
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let server_port = listener.local_addr().unwrap().port();
 
@@ -44,9 +72,12 @@ async fn hurl_integration_tests() {
         mediator: Arc::new(build_mediator()),
         context: Arc::new(AppContext::new(
             Arc::new(SystemClock),
-            Arc::new(PgUnitOfWorkFactory::new(pool)),
+            Arc::new(PgUnitOfWorkFactory::new(pool.clone())),
             Arc::new(ErrorPipeline::new(vec![])),
         )),
+        org_read_store: Arc::new(PgOrganizationReadStore::new(pool)),
+        base_domain: "127.0.0.1".to_string(),
+        master_org_slug: "master".to_string(),
     };
 
     let router = meerkat_api::router(state);

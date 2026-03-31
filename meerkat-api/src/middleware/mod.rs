@@ -1,3 +1,5 @@
+mod subdomain;
+
 use std::sync::Arc;
 
 use axum::extract::State;
@@ -8,6 +10,8 @@ use meerkat_application::context::RequestContext;
 use meerkat_application::ports::error_observer::ErrorReport;
 
 use crate::state::AppState;
+
+pub(crate) use subdomain::resolve_subdomain;
 
 pub(crate) async fn request_context(
     State(state): State<AppState>,

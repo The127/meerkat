@@ -18,6 +18,7 @@ use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
+use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::tracing_error_observer::TracingErrorObserver;
 use crate::config::MeerkatConfig;
 
@@ -66,7 +67,7 @@ async fn main() -> anyhow::Result<()> {
             let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
             let api_handle = tokio::spawn(async move {
-                run_api(pool, &config.listen_addr, shutdown_rx).await
+                run_api(pool, &config, shutdown_rx).await
             });
 
             tokio::signal::ctrl_c()
@@ -99,7 +100,7 @@ fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
 
 async fn run_api(
     pool: PgPool,
-    listen_addr: &str,
+    config: &MeerkatConfig,
     mut shutdown: watch::Receiver<bool>,
 ) -> anyhow::Result<()> {
     let health_checker = Arc::new(PgHealthChecker::new(pool.clone()));
@@ -118,19 +119,24 @@ async fn run_api(
 
     let mediator = Arc::new(build_mediator());
 
+    let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
+
     let state = AppState {
         health_checker,
         mediator,
         context,
+        org_read_store,
+        base_domain: config.base_domain.clone(),
+        master_org_slug: config.master_org_slug.clone(),
     };
 
     let router = meerkat_api::router(state);
 
-    let listener = tokio::net::TcpListener::bind(listen_addr)
+    let listener = tokio::net::TcpListener::bind(&config.listen_addr)
         .await
-        .with_context(|| format!("Failed to bind to {}", listen_addr))?;
+        .with_context(|| format!("Failed to bind to {}", config.listen_addr))?;
 
-    info!("Listening on {}", listen_addr);
+    info!("Listening on {}", config.listen_addr);
 
     axum::serve(listener, router)
         .with_graceful_shutdown(async move {

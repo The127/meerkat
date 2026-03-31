@@ -7,6 +7,7 @@ use crate::state::AppState;
 pub mod error;
 pub mod handlers;
 mod middleware;
+pub mod resolved_organization;
 pub mod state;
 
 #[derive(OpenApi)]
@@ -35,7 +36,8 @@ pub fn router(state: AppState) -> Router {
 
     let api_v1_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)
-        .nest("/api/v1/projects", project_routes);
+        .nest("/api/v1/projects", project_routes)
+        .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::resolve_subdomain));
 
     Router::new()
         .merge(api_v1_routes)
