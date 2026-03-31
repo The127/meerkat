@@ -175,7 +175,8 @@ pub fn slug_id(input: TokenStream) -> TokenStream {
         }
 
         impl #name {
-            pub fn new(value: String) -> Result<Self, String> {
+            pub fn new(value: impl Into<String>) -> Result<Self, String> {
+                let value = value.into();
                 if value.is_empty() {
                     return Err("Slug cannot be empty".to_string());
                 }
