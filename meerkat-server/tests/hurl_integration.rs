@@ -19,6 +19,8 @@ use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig};
 use meerkat_domain::models::organization::{Organization, OrganizationSlug};
 use meerkat_domain::shared::url::Url;
 use meerkat_infrastructure::clock::SystemClock;
+use meerkat_infrastructure::jwks::CachedJwksProvider;
+use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
@@ -75,9 +77,12 @@ async fn hurl_integration_tests() {
             Arc::new(PgUnitOfWorkFactory::new(pool.clone())),
             Arc::new(ErrorPipeline::new(vec![])),
         )),
-        org_read_store: Arc::new(PgOrganizationReadStore::new(pool)),
+        org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),
+        oidc_config_read_store: Arc::new(PgOidcConfigReadStore::new(pool.clone())),
+        jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
         base_domain: "127.0.0.1".to_string(),
         master_org_slug: "master".to_string(),
+        auth_enabled: false,
     };
 
     let router = meerkat_api::router(state);

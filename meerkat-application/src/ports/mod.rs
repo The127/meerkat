@@ -1,5 +1,6 @@
 pub mod error_observer;
 pub mod health;
+pub mod jwks_provider;
 pub mod oidc_config_read_store;
 pub mod organization_read_store;
 pub mod organization_repository;

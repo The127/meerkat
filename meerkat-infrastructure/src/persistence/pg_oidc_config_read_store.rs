@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::oidc_config_read_store::{OidcConfigReadModel, OidcConfigReadStore};
-use meerkat_domain::models::oidc_config::{Audience, OidcConfigId};
+use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfigId};
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::shared::url::Url;
 
@@ -23,6 +23,8 @@ impl PgOidcConfigReadStore {
 struct OidcConfigRow {
     id: sqlx::types::Uuid,
     organization_id: sqlx::types::Uuid,
+    name: String,
+    client_id: String,
     issuer_url: String,
     audience: String,
     jwks_url: Option<String>,
@@ -33,6 +35,8 @@ impl From<OidcConfigRow> for OidcConfigReadModel {
         Self {
             id: OidcConfigId::from_uuid(row.id),
             organization_id: OrganizationId::from_uuid(row.organization_id),
+            name: row.name,
+            client_id: ClientId::new(row.client_id).expect("invalid client_id in database"),
             issuer_url: Url::new(row.issuer_url).expect("invalid issuer_url in database"),
             audience: Audience::new(row.audience).expect("invalid audience in database"),
             jwks_url: row.jwks_url.map(|u| Url::new(u).expect("invalid jwks_url in database")),
@@ -47,7 +51,7 @@ impl OidcConfigReadStore for PgOidcConfigReadStore {
         org_id: &OrganizationId,
     ) -> Result<OidcConfigReadModel, ApplicationError> {
         let row = sqlx::query_as::<_, OidcConfigRow>(
-            "SELECT id, organization_id, issuer_url, audience, jwks_url \
+            "SELECT id, organization_id, name, client_id, issuer_url, audience, jwks_url \
              FROM oidc_configs \
              WHERE organization_id = $1 AND status = 'active'"
         )
@@ -65,7 +69,7 @@ impl OidcConfigReadStore for PgOidcConfigReadStore {
         audience: &Audience,
     ) -> Result<Option<OidcConfigReadModel>, ApplicationError> {
         let row = sqlx::query_as::<_, OidcConfigRow>(
-            "SELECT id, organization_id, issuer_url, audience, jwks_url \
+            "SELECT id, organization_id, name, client_id, issuer_url, audience, jwks_url \
              FROM oidc_configs \
              WHERE issuer_url = $1 AND audience = $2 AND status = 'active'"
         )

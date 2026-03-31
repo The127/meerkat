@@ -1,3 +1,4 @@
+mod auth;
 mod subdomain;
 
 use std::sync::Arc;
@@ -11,6 +12,7 @@ use meerkat_application::ports::error_observer::ErrorReport;
 
 use crate::state::AppState;
 
+pub(crate) use auth::authenticate;
 pub(crate) use subdomain::resolve_subdomain;
 
 pub(crate) async fn request_context(

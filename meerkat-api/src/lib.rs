@@ -1,9 +1,10 @@
 use axum::Router;
 use axum::routing::{get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, organizations, projects};
+use crate::handlers::{health, oidc, organizations, projects};
 use crate::state::AppState;
 
+pub(crate) mod auth_context;
 pub mod error;
 pub mod handlers;
 mod middleware;
@@ -14,11 +15,14 @@ pub mod state;
 #[openapi(
     paths(
         health::liveness,
+        oidc::get_oidc_config,
         organizations::create_organization,
         projects::create_project,
     ),
     components(schemas(
+        error::ErrorDto,
         health::HealthDto,
+        oidc::OidcConfigDto,
         organizations::CreateOrganizationRequestDto,
         organizations::CreateOrganizationResponseDto,
         projects::CreateProjectRequestDto,
@@ -34,9 +38,18 @@ pub fn router(state: AppState) -> Router {
     let project_routes = Router::new()
         .route("/", post(projects::create_project));
 
-    let api_v1_routes = Router::new()
+    let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)
-        .nest("/api/v1/projects", project_routes)
+        .nest("/api/v1/projects", project_routes);
+
+    if state.auth_enabled {
+        protected_routes = protected_routes
+            .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::authenticate));
+    }
+
+    let api_v1_routes = Router::new()
+        .merge(protected_routes)
+        .route("/api/v1/oidc", get(oidc::get_oidc_config))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::resolve_subdomain));
 
     Router::new()

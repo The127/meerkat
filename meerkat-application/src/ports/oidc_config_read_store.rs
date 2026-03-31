@@ -1,4 +1,4 @@
-use meerkat_domain::models::oidc_config::{Audience, OidcConfigId};
+use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfigId};
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::shared::url::Url;
 
@@ -8,6 +8,8 @@ use crate::error::ApplicationError;
 pub struct OidcConfigReadModel {
     pub id: OidcConfigId,
     pub organization_id: OrganizationId,
+    pub name: String,
+    pub client_id: ClientId,
     pub issuer_url: Url,
     pub audience: Audience,
     pub jwks_url: Option<Url>,

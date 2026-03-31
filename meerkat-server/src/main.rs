@@ -18,6 +18,8 @@ use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
+use meerkat_infrastructure::jwks::CachedJwksProvider;
+use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::tracing_error_observer::TracingErrorObserver;
 use crate::config::MeerkatConfig;
@@ -120,14 +122,19 @@ async fn run_api(
     let mediator = Arc::new(build_mediator());
 
     let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
+    let oidc_config_read_store = Arc::new(PgOidcConfigReadStore::new(pool.clone()));
+    let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
 
     let state = AppState {
         health_checker,
         mediator,
         context,
         org_read_store,
+        oidc_config_read_store,
+        jwks_provider,
         base_domain: config.base_domain.clone(),
         master_org_slug: config.master_org_slug.clone(),
+        auth_enabled: true,
     };
 
     let router = meerkat_api::router(state);
