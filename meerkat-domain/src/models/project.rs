@@ -79,7 +79,7 @@ impl Project {
         })
     }
 
-    pub fn update_name(&mut self, new_name: String, clock: &dyn Clock) -> Result<(), ProjectError> {
+    pub fn update_name(&mut self, new_name: String) -> Result<(), ProjectError> {
         let new_name = new_name.trim();
         if new_name.is_empty() {
             return Err(ProjectError::EmptyName);
@@ -99,7 +99,6 @@ impl Project {
         });
 
         self.name = new_name_str;
-        self.updated_at = clock.now();
 
         Ok(())
     }
@@ -120,25 +119,34 @@ impl Project {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
     use crate::ports::clock::MockClock;
+
+    fn test_project() -> (Project, MockClock) {
+        let clock = MockClock::new(Utc::now());
+        let org_id = OrganizationId::new();
+        let slug = ProjectSlug::new("proj-slug").unwrap();
+        let project = Project::new(org_id, "Test Project".into(), slug, &clock).unwrap();
+        (project, clock)
+    }
 
     #[test]
     fn given_valid_input_project_creation_should_succeed_and_record_creation_event() {
+        // arrange
         let org_id = OrganizationId::new();
-        let name = "My Project".to_string();
-        let slug = ProjectSlug::from_str("my-project").unwrap();
-        let now = Utc::now();
-        let clock = MockClock::new(now);
+        let slug = ProjectSlug::new("my-project").unwrap();
+        let expected_now = Utc::now();
+        let clock = MockClock::new(expected_now);
 
-        let mut project = Project::new(org_id.clone(), name, slug.clone(), &clock)
+        // act
+        let mut project = Project::new(org_id.clone(), "My Project".into(), slug.clone(), &clock)
             .expect("Failed to create project");
 
+        // assert
         assert_eq!(project.name(), "My Project");
         assert_eq!(project.slug(), &slug);
         assert_eq!(project.organization_id(), &org_id);
         assert_eq!(project.version(), &Version::initial());
-        assert_eq!(project.created_at(), &now);
+        assert_eq!(project.created_at(), &expected_now);
 
         let changes = project.pull_changes();
         assert_eq!(changes.len(), 1);
@@ -155,12 +163,14 @@ mod tests {
 
     #[test]
     fn given_empty_name_project_creation_should_fail() {
-        let org_id = OrganizationId::new();
-        let slug = ProjectSlug::from_str("some-slug").unwrap();
+        // arrange
         let clock = MockClock::new(Utc::now());
+        let slug = ProjectSlug::new("some-slug").unwrap();
 
-        let result = Project::new(org_id, "  ".to_string(), slug, &clock);
+        // act
+        let result = Project::new(OrganizationId::new(), "  ".into(), slug, &clock);
 
+        // assert
         match result {
             Err(ProjectError::EmptyName) => (),
             other => panic!("Expected EmptyName error, got {:?}", other),
@@ -169,20 +179,15 @@ mod tests {
 
     #[test]
     fn given_existing_project_updating_name_should_succeed_and_record_change() {
-        let org_id = OrganizationId::new();
-        let slug = ProjectSlug::from_str("proj").unwrap();
-        let initial_now = Utc::now();
-        let clock = MockClock::new(initial_now);
-        let mut project = Project::new(org_id, "Old Name".to_string(), slug, &clock).unwrap();
+        // arrange
+        let (mut project, _) = test_project();
         let _ = project.pull_changes();
 
-        let updated_now = initial_now + chrono::Duration::hours(1);
-        clock.set_now(updated_now);
+        // act
+        project.update_name("New Name".into()).unwrap();
 
-        project.update_name("New Name".to_string(), &clock).unwrap();
-
+        // assert
         assert_eq!(project.name(), "New Name");
-        assert_eq!(project.updated_at(), &updated_now);
         assert_eq!(project.version(), &Version::initial());
 
         let changes = project.pull_changes();
@@ -190,7 +195,7 @@ mod tests {
         match &changes[0] {
             ProjectChange::NameUpdated { id, old_name, new_name } => {
                 assert_eq!(id, project.id());
-                assert_eq!(old_name, "Old Name");
+                assert_eq!(old_name, "Test Project");
                 assert_eq!(new_name, "New Name");
             }
             _ => panic!("Expected NameUpdated change"),
@@ -199,14 +204,14 @@ mod tests {
 
     #[test]
     fn given_same_name_updating_should_do_nothing() {
-        let org_id = OrganizationId::new();
-        let slug = ProjectSlug::from_str("proj").unwrap();
-        let clock = MockClock::new(Utc::now());
-        let mut project = Project::new(org_id, "Same".to_string(), slug, &clock).unwrap();
+        // arrange
+        let (mut project, _) = test_project();
         let _ = project.pull_changes();
 
-        project.update_name("Same".to_string(), &clock).unwrap();
+        // act
+        project.update_name("Test Project".into()).unwrap();
 
+        // assert
         assert!(project.pull_changes().is_empty());
     }
 }
