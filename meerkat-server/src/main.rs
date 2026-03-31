@@ -1,4 +1,5 @@
 pub mod config;
+mod bootstrap;
 
 use std::sync::Arc;
 use anyhow::Context;
@@ -59,6 +60,8 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Api => {
             let pool = create_pool(&config).await?;
+
+            bootstrap::bootstrap_master(&config, &pool, &SystemClock).await?;
 
             let (shutdown_tx, shutdown_rx) = watch::channel(false);
 

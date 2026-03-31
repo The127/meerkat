@@ -19,7 +19,7 @@ pub trait OidcConfigReadStore: Send + Sync {
     async fn find_active_by_org_id(
         &self,
         org_id: &OrganizationId,
-    ) -> Result<Vec<OidcConfigReadModel>, ApplicationError>;
+    ) -> Result<OidcConfigReadModel, ApplicationError>;
 
     async fn find_by_issuer_and_audience(
         &self,
