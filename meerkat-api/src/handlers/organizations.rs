@@ -7,11 +7,27 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
-use meerkat_application::organizations::create::CreateOrganization;
+use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationOidcConfig};
+use meerkat_domain::models::oidc_config::{Audience, ClientId};
+use meerkat_domain::shared::url::Url;
 use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
 
 use crate::error::ApiError;
 use crate::state::AppState;
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct CreateOrganizationOidcConfigDto {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "client_id")]
+    pub client_id: ClientId,
+    #[serde(rename = "issuer_url")]
+    pub issuer_url: Url,
+    #[serde(rename = "audience")]
+    pub audience: Audience,
+    #[serde(rename = "jwks_url")]
+    pub jwks_url: Option<Url>,
+}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub(crate) struct CreateOrganizationRequestDto {
@@ -20,6 +36,8 @@ pub(crate) struct CreateOrganizationRequestDto {
     #[serde(rename = "slug")]
     #[schema(value_type = String)]
     pub slug: OrganizationSlug,
+    #[serde(rename = "oidc_config")]
+    pub oidc_config: CreateOrganizationOidcConfigDto,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -44,9 +62,18 @@ pub(crate) async fn create_organization(
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Json(body): Json<CreateOrganizationRequestDto>,
 ) -> Result<(StatusCode, Json<CreateOrganizationResponseDto>), ApiError> {
+    let oidc = body.oidc_config;
+
     let cmd = CreateOrganization {
         name: body.name,
         slug: body.slug,
+        oidc_config: CreateOrganizationOidcConfig {
+            name: oidc.name,
+            client_id: oidc.client_id,
+            issuer_url: oidc.issuer_url,
+            audience: oidc.audience,
+            jwks_url: oidc.jwks_url,
+        },
     };
 
     let id = state.mediator.dispatch(cmd, &req_ctx).await?;

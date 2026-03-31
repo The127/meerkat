@@ -39,8 +39,6 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use meerkat_domain::models::organization::OrganizationId;
     use meerkat_domain::models::project::ProjectSlug;
 
@@ -65,7 +63,7 @@ mod tests {
         let cmd = CreateProject {
             organization_id: OrganizationId::new(),
             name: "My Project".to_string(),
-            slug: ProjectSlug::from_str("my-project").unwrap(),
+            slug: ProjectSlug::new("my-project").unwrap(),
         };
 
         // act
@@ -84,7 +82,7 @@ mod tests {
         let cmd = CreateProject {
             organization_id: OrganizationId::new(),
             name: "  ".to_string(),
-            slug: ProjectSlug::from_str("some-slug").unwrap(),
+            slug: ProjectSlug::new("some-slug").unwrap(),
         };
 
         // act

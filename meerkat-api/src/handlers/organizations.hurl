@@ -3,7 +3,13 @@ POST {{host}}/api/v1/organizations
 Content-Type: application/json
 {
     "name": "Meerkat Inc.",
-    "slug": "meerkat-inc"
+    "slug": "meerkat-inc",
+    "oidc_config": {
+        "name": "Default SSO",
+        "client_id": "meerkat-client",
+        "issuer_url": "https://auth.example.com",
+        "audience": "meerkat-api"
+    }
 }
 HTTP 201
 [Asserts]
@@ -14,7 +20,13 @@ POST {{host}}/api/v1/organizations
 Content-Type: application/json
 {
     "name": "  ",
-    "slug": "some-slug"
+    "slug": "some-slug",
+    "oidc_config": {
+        "name": "Default SSO",
+        "client_id": "meerkat-client",
+        "issuer_url": "https://auth.example.com",
+        "audience": "meerkat-api"
+    }
 }
 HTTP 400
 [Asserts]
@@ -25,6 +37,12 @@ POST {{host}}/api/v1/organizations
 Content-Type: application/json
 {
     "name": "Meerkat Inc.",
-    "slug": "INVALID SLUG!!"
+    "slug": "INVALID SLUG!!",
+    "oidc_config": {
+        "name": "Default SSO",
+        "client_id": "meerkat-client",
+        "issuer_url": "https://auth.example.com",
+        "audience": "meerkat-api"
+    }
 }
 HTTP 422

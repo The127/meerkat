@@ -1,14 +1,24 @@
 use async_trait::async_trait;
 
+use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig, Url};
 use meerkat_domain::models::organization::{Organization, OrganizationId, OrganizationSlug};
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::mediator::{Command, Handler};
 
+pub struct CreateOrganizationOidcConfig {
+    pub name: String,
+    pub client_id: ClientId,
+    pub issuer_url: Url,
+    pub audience: Audience,
+    pub jwks_url: Option<Url>,
+}
+
 pub struct CreateOrganization {
     pub name: String,
     pub slug: OrganizationSlug,
+    pub oidc_config: CreateOrganizationOidcConfig,
 }
 
 impl Command for CreateOrganization {
@@ -24,8 +34,17 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
         cmd: CreateOrganization,
         ctx: &RequestContext,
     ) -> Result<OrganizationId, ApplicationError> {
-        let org = Organization::new(cmd.name, cmd.slug, ctx.clock())
-            .map_err(|e| ApplicationError::Validation(e.to_string()))?;
+        let oidc = cmd.oidc_config;
+        let oidc_config = OidcConfig::new(
+            oidc.name, oidc.client_id, oidc.issuer_url, oidc.audience, oidc.jwks_url,
+            ctx.clock(),
+        ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
+
+        let org = Organization::new(
+            cmd.name, cmd.slug,
+            oidc_config,
+            ctx.clock(),
+        ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
         let id = org.id().clone();
 
@@ -37,8 +56,7 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
+    use meerkat_domain::models::oidc_config::{Audience, ClientId, Url};
     use meerkat_domain::models::organization::OrganizationSlug;
 
     use crate::context::RequestContext;
@@ -47,7 +65,21 @@ mod tests {
     use crate::ports::organization_store::MockWriteOrganizationStore;
     use crate::ports::unit_of_work::MockUnitOfWork;
 
-    use super::{CreateOrganization, CreateOrganizationHandler};
+    use super::{CreateOrganization, CreateOrganizationHandler, CreateOrganizationOidcConfig};
+
+    fn valid_cmd() -> CreateOrganization {
+        CreateOrganization {
+            name: "Meerkat Inc.".to_string(),
+            slug: OrganizationSlug::new("meerkat-inc").unwrap(),
+            oidc_config: CreateOrganizationOidcConfig {
+                name: "Default SSO".to_string(),
+                client_id: ClientId::new("meerkat-client").unwrap(),
+                issuer_url: Url::new("https://auth.example.com").unwrap(),
+                audience: Audience::new("meerkat-api").unwrap(),
+                jwks_url: None,
+            },
+        }
+    }
 
     #[tokio::test]
     async fn given_valid_input_when_creating_organization_it_should_return_an_id() {
@@ -59,10 +91,7 @@ mod tests {
             .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_store(store)));
 
         let handler = CreateOrganizationHandler;
-        let cmd = CreateOrganization {
-            name: "Meerkat Inc.".to_string(),
-            slug: OrganizationSlug::from_str("meerkat-inc").unwrap(),
-        };
+        let cmd = valid_cmd();
 
         // act
         let result = handler.handle(cmd, &ctx).await;
@@ -77,10 +106,8 @@ mod tests {
         // arrange
         let ctx = RequestContext::test();
         let handler = CreateOrganizationHandler;
-        let cmd = CreateOrganization {
-            name: "  ".to_string(),
-            slug: OrganizationSlug::from_str("some-slug").unwrap(),
-        };
+        let mut cmd = valid_cmd();
+        cmd.name = "  ".to_string();
 
         // act
         let result = handler.handle(cmd, &ctx).await;

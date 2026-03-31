@@ -3,7 +3,13 @@ POST {{host}}/api/v1/organizations
 Content-Type: application/json
 {
     "name": "Test Org",
-    "slug": "test-org-for-projects"
+    "slug": "test-org-for-projects",
+    "oidc_config": {
+        "name": "Default SSO",
+        "client_id": "meerkat-client",
+        "issuer_url": "https://auth.example.com",
+        "audience": "meerkat-api"
+    }
 }
 HTTP 201
 [Captures]
