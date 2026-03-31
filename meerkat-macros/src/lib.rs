@@ -49,7 +49,7 @@ pub fn derive_reconstitute(input: TokenStream) -> TokenStream {
 
     let struct_name = &input.ident;
     let state_name = syn::Ident::new(&format!("{}State", struct_name), struct_name.span());
-    let visapi = &input.vis;
+    let vis = &input.vis;
 
     let fields = match &input.data {
         Data::Struct(data) => match &data.fields {
@@ -107,7 +107,7 @@ pub fn derive_reconstitute(input: TokenStream) -> TokenStream {
     });
 
     let expanded = quote! {
-        #visapi struct #state_name {
+        #vis struct #state_name {
             #(#state_fields,)*
         }
 
