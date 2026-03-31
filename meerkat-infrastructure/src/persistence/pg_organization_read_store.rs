@@ -5,6 +5,8 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::organization_read_store::{OrganizationReadModel, OrganizationReadStore};
 use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
 
+use super::error::map_sqlx_error;
+
 pub struct PgOrganizationReadStore {
     pool: PgPool,
 }
@@ -61,6 +63,3 @@ impl OrganizationReadStore for PgOrganizationReadStore {
     }
 }
 
-fn map_sqlx_error(err: sqlx::Error) -> ApplicationError {
-    ApplicationError::Internal(err.to_string())
-}

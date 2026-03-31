@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 
 use crate::error::ApplicationError;
-use crate::ports::organization_store::WriteOrganizationStore;
-use crate::ports::project_store::WriteProjectStore;
+use crate::ports::organization_repository::OrganizationRepository;
+use crate::ports::project_repository::ProjectRepository;
 
 #[async_trait]
 pub trait UnitOfWork: Send {
-    fn organizations(&self) -> &dyn WriteOrganizationStore;
-    fn projects(&self) -> &dyn WriteProjectStore;
+    fn organizations(&self) -> &dyn OrganizationRepository;
+    fn projects(&self) -> &dyn ProjectRepository;
     async fn save_changes(&mut self) -> Result<(), ApplicationError>;
 }
 
@@ -20,8 +20,8 @@ pub trait UnitOfWorkFactory: Send + Sync {
 // UnitOfWork can't use #[automock] because it returns &dyn trait references.
 #[cfg(any(test, feature = "test-utils"))]
 pub struct MockUnitOfWork {
-    org_store: crate::ports::organization_store::MockWriteOrganizationStore,
-    project_store: crate::ports::project_store::MockWriteProjectStore,
+    org_repo: crate::ports::organization_repository::MockOrganizationRepository,
+    project_repo: crate::ports::project_repository::MockProjectRepository,
     save_changes_result: Option<Result<(), ApplicationError>>,
 }
 
@@ -29,8 +29,8 @@ pub struct MockUnitOfWork {
 impl Default for MockUnitOfWork {
     fn default() -> Self {
         Self {
-            org_store: crate::ports::organization_store::MockWriteOrganizationStore::new(),
-            project_store: crate::ports::project_store::MockWriteProjectStore::new(),
+            org_repo: crate::ports::organization_repository::MockOrganizationRepository::new(),
+            project_repo: crate::ports::project_repository::MockProjectRepository::new(),
             save_changes_result: Some(Ok(())),
         }
     }
@@ -42,13 +42,13 @@ impl MockUnitOfWork {
         Self::default()
     }
 
-    pub fn with_organization_store(mut self, store: crate::ports::organization_store::MockWriteOrganizationStore) -> Self {
-        self.org_store = store;
+    pub fn with_organization_repo(mut self, repo: crate::ports::organization_repository::MockOrganizationRepository) -> Self {
+        self.org_repo = repo;
         self
     }
 
-    pub fn with_project_store(mut self, store: crate::ports::project_store::MockWriteProjectStore) -> Self {
-        self.project_store = store;
+    pub fn with_project_repo(mut self, repo: crate::ports::project_repository::MockProjectRepository) -> Self {
+        self.project_repo = repo;
         self
     }
 
@@ -61,12 +61,12 @@ impl MockUnitOfWork {
 #[cfg(any(test, feature = "test-utils"))]
 #[async_trait]
 impl UnitOfWork for MockUnitOfWork {
-    fn organizations(&self) -> &dyn WriteOrganizationStore {
-        &self.org_store
+    fn organizations(&self) -> &dyn OrganizationRepository {
+        &self.org_repo
     }
 
-    fn projects(&self) -> &dyn WriteProjectStore {
-        &self.project_store
+    fn projects(&self) -> &dyn ProjectRepository {
+        &self.project_repo
     }
 
     async fn save_changes(&mut self) -> Result<(), ApplicationError> {

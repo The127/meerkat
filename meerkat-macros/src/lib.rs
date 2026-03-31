@@ -128,7 +128,7 @@ pub fn uuid_id(input: TokenStream) -> TokenStream {
     let name = parse_macro_input!(input as syn::Ident);
 
     let expanded = quote! {
-        #[derive(Debug, Clone, PartialEq, Eq, ::serde::Serialize, ::serde::Deserialize)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         pub struct #name(::uuid::Uuid);
 
         impl Default for #name {

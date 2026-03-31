@@ -2,6 +2,6 @@ pub mod error_observer;
 pub mod health;
 pub mod oidc_config_read_store;
 pub mod organization_read_store;
-pub mod organization_store;
-pub mod project_store;
+pub mod organization_repository;
+pub mod project_repository;
 pub mod unit_of_work;

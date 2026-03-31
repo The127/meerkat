@@ -7,6 +7,8 @@ use meerkat_domain::models::oidc_config::{Audience, OidcConfigId};
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::shared::url::Url;
 
+use super::error::map_sqlx_error;
+
 pub struct PgOidcConfigReadStore {
     pool: PgPool,
 }
@@ -77,6 +79,3 @@ impl OidcConfigReadStore for PgOidcConfigReadStore {
     }
 }
 
-fn map_sqlx_error(err: sqlx::Error) -> ApplicationError {
-    ApplicationError::Internal(err.to_string())
-}

@@ -48,7 +48,7 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
 
         let id = org.id().clone();
 
-        ctx.with_uow(|uow| uow.organizations().insert(org));
+        ctx.with_uow(|uow| uow.organizations().add(org));
 
         Ok(id)
     }
@@ -62,7 +62,7 @@ mod tests {
     use crate::context::RequestContext;
     use crate::error::ApplicationError;
     use crate::mediator::Handler;
-    use crate::ports::organization_store::MockWriteOrganizationStore;
+    use crate::ports::organization_repository::MockOrganizationRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 
     use super::{CreateOrganization, CreateOrganizationHandler, CreateOrganizationOidcConfig};
@@ -84,11 +84,11 @@ mod tests {
     #[tokio::test]
     async fn given_valid_input_when_creating_organization_it_should_return_an_id() {
         // arrange
-        let mut store = MockWriteOrganizationStore::new();
-        store.expect_insert().times(1).returning(|_| ());
+        let mut repo = MockOrganizationRepository::new();
+        repo.expect_add().times(1).returning(|_| ());
 
         let ctx = RequestContext::test()
-            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_store(store)));
+            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_repo(repo)));
 
         let handler = CreateOrganizationHandler;
         let cmd = valid_cmd();

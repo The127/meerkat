@@ -31,7 +31,7 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
 
         let id = project.id().clone();
 
-        ctx.with_uow(|uow| uow.projects().insert(project));
+        ctx.with_uow(|uow| uow.projects().add(project));
 
         Ok(id)
     }
@@ -45,7 +45,7 @@ mod tests {
     use crate::context::RequestContext;
     use crate::error::ApplicationError;
     use crate::mediator::Handler;
-    use crate::ports::project_store::MockWriteProjectStore;
+    use crate::ports::project_repository::MockProjectRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 
     use super::{CreateProject, CreateProjectHandler};
@@ -53,11 +53,11 @@ mod tests {
     #[tokio::test]
     async fn given_valid_input_when_creating_project_it_should_return_an_id() {
         // arrange
-        let mut store = MockWriteProjectStore::new();
-        store.expect_insert().times(1).returning(|_| ());
+        let mut repo = MockProjectRepository::new();
+        repo.expect_add().times(1).returning(|_| ());
 
         let ctx = RequestContext::test()
-            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_project_store(store)));
+            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_project_repo(repo)));
 
         let handler = CreateProjectHandler;
         let cmd = CreateProject {
