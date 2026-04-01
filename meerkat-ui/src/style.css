@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/*
+ * Meerkat design tokens
+ * Inspired by Sentry 2018-2020: muted, dense, functional.
+ * Purple accent, neutral grays, minimal decoration.
+ */
+@theme {
+  /* Base palette */
+  --color-background: #fff;
+  --color-foreground: #1c1025;
+  --color-muted: #f5f3f7;
+  --color-muted-foreground: #6c5f7b;
+  --color-border: #e0dce4;
+  --color-input: #e0dce4;
+  --color-ring: #6c5fc7;
+
+  /* Card / popover surfaces */
+  --color-card: #fff;
+  --color-card-foreground: #1c1025;
+  --color-popover: #fff;
+  --color-popover-foreground: #1c1025;
+
+  /* Primary — Sentry purple */
+  --color-primary: #6c5fc7;
+  --color-primary-foreground: #fff;
+
+  /* Secondary — subtle gray-purple */
+  --color-secondary: #ede8f5;
+  --color-secondary-foreground: #3e2d5c;
+
+  /* Accent — hover / active backgrounds */
+  --color-accent: #f0ecf5;
+  --color-accent-foreground: #3e2d5c;
+
+  /* Destructive — errors, danger */
+  --color-destructive: #e03e2f;
+  --color-destructive-foreground: #fff;
+
+  /* Semantic status colors */
+  --color-success: #57be8c;
+  --color-warning: #e9b949;
+  --color-info: #6c5fc7;
+  --color-error: #e03e2f;
+
+  /* Radius — tight, functional */
+  --radius-sm: 0.2rem;
+  --radius-md: 0.3rem;
+  --radius-lg: 0.4rem;
+
+  /* Fonts */
+  --font-sans: "Rubik", system-ui, -apple-system, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, monospace;
+}
+
+/* Base styles */
+body {
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
