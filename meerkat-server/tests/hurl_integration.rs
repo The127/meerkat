@@ -23,6 +23,7 @@ use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
+use meerkat_infrastructure::persistence::pg_project_read_store::PgProjectReadStore;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 
@@ -79,6 +80,7 @@ async fn hurl_integration_tests() {
             Arc::new(ErrorPipeline::new(vec![])),
         )),
         org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),
+        project_read_store: Arc::new(PgProjectReadStore::new(pool.clone())),
         oidc_config_read_store: Arc::new(PgOidcConfigReadStore::new(pool.clone())),
         jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
         oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),

@@ -8,6 +8,7 @@ use meerkat_application::ports::jwks_provider::JwksProvider;
 use meerkat_application::ports::oidc_discovery_provider::OidcDiscoveryProvider;
 use meerkat_application::ports::oidc_config_read_store::OidcConfigReadStore;
 use meerkat_application::ports::organization_read_store::OrganizationReadStore;
+use meerkat_application::ports::project_read_store::ProjectReadStore;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -15,6 +16,7 @@ pub struct AppState {
     pub mediator: Arc<Mediator<RequestContext, ApplicationError>>,
     pub context: Arc<AppContext>,
     pub org_read_store: Arc<dyn OrganizationReadStore>,
+    pub project_read_store: Arc<dyn ProjectReadStore>,
     pub oidc_config_read_store: Arc<dyn OidcConfigReadStore>,
     pub jwks_provider: Arc<dyn JwksProvider>,
     pub oidc_discovery_provider: Arc<dyn OidcDiscoveryProvider>,

@@ -8,6 +8,7 @@ pub(crate) mod auth_context;
 pub mod error;
 pub mod handlers;
 mod middleware;
+pub(crate) mod pagination;
 pub mod resolved_organization;
 pub mod state;
 
@@ -18,6 +19,7 @@ pub mod state;
         oidc::get_oidc_config,
         organizations::create_organization,
         projects::create_project,
+        projects::list_projects,
     ),
     components(schemas(
         error::ErrorDto,
@@ -27,6 +29,8 @@ pub mod state;
         organizations::CreateOrganizationResponseDto,
         projects::CreateProjectRequestDto,
         projects::CreateProjectResponseDto,
+        projects::ListProjectsResponseDto,
+        projects::ProjectListItemDto,
     ))
 )]
 struct ApiDoc;
@@ -36,7 +40,7 @@ pub fn router(state: AppState) -> Router {
         .route("/", post(organizations::create_organization));
 
     let project_routes = Router::new()
-        .route("/", post(projects::create_project));
+        .route("/", get(projects::list_projects).post(projects::create_project));
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)

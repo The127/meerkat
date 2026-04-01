@@ -22,6 +22,7 @@ use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
+use meerkat_infrastructure::persistence::pg_project_read_store::PgProjectReadStore;
 use meerkat_infrastructure::tracing_error_observer::TracingErrorObserver;
 use crate::config::MeerkatConfig;
 
@@ -123,6 +124,7 @@ async fn run_api(
     let mediator = Arc::new(build_mediator());
 
     let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
+    let project_read_store = Arc::new(PgProjectReadStore::new(pool.clone()));
     let oidc_config_read_store = Arc::new(PgOidcConfigReadStore::new(pool.clone()));
     let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
     let oidc_discovery_provider = Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300)));
@@ -132,6 +134,7 @@ async fn run_api(
         mediator,
         context,
         org_read_store,
+        project_read_store,
         oidc_config_read_store,
         jwks_provider,
         oidc_discovery_provider,

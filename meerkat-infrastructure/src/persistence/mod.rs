@@ -3,6 +3,7 @@ pub(crate) mod organization_persistence;
 pub(crate) mod project_persistence;
 pub mod pg_oidc_config_read_store;
 pub mod pg_organization_read_store;
+pub mod pg_project_read_store;
 pub mod pg_organization_repository;
 pub mod pg_project_repository;
 pub mod pg_unit_of_work;
