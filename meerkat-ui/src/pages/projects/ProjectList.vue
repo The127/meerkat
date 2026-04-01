@@ -39,13 +39,16 @@ function formatDate(iso: string): string {
       empty-description="Create your first project to start tracking errors."
     >
       <template #item="{ item }">
-        <div class="flex items-center justify-between">
+        <RouterLink
+          :to="{ name: 'project-detail', params: { slug: item.slug } }"
+          class="flex items-center justify-between -mx-4 -my-3 px-4 py-3"
+        >
           <div>
-            <p class="text-sm font-medium text-foreground">{{ item.name }}</p>
+            <p class="text-sm font-medium text-foreground group-hover:text-primary">{{ item.name }}</p>
             <p class="text-xs text-muted-foreground mt-0.5">{{ item.slug }}</p>
           </div>
           <span class="text-xs text-muted-foreground">{{ formatDate(item.created_at) }}</span>
-        </div>
+        </RouterLink>
       </template>
       <template #empty>
         <RouterLink :to="{ name: 'projects-new' }">

@@ -35,7 +35,7 @@ defineSlots<{
     <div
       v-for="(item, index) in items"
       :key="index"
-      class="rounded-md border border-border bg-card px-4 py-3 transition-colors hover:bg-accent/50"
+      class="group rounded-md border border-border bg-card px-4 py-3 transition-colors hover:bg-accent/50"
     >
       <slot name="item" :item="item" />
     </div>
