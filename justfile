@@ -11,3 +11,12 @@ dev-reset:
 
 dev-run: dev-up
     cargo run -p meerkat-server -- api
+
+dev-migrate:
+    cargo run -p meerkat-server -- migrate
+
+ui-install:
+    cd meerkat-ui && pnpm install
+
+ui:
+    cd meerkat-ui && pnpm dev
