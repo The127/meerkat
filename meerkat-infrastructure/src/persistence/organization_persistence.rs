@@ -106,12 +106,6 @@ impl OrganizationPersistence {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         id: &OrganizationId,
     ) -> Result<(), ApplicationError> {
-        sqlx::query("DELETE FROM oidc_configs WHERE organization_id = $1")
-            .bind(id.as_uuid())
-            .execute(&mut **tx)
-            .await
-            .map_err(map_sqlx_error)?;
-
         sqlx::query("DELETE FROM organizations WHERE id = $1")
             .bind(id.as_uuid())
             .execute(&mut **tx)

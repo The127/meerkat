@@ -1,5 +1,5 @@
 use axum::Router;
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use utoipa::OpenApi;
 use crate::handlers::{health, oidc, organizations, projects};
 use crate::state::AppState;
@@ -21,6 +21,7 @@ pub mod state;
         organizations::create_organization,
         organizations::get_organization,
         organizations::rename_organization,
+        organizations::delete_organization,
         projects::create_project,
         projects::list_projects,
         projects::get_project,
@@ -53,7 +54,8 @@ pub fn router(state: AppState) -> Router {
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)
         .nest("/api/v1/projects", project_routes)
-        .route("/api/v1/organization/rename", post(organizations::rename_organization));
+        .route("/api/v1/organization/rename", post(organizations::rename_organization))
+        .route("/api/v1/organization", delete(organizations::delete_organization));
 
     if state.auth_enabled {
         protected_routes = protected_routes

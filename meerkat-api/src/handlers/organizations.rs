@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationOidcConfig};
+use meerkat_application::organizations::delete::DeleteOrganization;
 use meerkat_application::organizations::rename::RenameOrganization;
 use meerkat_domain::models::oidc_config::{Audience, ClientId};
 use meerkat_domain::shared::url::Url;
@@ -134,6 +135,28 @@ pub(crate) async fn rename_organization(
     let cmd = RenameOrganization {
         organization_id: resolved_org.id,
         name: body.name,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/organization",
+    responses(
+        (status = 204, description = "Organization deleted"),
+        (status = 404, description = "Organization not found"),
+    )
+)]
+pub(crate) async fn delete_organization(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = DeleteOrganization {
+        organization_id: resolved_org.id,
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;

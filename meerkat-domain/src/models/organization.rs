@@ -47,6 +47,9 @@ pub enum OrganizationChange {
         org_id: OrganizationId,
         config_id: OidcConfigId,
     },
+    Deleted {
+        id: OrganizationId,
+    },
 }
 
 #[derive(Debug, thiserror::Error)]

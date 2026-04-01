@@ -13,6 +13,7 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
+use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
 use meerkat_application::organizations::rename::{RenameOrganization, RenameOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
@@ -100,6 +101,7 @@ fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
+    mediator.register::<DeleteOrganization, _>(DeleteOrganizationHandler);
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator
 }
