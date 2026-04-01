@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MkSidebar from '@/components/meerkat/MkSidebar.vue'
 import MkTopbar from '@/components/meerkat/MkTopbar.vue'
+import MkErrorBoundary from '@/components/meerkat/MkErrorBoundary.vue'
 </script>
 
 <template>
@@ -9,7 +10,9 @@ import MkTopbar from '@/components/meerkat/MkTopbar.vue'
     <div class="flex flex-col flex-1 overflow-hidden">
       <MkTopbar />
       <main class="flex-1 overflow-auto p-6">
-        <RouterView />
+        <MkErrorBoundary>
+          <RouterView />
+        </MkErrorBoundary>
       </main>
     </div>
   </div>
