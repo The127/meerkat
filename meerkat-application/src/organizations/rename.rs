@@ -28,8 +28,7 @@ impl Handler<RenameOrganization, ApplicationError, RequestContext> for RenameOrg
 
         let mut org = uow.organizations().find_by_id(&cmd.organization_id).await?;
 
-        org.update_name(cmd.name)
-            .map_err(|e| ApplicationError::Validation(e.to_string()))?;
+        org.update_name(cmd.name)?;
 
         uow.organizations().save(org);
 

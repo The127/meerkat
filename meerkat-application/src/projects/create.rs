@@ -26,8 +26,7 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
         cmd: CreateProject,
         ctx: &RequestContext,
     ) -> Result<ProjectId, ApplicationError> {
-        let project = Project::new(cmd.organization_id, cmd.name, cmd.slug, ctx.clock())
-            .map_err(|e| ApplicationError::Validation(e.to_string()))?;
+        let project = Project::new(cmd.organization_id, cmd.name, cmd.slug, ctx.clock())?;
 
         let id = project.id().clone();
 
