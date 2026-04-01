@@ -14,6 +14,8 @@ pub(crate) struct OidcConfigDto {
     pub client_id: String,
     pub issuer_url: String,
     pub audience: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discovery_url: Option<String>,
 }
 
 #[utoipa::path(
@@ -47,5 +49,6 @@ pub(crate) async fn get_oidc_config(
         client_id: config.client_id.as_str().to_string(),
         issuer_url: config.issuer_url.as_str().to_string(),
         audience: config.audience.as_str().to_string(),
+        discovery_url: config.discovery_url.map(|u| u.as_str().to_string()),
     }))
 }

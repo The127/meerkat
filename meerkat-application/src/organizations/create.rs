@@ -12,7 +12,7 @@ pub struct CreateOrganizationOidcConfig {
     pub client_id: ClientId,
     pub issuer_url: Url,
     pub audience: Audience,
-    pub jwks_url: Option<Url>,
+    pub discovery_url: Option<Url>,
 }
 
 pub struct CreateOrganization {
@@ -36,7 +36,7 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
     ) -> Result<OrganizationId, ApplicationError> {
         let oidc = cmd.oidc_config;
         let oidc_config = OidcConfig::new(
-            oidc.name, oidc.client_id, oidc.issuer_url, oidc.audience, oidc.jwks_url,
+            oidc.name, oidc.client_id, oidc.issuer_url, oidc.audience, oidc.discovery_url,
             ctx.clock(),
         ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
@@ -76,7 +76,7 @@ mod tests {
                 client_id: ClientId::new("meerkat-client").unwrap(),
                 issuer_url: Url::new("https://auth.example.com").unwrap(),
                 audience: Audience::new("meerkat-api").unwrap(),
-                jwks_url: None,
+                discovery_url: None,
             },
         }
     }

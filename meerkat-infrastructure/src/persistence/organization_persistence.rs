@@ -127,7 +127,7 @@ impl OrganizationPersistence {
         config: &OidcConfig,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
-            "INSERT INTO oidc_configs (id, organization_id, name, client_id, issuer_url, audience, jwks_url, status, created_at, updated_at) \
+            "INSERT INTO oidc_configs (id, organization_id, name, client_id, issuer_url, audience, discovery_url, status, created_at, updated_at) \
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(config.id().as_uuid())
@@ -136,7 +136,7 @@ impl OrganizationPersistence {
         .bind(config.client_id().as_str())
         .bind(config.issuer_url().as_str())
         .bind(config.audience().as_str())
-        .bind(config.jwks_url().map(|u| u.as_str().to_string()))
+        .bind(config.discovery_url().map(|u| u.as_str().to_string()))
         .bind(config.status().as_ref())
         .bind(config.created_at())
         .bind(config.updated_at())
@@ -153,13 +153,13 @@ impl OrganizationPersistence {
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "UPDATE oidc_configs SET name = $1, client_id = $2, issuer_url = $3, audience = $4, \
-             jwks_url = $5, status = $6, updated_at = $7 WHERE id = $8",
+             discovery_url = $5, status = $6, updated_at = $7 WHERE id = $8",
         )
         .bind(config.name())
         .bind(config.client_id().as_str())
         .bind(config.issuer_url().as_str())
         .bind(config.audience().as_str())
-        .bind(config.jwks_url().map(|u| u.as_str().to_string()))
+        .bind(config.discovery_url().map(|u| u.as_str().to_string()))
         .bind(config.status().as_ref())
         .bind(config.updated_at())
         .bind(config.id().as_uuid())
@@ -189,7 +189,7 @@ fn oidc_config_changed(current: &OidcConfig, snapshot: &OidcConfig) -> bool {
         || current.client_id() != snapshot.client_id()
         || current.issuer_url() != snapshot.issuer_url()
         || current.audience() != snapshot.audience()
-        || current.jwks_url() != snapshot.jwks_url()
+        || current.discovery_url() != snapshot.discovery_url()
         || current.status() != snapshot.status()
         || current.updated_at() != snapshot.updated_at()
 }

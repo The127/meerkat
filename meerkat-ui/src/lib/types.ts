@@ -4,6 +4,7 @@ export interface OidcConfig {
   client_id: string
   issuer_url: string
   audience: string
+  discovery_url?: string
 }
 
 export interface ApiError {

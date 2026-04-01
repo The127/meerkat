@@ -7,14 +7,27 @@ export function createUserManager(oidcConfig: OidcConfig): UserManager {
   const settings: UserManagerSettings = {
     authority: oidcConfig.issuer_url,
     client_id: oidcConfig.client_id,
-    redirect_uri: `${origin}/callback`,
-    post_logout_redirect_uri: `${origin}/login`,
+    redirect_uri: `${origin}/auth/callback`,
+    post_logout_redirect_uri: `${origin}/auth/login`,
     response_type: 'code',
     scope: 'openid profile email',
     automaticSilentRenew: true,
-    // Keep tokens in session storage so they survive page refresh but not new tabs
     userStore: new WebStorageStateStore({ store: sessionStorage }),
+    metadataUrl: discoveryUrl(oidcConfig),
   }
 
   return new UserManager(settings)
+}
+
+/**
+ * Returns the OIDC discovery URL.
+ * Uses `discovery_url` from the backend if provided,
+ * otherwise derives `{issuer}/.well-known/openid-configuration`.
+ */
+function discoveryUrl(config: OidcConfig): string {
+  if (config.discovery_url) {
+    return config.discovery_url
+  }
+  const issuer = config.issuer_url.replace(/\/$/, '')
+  return `${issuer}/.well-known/openid-configuration`
 }

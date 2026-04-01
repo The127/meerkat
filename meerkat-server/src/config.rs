@@ -10,7 +10,7 @@ pub(crate) struct MeerkatConfig {
     pub(crate) master_oidc_client_id: String,
     pub(crate) master_oidc_issuer_url: String,
     pub(crate) master_oidc_audience: String,
-    pub(crate) master_oidc_jwks_url: Option<String>,
+    pub(crate) master_oidc_discovery_url: Option<String>,
 }
 
 impl MeerkatConfig {
@@ -42,7 +42,7 @@ impl MeerkatConfig {
         let master_oidc_audience = std::env::var("MEERKAT_MASTER_OIDC_AUDIENCE")
             .context("MEERKAT_MASTER_OIDC_AUDIENCE environment variable must be set")?;
 
-        let master_oidc_jwks_url = std::env::var("MEERKAT_MASTER_OIDC_JWKS_URL").ok();
+        let master_oidc_discovery_url = std::env::var("MEERKAT_MASTER_OIDC_DISCOVERY_URL").ok();
 
         Ok(Self {
             database_url,
@@ -54,7 +54,7 @@ impl MeerkatConfig {
             master_oidc_client_id,
             master_oidc_issuer_url,
             master_oidc_audience,
-            master_oidc_jwks_url,
+            master_oidc_discovery_url,
         })
     }
 }

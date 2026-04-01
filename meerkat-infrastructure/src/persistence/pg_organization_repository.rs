@@ -81,7 +81,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         .ok_or(ApplicationError::NotFound)?;
 
         let config_rows = sqlx::query_as::<_, OidcConfigRow>(
-            "SELECT id, name, client_id, issuer_url, audience, jwks_url, status, created_at, updated_at \
+            "SELECT id, name, client_id, issuer_url, audience, discovery_url, status, created_at, updated_at \
              FROM oidc_configs WHERE organization_id = $1",
         )
         .bind(id.as_uuid())
@@ -98,7 +98,7 @@ impl OrganizationRepository for PgOrganizationRepository {
                     client_id: ClientId::new(r.client_id).expect("invalid client_id in database"),
                     issuer_url: Url::new(r.issuer_url).expect("invalid issuer_url in database"),
                     audience: Audience::new(r.audience).expect("invalid audience in database"),
-                    jwks_url: r.jwks_url.map(|u| Url::new(u).expect("invalid jwks_url in database")),
+                    discovery_url: r.discovery_url.map(|u| Url::new(u).expect("invalid discovery_url in database")),
                     status: r.status.parse::<OidcConfigStatus>().expect("invalid status in database"),
                     created_at: r.created_at,
                     updated_at: r.updated_at,
@@ -142,7 +142,7 @@ struct OidcConfigRow {
     client_id: String,
     issuer_url: String,
     audience: String,
-    jwks_url: Option<String>,
+    discovery_url: Option<String>,
     status: String,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,

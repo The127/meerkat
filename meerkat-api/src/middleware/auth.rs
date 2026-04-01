@@ -110,7 +110,13 @@ async fn resolve_decoding_jwk(
     config: &OidcConfigReadModel,
     kid: Option<&str>,
 ) -> Result<Jwk, Response> {
-    let jwks_url = jwks_url_for_config(config);
+    let discovery_url = discovery_url_for_config(config);
+
+    let jwks_url = state
+        .oidc_discovery_provider
+        .resolve_jwks_uri(&discovery_url)
+        .await
+        .map_err(|_| internal_error())?;
 
     let jwk_value = state
         .jwks_provider
@@ -145,14 +151,14 @@ fn decode_claims_unverified(token: &str) -> Result<Claims, Response> {
     Ok(token_data.claims)
 }
 
-fn jwks_url_for_config(config: &OidcConfigReadModel) -> String {
+fn discovery_url_for_config(config: &OidcConfigReadModel) -> String {
     config
-        .jwks_url
+        .discovery_url
         .as_ref()
         .map(|u| u.as_str().to_string())
         .unwrap_or_else(|| {
             let issuer = config.issuer_url.as_str().trim_end_matches('/');
-            format!("{issuer}/.well-known/jwks.json")
+            format!("{issuer}/.well-known/openid-configuration")
         })
 }
 
@@ -188,7 +194,7 @@ mod tests {
     use meerkat_domain::models::organization::OrganizationId;
     use meerkat_domain::shared::url::Url;
 
-    fn test_config(jwks_url: Option<&str>) -> OidcConfigReadModel {
+    fn test_config(discovery_url: Option<&str>) -> OidcConfigReadModel {
         OidcConfigReadModel {
             id: OidcConfigId::new(),
             organization_id: OrganizationId::new(),
@@ -196,32 +202,32 @@ mod tests {
             client_id: ClientId::new("client-1").unwrap(),
             issuer_url: Url::new("https://auth.example.com").unwrap(),
             audience: Audience::new("my-api").unwrap(),
-            jwks_url: jwks_url.map(|u| Url::new(u).unwrap()),
+            discovery_url: discovery_url.map(|u| Url::new(u).unwrap()),
         }
     }
 
     #[test]
-    fn given_explicit_jwks_url_then_uses_it() {
+    fn given_explicit_discovery_url_then_uses_it() {
         // arrange
-        let config = test_config(Some("https://auth.example.com/keys"));
+        let config = test_config(Some("https://auth.example.com/oidc/.well-known/openid-configuration"));
 
         // act
-        let url = jwks_url_for_config(&config);
+        let url = discovery_url_for_config(&config);
 
         // assert
-        assert_eq!(url, "https://auth.example.com/keys");
+        assert_eq!(url, "https://auth.example.com/oidc/.well-known/openid-configuration");
     }
 
     #[test]
-    fn given_no_jwks_url_then_derives_from_issuer() {
+    fn given_no_discovery_url_then_derives_from_issuer() {
         // arrange
         let config = test_config(None);
 
         // act
-        let url = jwks_url_for_config(&config);
+        let url = discovery_url_for_config(&config);
 
         // assert
-        assert_eq!(url, "https://auth.example.com/.well-known/jwks.json");
+        assert_eq!(url, "https://auth.example.com/.well-known/openid-configuration");
     }
 
     #[test]
@@ -231,10 +237,10 @@ mod tests {
         config.issuer_url = Url::new("https://auth.example.com/").unwrap();
 
         // act
-        let url = jwks_url_for_config(&config);
+        let url = discovery_url_for_config(&config);
 
         // assert
-        assert_eq!(url, "https://auth.example.com/.well-known/jwks.json");
+        assert_eq!(url, "https://auth.example.com/.well-known/openid-configuration");
     }
 
     #[test]

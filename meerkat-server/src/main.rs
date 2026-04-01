@@ -19,6 +19,7 @@ use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
+use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::tracing_error_observer::TracingErrorObserver;
@@ -124,6 +125,7 @@ async fn run_api(
     let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
     let oidc_config_read_store = Arc::new(PgOidcConfigReadStore::new(pool.clone()));
     let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
+    let oidc_discovery_provider = Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300)));
 
     let state = AppState {
         health_checker,
@@ -132,6 +134,7 @@ async fn run_api(
         org_read_store,
         oidc_config_read_store,
         jwks_provider,
+        oidc_discovery_provider,
         base_domain: config.base_domain.clone(),
         master_org_slug: config.master_org_slug.clone(),
         auth_enabled: true,

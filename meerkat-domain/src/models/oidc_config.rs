@@ -92,7 +92,7 @@ pub enum OidcConfigChange {
         client_id: ClientId,
         issuer_url: Url,
         audience: Audience,
-        jwks_url: Option<Url>,
+        discovery_url: Option<Url>,
     },
     Activated {
         id: OidcConfigId,
@@ -110,7 +110,7 @@ pub struct OidcConfig {
     client_id: ClientId,
     issuer_url: Url,
     audience: Audience,
-    jwks_url: Option<Url>,
+    discovery_url: Option<Url>,
     status: OidcConfigStatus,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -136,7 +136,7 @@ impl OidcConfig {
         client_id: ClientId,
         issuer_url: Url,
         audience: Audience,
-        jwks_url: Option<Url>,
+        discovery_url: Option<Url>,
         clock: &dyn Clock,
     ) -> Result<Self, OidcConfigError> {
         let name = name.trim().to_string();
@@ -153,7 +153,7 @@ impl OidcConfig {
             client_id: client_id.clone(),
             issuer_url: issuer_url.clone(),
             audience: audience.clone(),
-            jwks_url: jwks_url.clone(),
+            discovery_url: discovery_url.clone(),
         };
 
         let mut changes = ChangeTracker::new();
@@ -165,7 +165,7 @@ impl OidcConfig {
             client_id,
             issuer_url,
             audience,
-            jwks_url,
+            discovery_url,
             status: OidcConfigStatus::Draft,
             created_at: now,
             updated_at: now,
@@ -178,7 +178,7 @@ impl OidcConfig {
     pub fn client_id(&self) -> &ClientId { &self.client_id }
     pub fn issuer_url(&self) -> &Url { &self.issuer_url }
     pub fn audience(&self) -> &Audience { &self.audience }
-    pub fn jwks_url(&self) -> Option<&Url> { self.jwks_url.as_ref() }
+    pub fn discovery_url(&self) -> Option<&Url> { self.discovery_url.as_ref() }
     pub fn status(&self) -> &OidcConfigStatus { &self.status }
     pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
     pub fn updated_at(&self) -> &DateTime<Utc> { &self.updated_at }
@@ -267,7 +267,7 @@ mod tests {
             ClientId::new("client-id").unwrap(),
             Url::new("https://auth.example.com").unwrap(),
             Audience::new("my-api").unwrap(),
-            Some(Url::new("https://auth.example.com/jwks").unwrap()),
+            Some(Url::new("https://auth.example.com/.well-known/openid-configuration").unwrap()),
             &clock,
         ).unwrap();
 
@@ -276,7 +276,7 @@ mod tests {
         assert_eq!(config.client_id().as_str(), "client-id");
         assert_eq!(config.issuer_url().as_str(), "https://auth.example.com");
         assert_eq!(config.audience().as_str(), "my-api");
-        assert_eq!(config.jwks_url().unwrap().as_str(), "https://auth.example.com/jwks");
+        assert_eq!(config.discovery_url().unwrap().as_str(), "https://auth.example.com/.well-known/openid-configuration");
         assert_eq!(config.status(), &OidcConfigStatus::Draft);
         assert!(!config.is_active());
         assert_eq!(config.created_at(), &expected_now);
@@ -284,25 +284,25 @@ mod tests {
         let changes = config.pull_changes();
         assert_eq!(changes.len(), 1);
         match &changes[0] {
-            OidcConfigChange::Created { id, name, client_id, issuer_url, audience, jwks_url } => {
+            OidcConfigChange::Created { id, name, client_id, issuer_url, audience, discovery_url } => {
                 assert_eq!(id, config.id());
                 assert_eq!(name, "My SSO");
                 assert_eq!(client_id.as_str(), "client-id");
                 assert_eq!(issuer_url.as_str(), "https://auth.example.com");
                 assert_eq!(audience.as_str(), "my-api");
-                assert_eq!(jwks_url.as_ref().unwrap().as_str(), "https://auth.example.com/jwks");
+                assert_eq!(discovery_url.as_ref().unwrap().as_str(), "https://auth.example.com/.well-known/openid-configuration");
             },
             _ => panic!("Expected Created change"),
         }
     }
 
     #[test]
-    fn given_no_jwks_url_then_jwks_url_is_none() {
+    fn given_no_discovery_url_then_discovery_url_is_none() {
         // arrange / act
         let (config, _) = test_config();
 
         // assert
-        assert!(config.jwks_url().is_none());
+        assert!(config.discovery_url().is_none());
     }
 
     #[test]

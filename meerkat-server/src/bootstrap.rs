@@ -42,19 +42,19 @@ pub(crate) async fn bootstrap_master(
     let client_id =
         ClientId::new(&config.master_oidc_client_id).context("Invalid master OIDC client ID")?;
 
-    let jwks_url = config
-        .master_oidc_jwks_url
+    let discovery_url = config
+        .master_oidc_discovery_url
         .as_deref()
         .map(Url::new)
         .transpose()
-        .context("Invalid master OIDC JWKS URL")?;
+        .context("Invalid master OIDC discovery URL")?;
 
     let oidc_config = OidcConfig::new(
         config.master_oidc_name.clone(),
         client_id,
         issuer_url,
         audience,
-        jwks_url,
+        discovery_url,
         clock,
     )
     .context("Failed to create master OIDC config")?;

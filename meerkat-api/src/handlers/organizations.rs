@@ -25,8 +25,8 @@ pub(crate) struct CreateOrganizationOidcConfigDto {
     pub issuer_url: Url,
     #[serde(rename = "audience")]
     pub audience: Audience,
-    #[serde(rename = "jwks_url")]
-    pub jwks_url: Option<Url>,
+    #[serde(rename = "discovery_url")]
+    pub discovery_url: Option<Url>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -72,7 +72,7 @@ pub(crate) async fn create_organization(
             client_id: oidc.client_id,
             issuer_url: oidc.issuer_url,
             audience: oidc.audience,
-            jwks_url: oidc.jwks_url,
+            discovery_url: oidc.discovery_url,
         },
     };
 

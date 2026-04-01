@@ -12,7 +12,7 @@ pub struct OidcConfigReadModel {
     pub client_id: ClientId,
     pub issuer_url: Url,
     pub audience: Audience,
-    pub jwks_url: Option<Url>,
+    pub discovery_url: Option<Url>,
 }
 
 #[async_trait::async_trait]
