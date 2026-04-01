@@ -74,9 +74,10 @@ impl std::fmt::Display for Audience {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, strum::Display, strum::EnumString, strum::AsRefStr)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, strum::Display, strum::EnumString, strum::AsRefStr)]
 pub enum OidcConfigStatus {
     #[strum(serialize = "draft")]
+    #[default]
     Draft,
     #[strum(serialize = "active")]
     Active,
@@ -227,12 +228,6 @@ impl OidcConfig {
 
     pub fn pull_changes(&mut self) -> Vec<OidcConfigChange> {
         self.changes.pull_changes()
-    }
-}
-
-impl Default for OidcConfigStatus {
-    fn default() -> Self {
-        OidcConfigStatus::Draft
     }
 }
 

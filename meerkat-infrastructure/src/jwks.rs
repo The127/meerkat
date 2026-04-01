@@ -92,10 +92,10 @@ impl JwksProvider for CachedJwksProvider {
         kid: Option<&str>,
     ) -> Result<serde_json::Value, ApplicationError> {
         // Try cached JWKS first
-        if let Some(keys) = self.get_cached(jwks_url).await {
-            if let Some(jwk) = find_jwk(&keys, kid) {
-                return Ok(jwk);
-            }
+        if let Some(keys) = self.get_cached(jwks_url).await
+            && let Some(jwk) = find_jwk(&keys, kid)
+        {
+            return Ok(jwk);
         }
 
         // Cache miss or kid not found — fetch fresh

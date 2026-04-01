@@ -37,10 +37,10 @@ impl OidcDiscoveryProvider for CachedOidcDiscoveryProvider {
         // Check cache first
         {
             let cache = self.cache.read().await;
-            if let Some(entry) = cache.get(discovery_url) {
-                if entry.expires_at > Instant::now() {
-                    return Ok(entry.jwks_uri.clone());
-                }
+            if let Some(entry) = cache.get(discovery_url)
+                && entry.expires_at > Instant::now()
+            {
+                return Ok(entry.jwks_uri.clone());
             }
         }
 

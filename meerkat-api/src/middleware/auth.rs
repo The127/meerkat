@@ -59,7 +59,7 @@ async fn authenticate_inner(
         .extensions()
         .get::<ResolvedOrganization>()
         .cloned()
-        .ok_or_else(|| internal_error())?;
+        .ok_or_else(internal_error)?;
 
     let config = state
         .oidc_config_read_store
@@ -89,6 +89,7 @@ async fn authenticate_inner(
     Ok(next.run(request).await)
 }
 
+#[allow(clippy::result_large_err)]
 fn validate_issuer_and_audience(claims: &Claims, config: &OidcConfigReadModel) -> Result<(), Response> {
     match &claims.iss {
         Some(iss) if iss == config.issuer_url.as_str() => {}
@@ -127,6 +128,7 @@ async fn resolve_decoding_jwk(
     serde_json::from_value(jwk_value).map_err(|_| internal_error())
 }
 
+#[allow(clippy::result_large_err)]
 fn extract_bearer_token(request: &axum::extract::Request) -> Result<&str, Response> {
     let header = request
         .headers()
@@ -139,6 +141,7 @@ fn extract_bearer_token(request: &axum::extract::Request) -> Result<&str, Respon
         .ok_or_else(|| unauthorized("invalid authorization scheme"))
 }
 
+#[allow(clippy::result_large_err)]
 fn decode_claims_unverified(token: &str) -> Result<Claims, Response> {
     let mut validation = Validation::default();
     validation.insecure_disable_signature_validation();
