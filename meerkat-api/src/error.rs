@@ -16,53 +16,79 @@ pub(crate) struct ErrorDto {
     pub message: String,
 }
 
-pub(crate) struct ApiError(MediatorError<ApplicationError>);
+pub(crate) struct ApiError(ApiErrorKind);
 
-impl From<MediatorError<ApplicationError>> for ApiError {
-    fn from(err: MediatorError<ApplicationError>) -> Self {
-        Self(err)
+enum ApiErrorKind {
+    Application(ApplicationError),
+    Mediator(MediatorError<ApplicationError>),
+}
+
+impl From<ApplicationError> for ApiError {
+    fn from(err: ApplicationError) -> Self {
+        Self(ApiErrorKind::Application(err))
     }
 }
 
-impl IntoResponse for ApiError {
-    fn into_response(self) -> axum::response::Response {
-        let (status, code, internal_message, client_message, severity) = match &self.0 {
-            MediatorError::HandlerError(ApplicationError::Validation(msg)) => (
-                StatusCode::BAD_REQUEST,
-                "validation_error",
-                msg.clone(),
-                msg.clone(),
-                ErrorSeverity::Warning,
-            ),
-            MediatorError::HandlerError(ApplicationError::NotFound) => (
-                StatusCode::NOT_FOUND,
-                "not_found",
-                "resource not found".to_string(),
-                "resource not found".to_string(),
-                ErrorSeverity::Warning,
-            ),
-            MediatorError::HandlerError(ApplicationError::Conflict) => (
-                StatusCode::CONFLICT,
-                "conflict",
-                "resource was modified by another request".to_string(),
-                "resource was modified by another request".to_string(),
-                ErrorSeverity::Warning,
-            ),
-            MediatorError::HandlerError(ApplicationError::Internal(msg)) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "internal_error",
-                msg.clone(),
-                "an unexpected error occurred".to_string(),
-                ErrorSeverity::Error,
-            ),
-            MediatorError::NoHandlerRegistered(type_id) => (
+impl From<MediatorError<ApplicationError>> for ApiError {
+    fn from(err: MediatorError<ApplicationError>) -> Self {
+        Self(ApiErrorKind::Mediator(err))
+    }
+}
+
+impl ApiError {
+    fn into_parts(self) -> (StatusCode, &'static str, String, String, ErrorSeverity) {
+        match self.0 {
+            ApiErrorKind::Application(ref err) => Self::application_error_parts(err),
+            ApiErrorKind::Mediator(MediatorError::HandlerError(ref err)) => {
+                Self::application_error_parts(err)
+            }
+            ApiErrorKind::Mediator(MediatorError::NoHandlerRegistered(type_id)) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "internal_error",
                 format!("no handler registered for {:?}", type_id),
                 "an unexpected error occurred".to_string(),
                 ErrorSeverity::Critical,
             ),
-        };
+        }
+    }
+
+    fn application_error_parts(err: &ApplicationError) -> (StatusCode, &'static str, String, String, ErrorSeverity) {
+        match err {
+            ApplicationError::Validation(msg) => (
+                StatusCode::BAD_REQUEST,
+                "validation_error",
+                msg.clone(),
+                msg.clone(),
+                ErrorSeverity::Warning,
+            ),
+            ApplicationError::NotFound => (
+                StatusCode::NOT_FOUND,
+                "not_found",
+                "resource not found".to_string(),
+                "resource not found".to_string(),
+                ErrorSeverity::Warning,
+            ),
+            ApplicationError::Conflict => (
+                StatusCode::CONFLICT,
+                "conflict",
+                "resource was modified by another request".to_string(),
+                "resource was modified by another request".to_string(),
+                ErrorSeverity::Warning,
+            ),
+            ApplicationError::Internal(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                msg.clone(),
+                "an unexpected error occurred".to_string(),
+                ErrorSeverity::Error,
+            ),
+        }
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, code, internal_message, client_message, severity) = self.into_parts();
 
         let report = ErrorReport {
             message: internal_message,

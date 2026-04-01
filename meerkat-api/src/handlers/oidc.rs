@@ -1,10 +1,9 @@
 use axum::extract::State;
-use axum::http::StatusCode;
 use axum::{Extension, Json};
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use crate::error::ErrorDto;
+use crate::error::ApiError;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
 
@@ -23,26 +22,17 @@ pub(crate) struct OidcConfigDto {
     path = "/api/v1/oidc",
     responses(
         (status = 200, description = "Active OIDC configuration for the resolved organization", body = OidcConfigDto),
-        (status = 404, description = "No active OIDC configuration found", body = ErrorDto),
+        (status = 404, description = "No active OIDC configuration found"),
     ),
 )]
 pub(crate) async fn get_oidc_config(
     State(state): State<AppState>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-) -> Result<Json<OidcConfigDto>, (StatusCode, Json<ErrorDto>)> {
+) -> Result<Json<OidcConfigDto>, ApiError> {
     let config = state
         .oidc_config_read_store
         .find_active_by_org_id(&resolved_org.id)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::NOT_FOUND,
-                Json(ErrorDto {
-                    code: "oidc_config_not_found".to_string(),
-                    message: "no active OIDC configuration found".to_string(),
-                }),
-            )
-        })?;
+        .await?;
 
     Ok(Json(OidcConfigDto {
         name: config.name,
