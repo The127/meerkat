@@ -12,17 +12,17 @@ const router = createRouter({
       component: () => import('@/pages/Home.vue'),
     },
     {
-      path: '/login',
+      path: '/auth/login',
       name: 'login',
       component: () => import('@/pages/Login.vue'),
     },
     {
-      path: '/callback',
+      path: '/auth/callback',
       name: 'callback',
       component: () => import('@/pages/Callback.vue'),
     },
     {
-      path: '/logout',
+      path: '/auth/logout',
       name: 'logout',
       component: () => import('@/pages/Logout.vue'),
     },
