@@ -235,18 +235,7 @@ impl OidcConfig {
 mod tests {
     use super::*;
     use crate::ports::clock::MockClock;
-
-    fn test_config() -> (OidcConfig, MockClock) {
-        let clock = MockClock::new(Utc::now());
-        let config = OidcConfig::new(
-            "Default SSO".into(),
-            ClientId::new("meerkat-client").unwrap(),
-            Url::new("https://auth.example.com").unwrap(),
-            Audience::new("meerkat-api").unwrap(),
-            None, &clock,
-        ).unwrap();
-        (config, clock)
-    }
+    use crate::testing::test_config;
 
     // --- creation ---
 

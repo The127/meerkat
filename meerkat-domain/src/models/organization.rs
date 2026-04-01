@@ -215,25 +215,7 @@ impl Organization {
 mod tests {
     use super::*;
     use crate::ports::clock::MockClock;
-    use crate::models::oidc_config::{Audience, ClientId, Url};
-
-    fn draft_config(name: &str, clock: &MockClock) -> OidcConfig {
-        OidcConfig::new(
-            name.into(),
-            ClientId::new("meerkat-client").unwrap(),
-            Url::new("https://auth.example.com").unwrap(),
-            Audience::new("meerkat-api").unwrap(),
-            None, clock,
-        ).unwrap()
-    }
-
-    fn test_org() -> (Organization, MockClock) {
-        let clock = MockClock::new(Utc::now());
-        let config = draft_config("Default SSO", &clock);
-        let slug = OrganizationSlug::new("org-slug").unwrap();
-        let org = Organization::new("Test Org".into(), slug, config, &clock).unwrap();
-        (org, clock)
-    }
+    use crate::testing::{draft_config, test_org};
 
     #[test]
     fn given_valid_name_and_slug_organization_creation_should_succeed_and_record_creation_event() {

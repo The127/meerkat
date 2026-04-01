@@ -120,14 +120,7 @@ impl Project {
 mod tests {
     use super::*;
     use crate::ports::clock::MockClock;
-
-    fn test_project() -> (Project, MockClock) {
-        let clock = MockClock::new(Utc::now());
-        let org_id = OrganizationId::new();
-        let slug = ProjectSlug::new("proj-slug").unwrap();
-        let project = Project::new(org_id, "Test Project".into(), slug, &clock).unwrap();
-        (project, clock)
-    }
+    use crate::testing::test_project;
 
     #[test]
     fn given_valid_input_project_creation_should_succeed_and_record_creation_event() {

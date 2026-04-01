@@ -38,9 +38,7 @@ impl Handler<RenameOrganization, ApplicationError, RequestContext> for RenameOrg
 
 #[cfg(test)]
 mod tests {
-    use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig, Url};
-    use meerkat_domain::models::organization::{Organization, OrganizationSlug};
-    use meerkat_domain::ports::clock::MockClock;
+    use meerkat_domain::testing::test_org;
 
     use crate::context::RequestContext;
     use crate::mediator::Handler;
@@ -48,22 +46,6 @@ mod tests {
     use crate::ports::unit_of_work::MockUnitOfWork;
 
     use super::{RenameOrganization, RenameOrganizationHandler};
-
-    fn test_org() -> (Organization, MockClock) {
-        let clock = MockClock::new(chrono::Utc::now());
-        let config = OidcConfig::new(
-            "Default SSO".into(),
-            ClientId::new("meerkat-client").unwrap(),
-            Url::new("https://auth.example.com").unwrap(),
-            Audience::new("meerkat-api").unwrap(),
-            None,
-            &clock,
-        )
-        .unwrap();
-        let slug = OrganizationSlug::new("test-org").unwrap();
-        let org = Organization::new("Test Org".into(), slug, config, &clock).unwrap();
-        (org, clock)
-    }
 
     #[tokio::test]
     async fn given_valid_name_then_fetches_by_id_and_saves_renamed_org() {
