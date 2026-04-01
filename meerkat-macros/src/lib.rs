@@ -129,6 +129,8 @@ pub fn uuid_id(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[derive(Debug, Clone, PartialEq, Eq, Hash, ::serde::Serialize, ::serde::Deserialize)]
+        #[cfg_attr(feature = "openapi", derive(::utoipa::ToSchema))]
+        #[cfg_attr(feature = "openapi", schema(value_type = ::uuid::Uuid))]
         pub struct #name(::uuid::Uuid);
 
         impl Default for #name {
@@ -161,6 +163,8 @@ pub fn slug_id(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, ::serde::Serialize)]
+        #[cfg_attr(feature = "openapi", derive(::utoipa::ToSchema))]
+        #[cfg_attr(feature = "openapi", schema(value_type = String))]
         #[serde(transparent)]
         pub struct #name(String);
 

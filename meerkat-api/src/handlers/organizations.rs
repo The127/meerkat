@@ -34,7 +34,6 @@ pub(crate) struct CreateOrganizationRequestDto {
     #[serde(rename = "name")]
     pub name: String,
     #[serde(rename = "slug")]
-    #[schema(value_type = String)]
     pub slug: OrganizationSlug,
     #[serde(rename = "oidc_config")]
     pub oidc_config: CreateOrganizationOidcConfigDto,
@@ -43,7 +42,6 @@ pub(crate) struct CreateOrganizationRequestDto {
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct CreateOrganizationResponseDto {
     #[serde(rename = "id")]
-    #[schema(value_type = uuid::Uuid)]
     pub id: OrganizationId,
 }
 
