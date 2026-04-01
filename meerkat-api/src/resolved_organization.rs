@@ -4,5 +4,6 @@ use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
 pub struct ResolvedOrganization {
     pub id: OrganizationId,
     pub slug: OrganizationSlug,
+    pub name: String,
     pub is_master: bool,
 }

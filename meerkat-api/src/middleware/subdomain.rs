@@ -47,6 +47,7 @@ pub(crate) async fn resolve_subdomain(
             request.extensions_mut().insert(ResolvedOrganization {
                 id: org.id,
                 slug: org.slug,
+                name: org.name,
                 is_master,
             });
             next.run(request).await

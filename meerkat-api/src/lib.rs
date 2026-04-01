@@ -18,6 +18,7 @@ pub mod state;
         health::liveness,
         oidc::get_oidc_config,
         organizations::create_organization,
+        organizations::get_organization,
         projects::create_project,
         projects::list_projects,
     ),
@@ -27,6 +28,7 @@ pub mod state;
         oidc::OidcConfigDto,
         organizations::CreateOrganizationRequestDto,
         organizations::CreateOrganizationResponseDto,
+        organizations::OrganizationDto,
         projects::CreateProjectRequestDto,
         projects::CreateProjectResponseDto,
         projects::ListProjectsResponseDto,
@@ -54,6 +56,7 @@ pub fn router(state: AppState) -> Router {
     let api_v1_routes = Router::new()
         .merge(protected_routes)
         .route("/api/v1/oidc", get(oidc::get_oidc_config))
+        .route("/api/v1/organization", get(organizations::get_organization))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::resolve_subdomain));
 
     Router::new()

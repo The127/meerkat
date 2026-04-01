@@ -13,6 +13,7 @@ use meerkat_domain::shared::url::Url;
 use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
 
 use crate::error::ApiError;
+use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -77,4 +78,31 @@ pub(crate) async fn create_organization(
     let id = state.mediator.dispatch(cmd, &req_ctx).await?;
 
     Ok((StatusCode::CREATED, Json(CreateOrganizationResponseDto { id })))
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct OrganizationDto {
+    #[serde(rename = "id")]
+    pub id: OrganizationId,
+    #[serde(rename = "slug")]
+    pub slug: OrganizationSlug,
+    #[serde(rename = "name")]
+    pub name: String,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/organization",
+    responses(
+        (status = 200, description = "Current organization", body = OrganizationDto),
+    )
+)]
+pub(crate) async fn get_organization(
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+) -> Json<OrganizationDto> {
+    Json(OrganizationDto {
+        id: resolved_org.id,
+        slug: resolved_org.slug,
+        name: resolved_org.name,
+    })
 }
