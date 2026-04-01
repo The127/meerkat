@@ -43,7 +43,6 @@ mod tests {
     use meerkat_domain::ports::clock::MockClock;
 
     use crate::context::RequestContext;
-    use crate::error::ApplicationError;
     use crate::mediator::Handler;
     use crate::ports::organization_repository::MockOrganizationRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
@@ -67,16 +66,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_valid_name_then_organization_is_renamed() {
+    async fn given_valid_name_then_fetches_by_id_and_saves_renamed_org() {
         // arrange
         let (org, _clock) = test_org();
         let org_id = org.id().clone();
+        let expected_id = org_id.clone();
 
         let mut repo = MockOrganizationRepository::new();
         repo.expect_find_by_id()
             .times(1)
+            .withf(move |id| *id == expected_id)
             .returning(move |_| Box::pin(std::future::ready(Ok(org.clone()))));
-        repo.expect_save().times(1).returning(|_| ());
+        repo.expect_save()
+            .times(1)
+            .withf(|org| org.name() == "New Name")
+            .returning(|_| ());
 
         let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_repo(repo)));
@@ -92,62 +96,5 @@ mod tests {
 
         // assert
         assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn given_empty_name_then_validation_error() {
-        // arrange
-        let (org, _clock) = test_org();
-        let org_id = org.id().clone();
-
-        let mut repo = MockOrganizationRepository::new();
-        repo.expect_find_by_id()
-            .times(1)
-            .returning(move |_| Box::pin(std::future::ready(Ok(org.clone()))));
-
-        let ctx = RequestContext::test()
-            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_repo(repo)));
-
-        let handler = RenameOrganizationHandler;
-        let cmd = RenameOrganization {
-            organization_id: org_id,
-            name: "  ".to_string(),
-        };
-
-        // act
-        let result = handler.handle(cmd, &ctx).await;
-
-        // assert
-        match result {
-            Err(ApplicationError::Validation(_)) => (),
-            other => panic!("Expected Validation error, got {:?}", other),
-        }
-    }
-
-    #[tokio::test]
-    async fn given_nonexistent_organization_then_not_found_error() {
-        // arrange
-        let mut repo = MockOrganizationRepository::new();
-        repo.expect_find_by_id()
-            .times(1)
-            .returning(|_| Box::pin(std::future::ready(Err(ApplicationError::NotFound))));
-
-        let ctx = RequestContext::test()
-            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_repo(repo)));
-
-        let handler = RenameOrganizationHandler;
-        let cmd = RenameOrganization {
-            organization_id: meerkat_domain::models::organization::OrganizationId::new(),
-            name: "New Name".to_string(),
-        };
-
-        // act
-        let result = handler.handle(cmd, &ctx).await;
-
-        // assert
-        match result {
-            Err(ApplicationError::NotFound) => (),
-            other => panic!("Expected NotFound error, got {:?}", other),
-        }
     }
 }

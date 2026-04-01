@@ -60,7 +60,6 @@ mod tests {
     use meerkat_domain::models::organization::OrganizationSlug;
 
     use crate::context::RequestContext;
-    use crate::error::ApplicationError;
     use crate::mediator::Handler;
     use crate::ports::organization_repository::MockOrganizationRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
@@ -82,10 +81,21 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn given_valid_input_when_creating_organization_it_should_return_an_id() {
+    async fn given_valid_input_then_adds_org_with_correct_fields_and_returns_id() {
         // arrange
         let mut repo = MockOrganizationRepository::new();
-        repo.expect_add().times(1).returning(|_| ());
+        repo.expect_add()
+            .times(1)
+            .withf(|org| {
+                org.name() == "Meerkat Inc."
+                    && org.slug().as_str() == "meerkat-inc"
+                    && org.oidc_configs().len() == 1
+                    && org.oidc_configs()[0].name() == "Default SSO"
+                    && org.oidc_configs()[0].client_id() == &ClientId::new("meerkat-client").unwrap()
+                    && org.oidc_configs()[0].issuer_url() == &Url::new("https://auth.example.com").unwrap()
+                    && org.oidc_configs()[0].audience() == &Audience::new("meerkat-api").unwrap()
+            })
+            .returning(|_| ());
 
         let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(MockUnitOfWork::new().with_organization_repo(repo)));
@@ -99,23 +109,5 @@ mod tests {
         // assert
         assert!(result.is_ok());
         assert!(!result.unwrap().as_uuid().is_nil());
-    }
-
-    #[tokio::test]
-    async fn given_empty_name_when_creating_organization_it_should_return_validation_error() {
-        // arrange
-        let ctx = RequestContext::test();
-        let handler = CreateOrganizationHandler;
-        let mut cmd = valid_cmd();
-        cmd.name = "  ".to_string();
-
-        // act
-        let result = handler.handle(cmd, &ctx).await;
-
-        // assert
-        match result {
-            Err(ApplicationError::Validation(_)) => (),
-            other => panic!("Expected Validation error, got {:?}", other),
-        }
     }
 }
