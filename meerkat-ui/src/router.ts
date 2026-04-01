@@ -8,8 +8,34 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: () => import('@/pages/Home.vue'),
+      component: () => import('@/layouts/AppLayout.vue'),
+      children: [
+        {
+          path: '',
+          name: 'dashboard',
+          component: () => import('@/pages/Home.vue'),
+        },
+        {
+          path: 'issues',
+          name: 'issues',
+          component: () => import('@/pages/issues/IssueList.vue'),
+        },
+        {
+          path: 'projects',
+          name: 'projects',
+          component: () => import('@/pages/projects/ProjectList.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/pages/settings/Settings.vue'),
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: () => import('@/pages/Profile.vue'),
+        },
+      ],
     },
     {
       path: '/auth/login',
@@ -26,6 +52,11 @@ const router = createRouter({
       name: 'logout',
       component: () => import('@/pages/Logout.vue'),
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/pages/NotFound.vue'),
+    },
     ...(import.meta.env.DEV
       ? [
           {
@@ -41,7 +72,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const routeName = typeof to.name === 'string' ? to.name : ''
 
-  if (PUBLIC_ROUTES.has(routeName)) {
+  if (PUBLIC_ROUTES.has(routeName) || routeName === 'not-found') {
     return true
   }
 

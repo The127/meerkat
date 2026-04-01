@@ -1,5 +1,6 @@
 <template>
-  <div class="flex items-center justify-center min-h-screen">
-    <h1 class="text-2xl font-semibold text-gray-800">Meerkat</h1>
+  <div>
+    <h1 class="text-xl font-semibold text-foreground mb-1">Dashboard</h1>
+    <p class="text-sm text-muted-foreground">Overview of your error tracking.</p>
   </div>
 </template>
