@@ -20,6 +20,7 @@ pub mod state;
         oidc::get_oidc_config,
         organizations::create_organization,
         organizations::get_organization,
+        organizations::rename_organization,
         projects::create_project,
         projects::list_projects,
         projects::get_project,
@@ -31,6 +32,7 @@ pub mod state;
         organizations::CreateOrganizationRequestDto,
         organizations::CreateOrganizationResponseDto,
         organizations::OrganizationDto,
+        organizations::RenameOrganizationRequestDto,
         projects::CreateProjectRequestDto,
         projects::CreateProjectResponseDto,
         projects::ListProjectsResponseDto,
@@ -50,7 +52,8 @@ pub fn router(state: AppState) -> Router {
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)
-        .nest("/api/v1/projects", project_routes);
+        .nest("/api/v1/projects", project_routes)
+        .route("/api/v1/organization/rename", post(organizations::rename_organization));
 
     if state.auth_enabled {
         protected_routes = protected_routes

@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationOidcConfig};
+use meerkat_application::organizations::rename::RenameOrganization;
 use meerkat_domain::models::oidc_config::{Audience, ClientId};
 use meerkat_domain::shared::url::Url;
 use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
@@ -105,4 +106,37 @@ pub(crate) async fn get_organization(
         slug: resolved_org.slug,
         name: resolved_org.name,
     })
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct RenameOrganizationRequestDto {
+    #[serde(rename = "name")]
+    pub name: String,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/organization/rename",
+    request_body = RenameOrganizationRequestDto,
+    responses(
+        (status = 204, description = "Organization renamed"),
+        (status = 400, description = "Validation error"),
+        (status = 404, description = "Organization not found"),
+        (status = 409, description = "Conflict"),
+    )
+)]
+pub(crate) async fn rename_organization(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Json(body): Json<RenameOrganizationRequestDto>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = RenameOrganization {
+        organization_id: resolved_org.id,
+        name: body.name,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
