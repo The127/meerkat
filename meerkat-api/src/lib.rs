@@ -22,6 +22,7 @@ pub mod state;
         organizations::get_organization,
         projects::create_project,
         projects::list_projects,
+        projects::get_project,
     ),
     components(schemas(
         error::ErrorDto,
@@ -33,6 +34,7 @@ pub mod state;
         projects::CreateProjectRequestDto,
         projects::CreateProjectResponseDto,
         projects::ListProjectsResponseDto,
+        projects::ProjectDto,
         projects::ProjectListItemDto,
     ))
 )]
@@ -43,7 +45,8 @@ pub fn router(state: AppState) -> Router {
         .route("/", post(organizations::create_organization));
 
     let project_routes = Router::new()
-        .route("/", get(projects::list_projects).post(projects::create_project));
+        .route("/", get(projects::list_projects).post(projects::create_project))
+        .route("/{slug}", get(projects::get_project));
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)

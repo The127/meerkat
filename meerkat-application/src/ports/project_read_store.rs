@@ -25,6 +25,12 @@ pub struct PagedResult<T> {
 #[async_trait::async_trait]
 #[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
 pub trait ProjectReadStore: Send + Sync {
+    async fn find_by_slug(
+        &self,
+        org_id: &OrganizationId,
+        slug: &ProjectSlug,
+    ) -> Result<Option<ProjectReadModel>, ApplicationError>;
+
     async fn list_by_org(
         &self,
         org_id: &OrganizationId,

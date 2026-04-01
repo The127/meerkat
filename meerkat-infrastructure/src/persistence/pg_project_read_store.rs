@@ -32,6 +32,33 @@ struct ProjectRow {
 
 #[async_trait]
 impl ProjectReadStore for PgProjectReadStore {
+    async fn find_by_slug(
+        &self,
+        org_id: &OrganizationId,
+        slug: &ProjectSlug,
+    ) -> Result<Option<ProjectReadModel>, ApplicationError> {
+        let row = sqlx::query_as::<_, ProjectRow>(
+            "SELECT id, organization_id, name, slug, created_at, updated_at, \
+                    0::bigint AS total \
+             FROM projects \
+             WHERE organization_id = $1 AND slug = $2",
+        )
+        .bind(org_id.as_uuid())
+        .bind(slug.as_str())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        Ok(row.map(|r| ProjectReadModel {
+            id: ProjectId::from_uuid(r.id),
+            organization_id: OrganizationId::from_uuid(r.organization_id),
+            name: r.name,
+            slug: ProjectSlug::new(r.slug).expect("invalid slug in database"),
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }))
+    }
+
     async fn list_by_org(
         &self,
         org_id: &OrganizationId,

@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::extract::{Query, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::{Extension, Json};
 use chrono::{DateTime, Utc};
@@ -12,6 +12,8 @@ use meerkat_application::projects::create::CreateProject;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
+
+use meerkat_application::error::ApplicationError;
 
 use crate::error::ApiError;
 use crate::pagination::PaginationQueryDto;
@@ -127,5 +129,51 @@ pub(crate) async fn list_projects(
     Ok(Json(ListProjectsResponseDto {
         items,
         total: result.total,
+    }))
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct ProjectDto {
+    #[serde(rename = "id")]
+    pub id: ProjectId,
+    #[serde(rename = "organization_id")]
+    pub organization_id: OrganizationId,
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "slug")]
+    pub slug: ProjectSlug,
+    #[serde(rename = "created_at")]
+    pub created_at: DateTime<Utc>,
+    #[serde(rename = "updated_at")]
+    pub updated_at: DateTime<Utc>,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/projects/{slug}",
+    responses(
+        (status = 200, description = "Project found", body = ProjectDto),
+        (status = 404, description = "Project not found"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
+pub(crate) async fn get_project(
+    State(state): State<AppState>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(slug): Path<ProjectSlug>,
+) -> Result<Json<ProjectDto>, ApiError> {
+    let p = state
+        .project_read_store
+        .find_by_slug(&resolved_org.id, &slug)
+        .await?
+        .ok_or(ApplicationError::NotFound)?;
+
+    Ok(Json(ProjectDto {
+        id: p.id,
+        organization_id: p.organization_id,
+        name: p.name,
+        slug: p.slug,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
     }))
 }
