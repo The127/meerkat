@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { useCurrentProject } from '@/composables/useCurrentProject'
 
-const route = useRoute()
-const slug = route.params.slug as string
+const { currentProject, slug } = useCurrentProject()
 </script>
 
 <template>
   <div>
-    <h1 class="text-xl font-semibold text-foreground mb-1">{{ slug }}</h1>
+    <h1 class="text-xl font-semibold text-foreground mb-1">{{ currentProject?.name ?? slug }}</h1>
     <p class="text-sm text-muted-foreground">Project details coming soon.</p>
   </div>
 </template>

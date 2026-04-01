@@ -40,7 +40,7 @@ function formatDate(iso: string): string {
     >
       <template #item="{ item }">
         <RouterLink
-          :to="{ name: 'project-detail', params: { slug: item.slug } }"
+          :to="{ name: 'project-dashboard', params: { slug: item.slug } }"
           class="flex items-center justify-between -mx-4 -my-3 px-4 py-3"
         >
           <div>

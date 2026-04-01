@@ -1,16 +1,28 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Bug, FolderKanban, Settings, Layers, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
+import { Layers, LayoutDashboard, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
 import { useSidebar } from '@/composables/useSidebar'
+import MkProjectSelector from './MkProjectSelector.vue'
 
 const route = useRoute()
 const { collapsed, toggle } = useSidebar()
 
-const navItems = [
-  { name: 'Issues', path: '/issues', icon: Bug },
-  { name: 'Projects', path: '/projects', icon: FolderKanban },
-  { name: 'Settings', path: '/settings', icon: Settings },
-]
+const slug = computed(() => {
+  const param = route.params.slug
+  return typeof param === 'string' ? param : undefined
+})
+
+const navItems = computed(() => {
+  if (!slug.value) return []
+  return [
+    {
+      name: 'Dashboard',
+      path: `/projects/${slug.value}`,
+      icon: LayoutDashboard,
+    },
+  ]
+})
 
 function isActive(path: string): boolean {
   return route.path === path || route.path.startsWith(path + '/')
@@ -24,7 +36,7 @@ function isActive(path: string): boolean {
       collapsed ? 'w-14' : 'w-56',
     ]"
   >
-    <!-- Org header — clickable to dashboard -->
+    <!-- Org header -->
     <RouterLink to="/" class="flex items-center gap-2.5 px-3.5 h-14 border-b border-border hover:bg-accent/30 transition-colors">
       <div class="w-7 h-7 rounded bg-primary/90 flex items-center justify-center shrink-0">
         <Layers class="w-4 h-4 text-white" />
@@ -32,11 +44,18 @@ function isActive(path: string): boolean {
       <span v-if="!collapsed" class="text-sm font-semibold text-foreground truncate">Meerkat</span>
     </RouterLink>
 
+    <!-- Project selector -->
+    <div class="px-2 pt-3 pb-2">
+      <MkProjectSelector :collapsed="collapsed" />
+    </div>
+
+    <div class="mx-2 border-t border-border" />
+
     <!-- Nav -->
-    <nav class="flex-1 px-2 py-3 space-y-0.5">
+    <nav class="flex-1 px-2 py-2 space-y-0.5">
       <RouterLink
         v-for="item in navItems"
-        :key="item.path"
+        :key="item.name"
         :to="item.path"
         :title="collapsed ? item.name : undefined"
         :class="[

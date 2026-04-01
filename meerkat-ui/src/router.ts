@@ -16,11 +16,6 @@ const router = createRouter({
           component: () => import('@/pages/Home.vue'),
         },
         {
-          path: 'issues',
-          name: 'issues',
-          component: () => import('@/pages/issues/IssueList.vue'),
-        },
-        {
           path: 'projects',
           name: 'projects',
           component: () => import('@/pages/projects/ProjectList.vue'),
@@ -34,13 +29,8 @@ const router = createRouter({
         },
         {
           path: 'projects/:slug',
-          name: 'project-detail',
+          name: 'project-dashboard',
           component: () => import('@/pages/projects/ProjectDetail.vue'),
-        },
-        {
-          path: 'settings',
-          name: 'settings',
-          component: () => import('@/pages/settings/Settings.vue'),
         },
         {
           path: 'profile',
