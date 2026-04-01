@@ -24,6 +24,13 @@ const router = createRouter({
           path: 'projects',
           name: 'projects',
           component: () => import('@/pages/projects/ProjectList.vue'),
+          children: [
+            {
+              path: 'new',
+              name: 'projects-new',
+              component: () => import('@/pages/projects/CreateProjectDialog.vue'),
+            },
+          ],
         },
         {
           path: 'settings',

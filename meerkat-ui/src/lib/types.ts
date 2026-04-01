@@ -12,6 +12,12 @@ export interface ApiError {
   message: string
 }
 
+export interface Organization {
+  id: string
+  slug: string
+  name: string
+}
+
 export interface Project {
   id: string
   organization_id: string

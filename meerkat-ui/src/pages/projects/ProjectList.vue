@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { FolderOpen } from 'lucide-vue-next'
+import { FolderOpen, Plus } from 'lucide-vue-next'
+import { RouterLink, RouterView } from 'vue-router'
 import { useProjects } from '@/composables/useProjects'
 import MkCardList from '@/components/meerkat/MkCardList.vue'
+import MkButton from '@/components/meerkat/MkButton.vue'
 
 const { data, isLoading } = useProjects()
 
@@ -16,9 +18,17 @@ function formatDate(iso: string): string {
 
 <template>
   <div>
-    <div class="mb-6">
-      <h1 class="text-xl font-semibold text-foreground mb-1">Projects</h1>
-      <p class="text-sm text-muted-foreground">Manage your projects and their SDKs.</p>
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-xl font-semibold text-foreground mb-1">Projects</h1>
+        <p class="text-sm text-muted-foreground">Manage your projects and their SDKs.</p>
+      </div>
+      <RouterLink v-if="data?.items?.length" :to="{ name: 'projects-new' }">
+        <MkButton size="sm">
+          <Plus class="h-4 w-4 mr-1.5" />
+          Create Project
+        </MkButton>
+      </RouterLink>
     </div>
 
     <MkCardList
@@ -37,6 +47,16 @@ function formatDate(iso: string): string {
           <span class="text-xs text-muted-foreground">{{ formatDate(item.created_at) }}</span>
         </div>
       </template>
+      <template #empty>
+        <RouterLink :to="{ name: 'projects-new' }">
+          <MkButton size="sm">
+            <Plus class="h-4 w-4 mr-1.5" />
+            Create Project
+          </MkButton>
+        </RouterLink>
+      </template>
     </MkCardList>
+
+    <RouterView />
   </div>
 </template>
