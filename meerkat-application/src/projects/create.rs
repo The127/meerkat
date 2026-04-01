@@ -31,7 +31,7 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
 
         let id = project.id().clone();
 
-        ctx.with_uow(|uow| uow.projects().add(project));
+        ctx.uow().await.projects().add(project);
 
         Ok(id)
     }

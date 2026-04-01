@@ -48,7 +48,7 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
 
         let id = org.id().clone();
 
-        ctx.with_uow(|uow| uow.organizations().add(org));
+        ctx.uow().await.organizations().add(org);
 
         Ok(id)
     }

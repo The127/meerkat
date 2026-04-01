@@ -16,18 +16,18 @@ impl PipelineBehavior<RequestContext, ApplicationError> for UnitOfWorkBehavior {
         next: PipelineNext<'_, ApplicationError>,
     ) -> Result<Box<dyn Any + Send>, ApplicationError> {
         let uow = ctx.uow_factory().create().await?;
-        ctx.scope_uow(uow);
+        ctx.scope_uow(uow).await;
 
         let result = next.run().await;
 
         match result {
             Ok(output) => {
-                let mut uow = ctx.take_uow().expect("UoW was not scoped");
+                let mut uow = ctx.take_uow().await.expect("UoW was not scoped");
                 uow.save_changes().await?;
                 Ok(output)
             }
             Err(e) => {
-                ctx.take_uow(); // discard without saving
+                ctx.take_uow().await; // discard without saving
                 Err(e)
             }
         }

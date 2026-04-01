@@ -5,7 +5,7 @@ use crate::ports::organization_repository::OrganizationRepository;
 use crate::ports::project_repository::ProjectRepository;
 
 #[async_trait]
-pub trait UnitOfWork: Send {
+pub trait UnitOfWork: Send + Sync {
     fn organizations(&self) -> &dyn OrganizationRepository;
     fn projects(&self) -> &dyn ProjectRepository;
     async fn save_changes(&mut self) -> Result<(), ApplicationError>;

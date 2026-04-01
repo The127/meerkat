@@ -1,9 +1,27 @@
-use std::sync::{Arc, Mutex};
+use std::ops::Deref;
+use std::sync::Arc;
+
+use tokio::sync::{Mutex, MutexGuard};
 
 use meerkat_domain::ports::clock::Clock;
 
 use crate::ports::error_observer::ErrorObserver;
 use crate::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
+
+/// RAII guard that holds the UoW mutex and derefs to `&dyn UnitOfWork`.
+/// Can be held across `.await` points (tokio::sync::MutexGuard is Send).
+pub struct ScopedUow<'a>(MutexGuard<'a, Option<Box<dyn UnitOfWork>>>);
+
+impl Deref for ScopedUow<'_> {
+    type Target = dyn UnitOfWork;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+            .as_ref()
+            .expect("no UoW scoped for this request")
+            .as_ref()
+    }
+}
 
 /// Shared, long-lived application services. Safe to share across requests.
 pub struct AppContext {
@@ -48,21 +66,16 @@ impl RequestContext {
         self.app.uow_factory.as_ref()
     }
 
-    pub fn scope_uow(&self, uow: Box<dyn UnitOfWork>) {
-        *self.scoped_uow.lock().unwrap() = Some(uow);
+    pub async fn scope_uow(&self, uow: Box<dyn UnitOfWork>) {
+        *self.scoped_uow.lock().await = Some(uow);
     }
 
-    pub fn take_uow(&self) -> Option<Box<dyn UnitOfWork>> {
-        self.scoped_uow.lock().unwrap().take()
+    pub async fn take_uow(&self) -> Option<Box<dyn UnitOfWork>> {
+        self.scoped_uow.lock().await.take()
     }
 
-    pub fn with_uow<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&dyn UnitOfWork) -> R,
-    {
-        let guard = self.scoped_uow.lock().unwrap();
-        let uow = guard.as_ref().expect("no UoW scoped for this request");
-        f(uow.as_ref())
+    pub async fn uow(&self) -> ScopedUow<'_> {
+        ScopedUow(self.scoped_uow.lock().await)
     }
 }
 
@@ -78,7 +91,7 @@ impl RequestContext {
     }
 
     pub fn with_scoped_uow(self, uow: Box<dyn UnitOfWork>) -> Self {
-        self.scope_uow(uow);
+        self.scoped_uow.try_lock().expect("mutex not yet contested during test setup").replace(uow);
         self
     }
 }
