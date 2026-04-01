@@ -9,12 +9,14 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::projects::create::CreateProject;
+use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 
 use crate::error::ApiError;
 use crate::pagination::PaginationQueryDto;
 use crate::resolved_organization::ResolvedOrganization;
+use crate::search::SearchQueryDto;
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -86,7 +88,7 @@ pub(crate) struct ListProjectsResponseDto {
 #[utoipa::path(
     get,
     path = "/api/v1/projects",
-    params(PaginationQueryDto),
+    params(PaginationQueryDto, SearchQueryDto),
     responses(
         (status = 200, description = "List of projects", body = ListProjectsResponseDto),
         (status = 500, description = "Internal server error"),
@@ -96,10 +98,17 @@ pub(crate) async fn list_projects(
     State(state): State<AppState>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
     Query(pagination): Query<PaginationQueryDto>,
+    Query(search): Query<SearchQueryDto>,
 ) -> Result<Json<ListProjectsResponseDto>, ApiError> {
+    let filter = search.search.as_deref().and_then(SearchFilter::new);
     let result = state
         .project_read_store
-        .list_by_org(&resolved_org.id, pagination.limit(), pagination.offset())
+        .list_by_org(
+            &resolved_org.id,
+            filter.as_ref(),
+            pagination.limit(),
+            pagination.offset(),
+        )
         .await?;
 
     let items = result

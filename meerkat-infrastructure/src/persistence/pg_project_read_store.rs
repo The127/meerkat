@@ -3,6 +3,7 @@ use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::project_read_store::{PagedResult, ProjectReadModel, ProjectReadStore};
+use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 
@@ -34,20 +35,25 @@ impl ProjectReadStore for PgProjectReadStore {
     async fn list_by_org(
         &self,
         org_id: &OrganizationId,
+        search: Option<&SearchFilter>,
         limit: i64,
         offset: i64,
     ) -> Result<PagedResult<ProjectReadModel>, ApplicationError> {
+        let pattern = search.map(|s| s.contains_pattern());
+
         let rows = sqlx::query_as::<_, ProjectRow>(
             "SELECT id, organization_id, name, slug, created_at, updated_at, \
                     COUNT(*) OVER() AS total \
              FROM projects \
              WHERE organization_id = $1 \
+               AND ($4::text IS NULL OR name ILIKE $4 OR slug ILIKE $4) \
              ORDER BY created_at DESC \
              LIMIT $2 OFFSET $3",
         )
         .bind(org_id.as_uuid())
         .bind(limit)
         .bind(offset)
+        .bind(pattern.as_deref())
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;

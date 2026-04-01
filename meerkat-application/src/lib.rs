@@ -5,3 +5,4 @@ pub mod mediator;
 pub mod organizations;
 pub mod ports;
 pub mod projects;
+pub mod search;

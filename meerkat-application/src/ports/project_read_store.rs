@@ -4,6 +4,7 @@ use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 
 use crate::error::ApplicationError;
+use crate::search::SearchFilter;
 
 #[derive(Debug, Clone)]
 pub struct ProjectReadModel {
@@ -27,6 +28,7 @@ pub trait ProjectReadStore: Send + Sync {
     async fn list_by_org(
         &self,
         org_id: &OrganizationId,
+        search: Option<&SearchFilter>,
         limit: i64,
         offset: i64,
     ) -> Result<PagedResult<ProjectReadModel>, ApplicationError>;

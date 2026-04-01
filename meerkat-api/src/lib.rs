@@ -10,6 +10,7 @@ pub mod handlers;
 mod middleware;
 pub(crate) mod pagination;
 pub mod resolved_organization;
+pub(crate) mod search;
 pub mod state;
 
 #[derive(OpenApi)]
