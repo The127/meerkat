@@ -30,10 +30,19 @@ pub(crate) async fn error_observer(
     request: axum::extract::Request,
     next: Next,
 ) -> Response {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
     let response = next.run(request).await;
 
     if let Some(report) = response.extensions().get::<ErrorReport>() {
         state.context.error_observer.observe(report).await;
+    } else if response.status().is_client_error() || response.status().is_server_error() {
+        tracing::warn!(
+            method = %method,
+            uri = %uri,
+            status = response.status().as_u16(),
+            "unhandled error response",
+        );
     }
 
     response

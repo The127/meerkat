@@ -14,3 +14,4 @@ meerkat-application = { path = "../meerkat-application" }
 meerkat-domain = { path = "../meerkat-domain", features = ["openapi"] }
 jsonwebtoken = "9"
 serde_json = "1"
+tracing = "0.1"

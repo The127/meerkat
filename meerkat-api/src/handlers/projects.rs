@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 use axum::{Extension, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::projects::create::CreateProject;
@@ -13,6 +13,7 @@ use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 
 use crate::error::ApiError;
+use crate::pagination::PaginationQueryDto;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
 
@@ -58,12 +59,6 @@ pub(crate) async fn create_project(
     Ok((StatusCode::CREATED, Json(CreateProjectResponseDto { id })))
 }
 
-#[derive(Debug, Deserialize, IntoParams)]
-pub(crate) struct ListProjectsQueryDto {
-    #[serde(flatten)]
-    pub pagination: crate::pagination::PaginationQueryDto,
-}
-
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ProjectListItemDto {
     #[serde(rename = "id")]
@@ -91,7 +86,7 @@ pub(crate) struct ListProjectsResponseDto {
 #[utoipa::path(
     get,
     path = "/api/v1/projects",
-    params(ListProjectsQueryDto),
+    params(PaginationQueryDto),
     responses(
         (status = 200, description = "List of projects", body = ListProjectsResponseDto),
         (status = 500, description = "Internal server error"),
@@ -100,11 +95,11 @@ pub(crate) struct ListProjectsResponseDto {
 pub(crate) async fn list_projects(
     State(state): State<AppState>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-    Query(query): Query<ListProjectsQueryDto>,
+    Query(pagination): Query<PaginationQueryDto>,
 ) -> Result<Json<ListProjectsResponseDto>, ApiError> {
     let result = state
         .project_read_store
-        .list_by_org(&resolved_org.id, query.pagination.limit(), query.pagination.offset())
+        .list_by_org(&resolved_org.id, pagination.limit(), pagination.offset())
         .await?;
 
     let items = result
