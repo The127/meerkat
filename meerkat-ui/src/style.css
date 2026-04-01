@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Meerkat design tokens
  * Inspired by Sentry 2018-2020: muted, dense, functional.
@@ -51,6 +53,158 @@
   /* Fonts */
   --font-sans: "Rubik", system-ui, -apple-system, sans-serif;
   --font-mono: "Roboto Mono", ui-monospace, monospace;
+}
+
+/* =============================================
+   Dark mode
+   ============================================= */
+.dark {
+  --color-background: #121018;
+  --color-foreground: #e4e0e8;
+  --color-muted: #1e1a26;
+  --color-muted-foreground: #9a92a6;
+  --color-border: #2e2a36;
+  --color-input: #2e2a36;
+  --color-ring: #8578d9;
+
+  --color-card: #181520;
+  --color-card-foreground: #e4e0e8;
+  --color-popover: #1e1a26;
+  --color-popover-foreground: #e4e0e8;
+
+  --color-primary: #8578d9;
+  --color-primary-foreground: #fff;
+
+  --color-secondary: #272234;
+  --color-secondary-foreground: #c4bdd4;
+
+  --color-accent: #252030;
+  --color-accent-foreground: #c4bdd4;
+
+  --color-destructive: #e5534b;
+  --color-destructive-foreground: #fff;
+
+  --color-success: #57be8c;
+  --color-warning: #e9b949;
+  --color-info: #8578d9;
+  --color-error: #e5534b;
+}
+
+/* =============================================
+   Theme variants — override primary family
+   ============================================= */
+.theme-default {
+  /* uses base tokens — no overrides needed */
+}
+
+.theme-blue {
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #fff;
+  --color-ring: #3b82f6;
+  --color-secondary: #e0ecff;
+  --color-secondary-foreground: #1e3a5f;
+  --color-accent: #eef4ff;
+  --color-accent-foreground: #1e3a5f;
+  --color-info: #3b82f6;
+}
+.theme-blue.dark {
+  --color-primary: #60a5fa;
+  --color-ring: #60a5fa;
+  --color-secondary: #1e293b;
+  --color-secondary-foreground: #bfdbfe;
+  --color-accent: #1e293b;
+  --color-accent-foreground: #bfdbfe;
+  --color-info: #60a5fa;
+}
+
+.theme-green {
+  --color-primary: #16a34a;
+  --color-primary-foreground: #fff;
+  --color-ring: #16a34a;
+  --color-secondary: #dcfce7;
+  --color-secondary-foreground: #14532d;
+  --color-accent: #f0fdf4;
+  --color-accent-foreground: #14532d;
+  --color-info: #16a34a;
+}
+.theme-green.dark {
+  --color-primary: #4ade80;
+  --color-ring: #4ade80;
+  --color-secondary: #14291e;
+  --color-secondary-foreground: #bbf7d0;
+  --color-accent: #14291e;
+  --color-accent-foreground: #bbf7d0;
+  --color-info: #4ade80;
+}
+
+.theme-amber {
+  --color-primary: #d97706;
+  --color-primary-foreground: #fff;
+  --color-ring: #d97706;
+  --color-secondary: #fef3c7;
+  --color-secondary-foreground: #78350f;
+  --color-accent: #fffbeb;
+  --color-accent-foreground: #78350f;
+  --color-info: #d97706;
+}
+.theme-amber.dark {
+  --color-primary: #fbbf24;
+  --color-primary-foreground: #1c1025;
+  --color-ring: #fbbf24;
+  --color-secondary: #292211;
+  --color-secondary-foreground: #fde68a;
+  --color-accent: #292211;
+  --color-accent-foreground: #fde68a;
+  --color-info: #fbbf24;
+}
+
+/* =============================================
+   High contrast
+   ============================================= */
+.high-contrast {
+  --color-foreground: #000;
+  --color-muted-foreground: #333;
+  --color-border: #888;
+  --color-card-foreground: #000;
+}
+.high-contrast.dark {
+  --color-foreground: #fff;
+  --color-muted-foreground: #ccc;
+  --color-border: #888;
+  --color-card-foreground: #fff;
+}
+
+/* =============================================
+   Dyslexia-friendly font
+   ============================================= */
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "OpenDyslexic";
+  src: url("https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.font-system {
+  --font-sans: system-ui, -apple-system, sans-serif;
+}
+
+.font-dyslexia {
+  --font-sans: "OpenDyslexic", system-ui, sans-serif;
+}
+
+/* =============================================
+   Compact density
+   ============================================= */
+.density-compact {
+  font-size: 13px;
 }
 
 /* Base styles */
