@@ -8,6 +8,12 @@ use crate::models::oidc_config::{OidcConfig, OidcConfigId, OidcConfigStatus};
 uuid_id!(OrganizationId);
 slug_id!(OrganizationSlug);
 
+#[derive(Debug, Clone)]
+pub enum OrganizationIdentifier {
+    Id(OrganizationId),
+    Slug(OrganizationSlug),
+}
+
 #[derive(Debug, Clone, Reconstitute)]
 pub struct Organization {
     id: OrganizationId,

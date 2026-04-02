@@ -12,7 +12,7 @@ use meerkat_application::projects::create::CreateProject;
 use meerkat_application::projects::rename::RenameProject;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
-use meerkat_domain::models::project::{ProjectId, ProjectSlug};
+use meerkat_domain::models::project::{ProjectId, ProjectIdentifier, ProjectSlug};
 
 use meerkat_application::error::ApplicationError;
 
@@ -46,14 +46,8 @@ pub(crate) async fn rename_project(
     Path(slug): Path<ProjectSlug>,
     Json(body): Json<RenameProjectRequestDto>,
 ) -> Result<StatusCode, ApiError> {
-    let project = state
-        .project_read_store
-        .find_by_slug(&resolved_org.id, &slug)
-        .await?
-        .ok_or(ApplicationError::NotFound)?;
-
     let cmd = RenameProject {
-        project_id: project.id,
+        identifier: ProjectIdentifier::Slug(resolved_org.id, slug),
         name: body.name,
     };
 

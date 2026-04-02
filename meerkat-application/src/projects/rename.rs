@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::project::ProjectId;
+use meerkat_domain::models::project::ProjectIdentifier;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::mediator::{Command, Handler};
 
 pub struct RenameProject {
-    pub project_id: ProjectId,
+    pub identifier: ProjectIdentifier,
     pub name: String,
 }
 
@@ -26,7 +26,7 @@ impl Handler<RenameProject, ApplicationError, RequestContext> for RenameProjectH
     ) -> Result<(), ApplicationError> {
         let uow = ctx.uow().await;
 
-        let mut project = uow.projects().find_by_id(&cmd.project_id).await?;
+        let mut project = uow.projects().find(&cmd.identifier).await?;
 
         project.update_name(cmd.name)?;
 
@@ -38,6 +38,7 @@ impl Handler<RenameProject, ApplicationError, RequestContext> for RenameProjectH
 
 #[cfg(test)]
 mod tests {
+    use meerkat_domain::models::project::ProjectIdentifier;
     use meerkat_domain::testing::test_project;
 
     use crate::context::RequestContext;
@@ -48,16 +49,16 @@ mod tests {
     use super::{RenameProject, RenameProjectHandler};
 
     #[tokio::test]
-    async fn given_valid_name_then_fetches_by_id_and_saves_renamed_project() {
+    async fn given_valid_name_then_finds_project_and_saves_renamed() {
         // arrange
         let (project, _clock) = test_project();
         let project_id = project.id().clone();
         let expected_id = project_id.clone();
 
         let mut repo = MockProjectRepository::new();
-        repo.expect_find_by_id()
+        repo.expect_find()
             .times(1)
-            .withf(move |id| *id == expected_id)
+            .withf(move |identifier| matches!(identifier, ProjectIdentifier::Id(id) if *id == expected_id))
             .returning(move |_| Box::pin(std::future::ready(Ok(project.clone()))));
         repo.expect_save()
             .times(1)
@@ -69,7 +70,7 @@ mod tests {
 
         let handler = RenameProjectHandler;
         let cmd = RenameProject {
-            project_id,
+            identifier: ProjectIdentifier::Id(project_id),
             name: "New Name".to_string(),
         };
 

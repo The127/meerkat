@@ -7,7 +7,7 @@ use sqlx::PgPool;
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::project_repository::ProjectRepository;
 use meerkat_domain::models::organization::OrganizationId;
-use meerkat_domain::models::project::{Project, ProjectId, ProjectSlug, ProjectState};
+use meerkat_domain::models::project::{Project, ProjectId, ProjectIdentifier, ProjectSlug, ProjectState};
 use meerkat_domain::shared::version::Version;
 
 use super::error::map_sqlx_error;
@@ -53,7 +53,7 @@ impl ProjectRepository for PgProjectRepository {
             .lock()
             .unwrap()
             .remove(project.id())
-            .expect("save called without prior find_by_id");
+            .expect("save called without prior find");
 
         self.buffer
             .lock()
@@ -66,14 +66,28 @@ impl ProjectRepository for PgProjectRepository {
         self.buffer.lock().unwrap().push(ProjectEntry::Deleted(id));
     }
 
-    async fn find_by_id(&self, id: &ProjectId) -> Result<Project, ApplicationError> {
-        let row = sqlx::query_as::<_, ProjectRow>(
-            "SELECT id, organization_id, name, slug, created_at, updated_at, version \
-             FROM projects WHERE id = $1",
-        )
-        .bind(id.as_uuid())
-        .fetch_optional(&self.pool)
-        .await
+    async fn find(&self, identifier: &ProjectIdentifier) -> Result<Project, ApplicationError> {
+        let row = match identifier {
+            ProjectIdentifier::Id(id) => {
+                sqlx::query_as::<_, ProjectRow>(
+                    "SELECT id, organization_id, name, slug, created_at, updated_at, version \
+                     FROM projects WHERE id = $1",
+                )
+                .bind(id.as_uuid())
+                .fetch_optional(&self.pool)
+                .await
+            }
+            ProjectIdentifier::Slug(org_id, slug) => {
+                sqlx::query_as::<_, ProjectRow>(
+                    "SELECT id, organization_id, name, slug, created_at, updated_at, version \
+                     FROM projects WHERE organization_id = $1 AND slug = $2",
+                )
+                .bind(org_id.as_uuid())
+                .bind(slug.as_str())
+                .fetch_optional(&self.pool)
+                .await
+            }
+        }
         .map_err(map_sqlx_error)?
         .ok_or(ApplicationError::NotFound)?;
 
@@ -90,7 +104,7 @@ impl ProjectRepository for PgProjectRepository {
         self.snapshots
             .lock()
             .unwrap()
-            .insert(id.clone(), project.clone());
+            .insert(project.id().clone(), project.clone());
 
         Ok(project)
     }

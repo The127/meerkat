@@ -12,7 +12,7 @@ use meerkat_application::organizations::delete::DeleteOrganization;
 use meerkat_application::organizations::rename::RenameOrganization;
 use meerkat_domain::models::oidc_config::{Audience, ClientId};
 use meerkat_domain::shared::url::Url;
-use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
+use meerkat_domain::models::organization::{OrganizationId, OrganizationIdentifier, OrganizationSlug};
 
 use crate::error::ApiError;
 use crate::resolved_organization::ResolvedOrganization;
@@ -133,7 +133,7 @@ pub(crate) async fn rename_organization(
     Json(body): Json<RenameOrganizationRequestDto>,
 ) -> Result<StatusCode, ApiError> {
     let cmd = RenameOrganization {
-        organization_id: resolved_org.id,
+        identifier: OrganizationIdentifier::Id(resolved_org.id),
         name: body.name,
     };
 
@@ -156,7 +156,7 @@ pub(crate) async fn delete_organization(
     Extension(resolved_org): Extension<ResolvedOrganization>,
 ) -> Result<StatusCode, ApiError> {
     let cmd = DeleteOrganization {
-        organization_id: resolved_org.id,
+        identifier: OrganizationIdentifier::Id(resolved_org.id),
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;

@@ -10,7 +10,7 @@ use meerkat_domain::models::oidc_config::{
     Audience, ClientId, OidcConfig, OidcConfigId, OidcConfigState, OidcConfigStatus, Url,
 };
 use meerkat_domain::models::organization::{
-    Organization, OrganizationId, OrganizationSlug, OrganizationState,
+    Organization, OrganizationId, OrganizationIdentifier, OrganizationSlug, OrganizationState,
 };
 use meerkat_domain::shared::version::Version;
 
@@ -57,7 +57,7 @@ impl OrganizationRepository for PgOrganizationRepository {
             .lock()
             .unwrap()
             .remove(org.id())
-            .expect("save called without prior find_by_id");
+            .expect("save called without prior find");
 
         self.buffer
             .lock()
@@ -70,21 +70,35 @@ impl OrganizationRepository for PgOrganizationRepository {
         self.buffer.lock().unwrap().push(OrgEntry::Deleted(id));
     }
 
-    async fn find_by_id(&self, id: &OrganizationId) -> Result<Organization, ApplicationError> {
-        let row = sqlx::query_as::<_, OrgRow>(
-            "SELECT id, name, slug, created_at, updated_at, version FROM organizations WHERE id = $1",
-        )
-        .bind(id.as_uuid())
-        .fetch_optional(&self.pool)
-        .await
+    async fn find(&self, identifier: &OrganizationIdentifier) -> Result<Organization, ApplicationError> {
+        let row = match identifier {
+            OrganizationIdentifier::Id(id) => {
+                sqlx::query_as::<_, OrgRow>(
+                    "SELECT id, name, slug, created_at, updated_at, version FROM organizations WHERE id = $1",
+                )
+                .bind(id.as_uuid())
+                .fetch_optional(&self.pool)
+                .await
+            }
+            OrganizationIdentifier::Slug(slug) => {
+                sqlx::query_as::<_, OrgRow>(
+                    "SELECT id, name, slug, created_at, updated_at, version FROM organizations WHERE slug = $1",
+                )
+                .bind(slug.as_str())
+                .fetch_optional(&self.pool)
+                .await
+            }
+        }
         .map_err(map_sqlx_error)?
         .ok_or(ApplicationError::NotFound)?;
+
+        let org_id = row.id;
 
         let config_rows = sqlx::query_as::<_, OidcConfigRow>(
             "SELECT id, name, client_id, issuer_url, audience, discovery_url, status, created_at, updated_at \
              FROM oidc_configs WHERE organization_id = $1",
         )
-        .bind(id.as_uuid())
+        .bind(org_id)
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;
@@ -119,7 +133,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         self.snapshots
             .lock()
             .unwrap()
-            .insert(id.clone(), org.clone());
+            .insert(org.id().clone(), org.clone());
 
         Ok(org)
     }

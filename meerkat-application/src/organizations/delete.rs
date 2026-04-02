@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::organization::OrganizationId;
+use meerkat_domain::models::organization::OrganizationIdentifier;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::mediator::{Command, Handler};
 
 pub struct DeleteOrganization {
-    pub organization_id: OrganizationId,
+    pub identifier: OrganizationIdentifier,
 }
 
 impl Command for DeleteOrganization {
@@ -25,9 +25,9 @@ impl Handler<DeleteOrganization, ApplicationError, RequestContext> for DeleteOrg
     ) -> Result<(), ApplicationError> {
         let uow = ctx.uow().await;
 
-        let _ = uow.organizations().find_by_id(&cmd.organization_id).await?;
+        let org = uow.organizations().find(&cmd.identifier).await?;
 
-        uow.organizations().delete(cmd.organization_id);
+        uow.organizations().delete(org.id().clone());
 
         Ok(())
     }
@@ -35,6 +35,7 @@ impl Handler<DeleteOrganization, ApplicationError, RequestContext> for DeleteOrg
 
 #[cfg(test)]
 mod tests {
+    use meerkat_domain::models::organization::OrganizationIdentifier;
     use meerkat_domain::testing::test_org;
 
     use crate::context::RequestContext;
@@ -45,17 +46,17 @@ mod tests {
     use super::{DeleteOrganization, DeleteOrganizationHandler};
 
     #[tokio::test]
-    async fn given_existing_org_then_fetches_by_id_and_deletes() {
+    async fn given_existing_org_then_finds_and_deletes() {
         // arrange
         let (org, _clock) = test_org();
         let org_id = org.id().clone();
-        let expected_find_id = org_id.clone();
+        let expected_id = org_id.clone();
         let expected_delete_id = org_id.clone();
 
         let mut repo = MockOrganizationRepository::new();
-        repo.expect_find_by_id()
+        repo.expect_find()
             .times(1)
-            .withf(move |id| *id == expected_find_id)
+            .withf(move |identifier| matches!(identifier, OrganizationIdentifier::Id(id) if *id == expected_id))
             .returning(move |_| Box::pin(std::future::ready(Ok(org.clone()))));
         repo.expect_delete()
             .times(1)
@@ -67,7 +68,7 @@ mod tests {
 
         let handler = DeleteOrganizationHandler;
         let cmd = DeleteOrganization {
-            organization_id: org_id,
+            identifier: OrganizationIdentifier::Id(org_id),
         };
 
         // act

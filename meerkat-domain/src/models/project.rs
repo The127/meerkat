@@ -8,6 +8,12 @@ use crate::ports::clock::Clock;
 uuid_id!(ProjectId);
 slug_id!(ProjectSlug);
 
+#[derive(Debug, Clone)]
+pub enum ProjectIdentifier {
+    Id(ProjectId),
+    Slug(OrganizationId, ProjectSlug),
+}
+
 #[derive(Debug, Clone, Reconstitute)]
 pub struct Project {
     id: ProjectId,
