@@ -2,8 +2,12 @@ use async_trait::async_trait;
 
 use meerkat_domain::models::project::ProjectIdentifier;
 
+use meerkat_domain::models::permission::ProjectPermission;
+
+use crate::behaviors::authorization::RequiredPermissions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
+use crate::extensions::Extensions;
 use crate::mediator::{Command, Handler};
 
 pub struct DeleteProject {
@@ -12,6 +16,12 @@ pub struct DeleteProject {
 
 impl Command for DeleteProject {
     type Output = ();
+
+    fn extensions(&self) -> Extensions {
+        let mut ext = Extensions::new();
+        ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectDelete.into()]));
+        ext
+    }
 }
 
 pub struct DeleteProjectHandler;

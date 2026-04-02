@@ -2,8 +2,12 @@ use async_trait::async_trait;
 
 use meerkat_domain::models::project::ProjectIdentifier;
 
+use meerkat_domain::models::permission::ProjectPermission;
+
+use crate::behaviors::authorization::RequiredPermissions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
+use crate::extensions::Extensions;
 use crate::mediator::{Command, Handler};
 
 pub struct RenameProject {
@@ -13,6 +17,12 @@ pub struct RenameProject {
 
 impl Command for RenameProject {
     type Output = ();
+
+    fn extensions(&self) -> Extensions {
+        let mut ext = Extensions::new();
+        ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectWrite.into()]));
+        ext
+    }
 }
 
 pub struct RenameProjectHandler;

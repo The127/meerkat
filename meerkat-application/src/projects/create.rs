@@ -3,8 +3,12 @@ use async_trait::async_trait;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{Project, ProjectId, ProjectSlug};
 
+use meerkat_domain::models::permission::ProjectPermission;
+
+use crate::behaviors::authorization::RequiredPermissions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
+use crate::extensions::Extensions;
 use crate::mediator::{Command, Handler};
 
 pub struct CreateProject {
@@ -15,6 +19,12 @@ pub struct CreateProject {
 
 impl Command for CreateProject {
     type Output = ProjectId;
+
+    fn extensions(&self) -> Extensions {
+        let mut ext = Extensions::new();
+        ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectWrite.into()]));
+        ext
+    }
 }
 
 pub struct CreateProjectHandler;

@@ -10,6 +10,10 @@ pub enum ApplicationError {
     NotFound,
     #[error("conflict: resource was modified by another request")]
     Conflict,
+    #[error("unauthorized")]
+    Unauthorized,
+    #[error("forbidden")]
+    Forbidden,
     #[error("internal error: {0}")]
     Internal(String),
 }

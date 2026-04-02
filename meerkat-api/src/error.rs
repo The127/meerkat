@@ -68,6 +68,20 @@ impl ApiError {
                 "resource not found".to_string(),
                 ErrorSeverity::Warning,
             ),
+            ApplicationError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                "unauthorized",
+                "unauthorized".to_string(),
+                "unauthorized".to_string(),
+                ErrorSeverity::Warning,
+            ),
+            ApplicationError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                "forbidden",
+                "forbidden".to_string(),
+                "insufficient permissions".to_string(),
+                ErrorSeverity::Warning,
+            ),
             ApplicationError::Conflict => (
                 StatusCode::CONFLICT,
                 "conflict",

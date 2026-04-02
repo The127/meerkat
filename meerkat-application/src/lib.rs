@@ -1,6 +1,7 @@
 pub mod auth_context;
 pub mod behaviors;
 pub mod context;
+pub mod extensions;
 pub mod error;
 pub mod mediator;
 pub mod organizations;

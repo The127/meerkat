@@ -2,8 +2,12 @@ use async_trait::async_trait;
 
 use meerkat_domain::models::organization::OrganizationIdentifier;
 
+use meerkat_domain::models::permission::OrgPermission;
+
+use crate::behaviors::authorization::RequiredPermissions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
+use crate::extensions::Extensions;
 use crate::mediator::{Command, Handler};
 
 pub struct RenameOrganization {
@@ -13,6 +17,12 @@ pub struct RenameOrganization {
 
 impl Command for RenameOrganization {
     type Output = ();
+
+    fn extensions(&self) -> Extensions {
+        let mut ext = Extensions::new();
+        ext.insert(RequiredPermissions(vec![OrgPermission::OrgRename.into()]));
+        ext
+    }
 }
 
 pub struct RenameOrganizationHandler;

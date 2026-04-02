@@ -5,9 +5,12 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use jsonwebtoken::{decode, decode_header, jwk::Jwk, DecodingKey, TokenData, Validation};
 
+use std::collections::HashSet;
+
 use meerkat_application::auth_context::AuthContext;
 use meerkat_application::ports::oidc_config_read_store::OidcConfigReadModel;
 use meerkat_domain::models::member::Sub;
+use meerkat_domain::models::permission::EffectivePermission;
 
 use crate::error::ErrorDto;
 use crate::resolved_organization::ResolvedOrganization;
@@ -110,11 +113,18 @@ async fn authenticate_inner(
         .await
         .map_err(|_| internal_error())?;
 
+    let permissions: HashSet<EffectivePermission> = org_roles
+        .iter()
+        .flat_map(|role| role.permissions())
+        .map(EffectivePermission::Org)
+        .collect();
+
     let auth_context = AuthContext {
         sub,
         org_id: resolved_org.id,
         org_roles,
         member_id,
+        permissions,
     };
 
     request.extensions_mut().insert(auth_context);

@@ -7,8 +7,14 @@ use std::pin::Pin;
 use async_trait::async_trait;
 use thiserror::Error;
 
-pub trait Command: Send + 'static {
-    type Output: Send + 'static;
+use crate::extensions::Extensions;
+
+pub trait Command: Send + Sync + 'static {
+    type Output: Send + Sync + 'static;
+
+    fn extensions(&self) -> Extensions {
+        Extensions::new()
+    }
 }
 
 #[async_trait]
@@ -22,17 +28,17 @@ where
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 type ErasedHandler<CTX, ERR> =
-    dyn Fn(Box<dyn Any + Send>, &CTX) -> BoxFuture<Result<Box<dyn Any + Send>, ERR>> + Send + Sync;
+    dyn Fn(Box<dyn Any + Send + Sync>, &CTX) -> BoxFuture<Result<Box<dyn Any + Send + Sync>, ERR>> + Send + Sync;
 
 type PipelineFn<'a, ERR> =
-    Box<dyn FnOnce() -> BoxFuture<'a, Result<Box<dyn Any + Send>, ERR>> + Send + 'a>;
+    Box<dyn FnOnce() -> BoxFuture<'a, Result<Box<dyn Any + Send + Sync>, ERR>> + Send + 'a>;
 
 pub struct PipelineNext<'a, ERR> {
     f: PipelineFn<'a, ERR>,
 }
 
 impl<'a, ERR> PipelineNext<'a, ERR> {
-    pub async fn run(self) -> Result<Box<dyn Any + Send>, ERR> {
+    pub async fn run(self) -> Result<Box<dyn Any + Send + Sync>, ERR> {
         (self.f)().await
     }
 }
@@ -41,9 +47,10 @@ impl<'a, ERR> PipelineNext<'a, ERR> {
 pub trait PipelineBehavior<CTX, ERR>: Send + Sync {
     async fn handle(
         &self,
+        extensions: &Extensions,
         ctx: &CTX,
         next: PipelineNext<'_, ERR>,
-    ) -> Result<Box<dyn Any + Send>, ERR>;
+    ) -> Result<Box<dyn Any + Send + Sync>, ERR>;
 }
 
 pub struct Mediator<CTX, ERR: Debug> {
@@ -91,7 +98,7 @@ where
                     let cmd = *command.downcast::<CMD>().expect("Invalid command type");
 
                     let result = handler.handle(cmd, ctx).await?;
-                    Ok(Box::new(result) as Box<dyn Any + Send>)
+                    Ok(Box::new(result) as Box<dyn Any + Send + Sync>)
                 })
             }),
         );
@@ -111,7 +118,8 @@ where
             .get(&TypeId::of::<CMD>())
             .ok_or(MediatorError::NoHandlerRegistered(TypeId::of::<CMD>()))?;
 
-        let result = Self::run_pipeline(&self.behaviors, ctx, handler, Box::new(command))
+        let extensions = command.extensions();
+        let result = Self::run_pipeline(&self.behaviors, &extensions, ctx, handler, Box::new(command))
             .await
             .map_err(MediatorError::HandlerError)?;
 
@@ -122,10 +130,11 @@ where
 
     fn run_pipeline<'a>(
         behaviors: &'a [std::sync::Arc<dyn PipelineBehavior<CTX, ERR>>],
+        extensions: &'a Extensions,
         ctx: &'a CTX,
         handler: &'a ErasedHandler<CTX, ERR>,
-        command: Box<dyn Any + Send>,
-    ) -> BoxFuture<'a, Result<Box<dyn Any + Send>, ERR>> {
+        command: Box<dyn Any + Send + Sync>,
+    ) -> BoxFuture<'a, Result<Box<dyn Any + Send + Sync>, ERR>> {
         Box::pin(async move {
             if behaviors.is_empty() {
                 return handler(command, ctx).await;
@@ -133,10 +142,10 @@ where
 
             let (first, rest) = behaviors.split_first().unwrap();
             let next = PipelineNext {
-                f: Box::new(move || Self::run_pipeline(rest, ctx, handler, command)),
+                f: Box::new(move || Self::run_pipeline(rest, extensions, ctx, handler, command)),
             };
 
-            first.handle(ctx, next).await
+            first.handle(extensions, ctx, next).await
         })
     }
 }
