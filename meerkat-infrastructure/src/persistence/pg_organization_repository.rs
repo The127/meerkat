@@ -6,8 +6,9 @@ use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::organization_repository::OrganizationRepository;
+use vec1::Vec1;
 use meerkat_domain::models::oidc_config::{
-    Audience, ClientId, OidcConfig, OidcConfigId, OidcConfigState, OidcConfigStatus, Url,
+    Audience, ClaimMapping, ClientId, OidcConfig, OidcConfigId, OidcConfigState, OidcConfigStatus, Url,
 };
 use meerkat_domain::models::organization::{
     Organization, OrganizationId, OrganizationIdentifier, OrganizationSlug, OrganizationState,
@@ -95,7 +96,9 @@ impl OrganizationRepository for PgOrganizationRepository {
         let org_id = row.id;
 
         let config_rows = sqlx::query_as::<_, OidcConfigRow>(
-            "SELECT id, name, client_id, issuer_url, audience, discovery_url, status, created_at, updated_at \
+            "SELECT id, name, client_id, issuer_url, audience, discovery_url, \
+             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values, \
+             status, created_at, updated_at \
              FROM oidc_configs WHERE organization_id = $1",
         )
         .bind(org_id)
@@ -106,6 +109,15 @@ impl OrganizationRepository for PgOrganizationRepository {
         let oidc_configs: Vec<OidcConfig> = config_rows
             .into_iter()
             .map(|r| {
+                let claim_mapping = ClaimMapping::new(
+                    r.sub_claim.expect("missing sub_claim in database"),
+                    r.name_claim.expect("missing name_claim in database"),
+                    r.role_claim.expect("missing role_claim in database"),
+                    Vec1::try_from_vec(r.owner_values.unwrap_or_default()).expect("empty owner_values in database"),
+                    Vec1::try_from_vec(r.admin_values.unwrap_or_default()).expect("empty admin_values in database"),
+                    Vec1::try_from_vec(r.member_values.unwrap_or_default()).expect("empty member_values in database"),
+                ).expect("invalid claim_mapping in database");
+
                 OidcConfig::reconstitute(OidcConfigState {
                     id: OidcConfigId::from_uuid(r.id),
                     name: r.name,
@@ -113,6 +125,7 @@ impl OrganizationRepository for PgOrganizationRepository {
                     issuer_url: Url::new(r.issuer_url).expect("invalid issuer_url in database"),
                     audience: Audience::new(r.audience).expect("invalid audience in database"),
                     discovery_url: r.discovery_url.map(|u| Url::new(u).expect("invalid discovery_url in database")),
+                    claim_mapping,
                     status: r.status.parse::<OidcConfigStatus>().expect("invalid status in database"),
                     created_at: r.created_at,
                     updated_at: r.updated_at,
@@ -157,6 +170,12 @@ struct OidcConfigRow {
     issuer_url: String,
     audience: String,
     discovery_url: Option<String>,
+    sub_claim: Option<String>,
+    name_claim: Option<String>,
+    role_claim: Option<String>,
+    owner_values: Option<Vec<String>>,
+    admin_values: Option<Vec<String>>,
+    member_values: Option<Vec<String>>,
     status: String,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,

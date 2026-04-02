@@ -15,7 +15,8 @@ use meerkat_application::organizations::create::{CreateOrganization, CreateOrgan
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_application::ports::unit_of_work::UnitOfWorkFactory;
-use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig};
+use vec1::vec1;
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig};
 use meerkat_domain::models::organization::{Organization, OrganizationSlug};
 use meerkat_domain::shared::url::Url;
 use meerkat_infrastructure::clock::SystemClock;
@@ -48,12 +49,19 @@ async fn hurl_integration_tests() {
     // Bootstrap a master organization so subdomain middleware resolves bare-domain requests
     let clock = SystemClock;
     let uow_factory = PgUnitOfWorkFactory::new(pool.clone());
+    let claim_mapping = ClaimMapping::new(
+        "sub", "preferred_username", "roles",
+        vec1!["owner".to_string()],
+        vec1!["admin".to_string()],
+        vec1!["member".to_string()],
+    ).unwrap();
     let oidc_config = OidcConfig::new(
         "Default".to_string(),
         ClientId::new("test-client").unwrap(),
         Url::new("https://auth.example.com").unwrap(),
         Audience::new("test-api").unwrap(),
         None,
+        claim_mapping,
         &clock,
     )
     .unwrap();

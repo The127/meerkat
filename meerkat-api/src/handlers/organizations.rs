@@ -7,16 +7,35 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
+use meerkat_application::error::ApplicationError;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationOidcConfig};
 use meerkat_application::organizations::delete::DeleteOrganization;
 use meerkat_application::organizations::rename::RenameOrganization;
-use meerkat_domain::models::oidc_config::{Audience, ClientId};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId};
 use meerkat_domain::shared::url::Url;
+
+use super::vec1_from_dto;
 use meerkat_domain::models::organization::{OrganizationId, OrganizationIdentifier, OrganizationSlug};
 
 use crate::error::ApiError;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct ClaimMappingDto {
+    #[serde(rename = "sub_claim")]
+    pub sub_claim: String,
+    #[serde(rename = "name_claim")]
+    pub name_claim: String,
+    #[serde(rename = "role_claim")]
+    pub role_claim: String,
+    #[serde(rename = "owner_values")]
+    pub owner_values: Vec<String>,
+    #[serde(rename = "admin_values")]
+    pub admin_values: Vec<String>,
+    #[serde(rename = "member_values")]
+    pub member_values: Vec<String>,
+}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub(crate) struct CreateOrganizationOidcConfigDto {
@@ -30,6 +49,8 @@ pub(crate) struct CreateOrganizationOidcConfigDto {
     pub audience: Audience,
     #[serde(rename = "discovery_url")]
     pub discovery_url: Option<Url>,
+    #[serde(rename = "claim_mapping")]
+    pub claim_mapping: ClaimMappingDto,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -65,6 +86,14 @@ pub(crate) async fn create_organization(
 ) -> Result<(StatusCode, Json<CreateOrganizationResponseDto>), ApiError> {
     let oidc = body.oidc_config;
 
+    let cm = oidc.claim_mapping;
+    let claim_mapping = ClaimMapping::new(
+        cm.sub_claim, cm.name_claim, cm.role_claim,
+        vec1_from_dto(cm.owner_values, "owner_values")?,
+        vec1_from_dto(cm.admin_values, "admin_values")?,
+        vec1_from_dto(cm.member_values, "member_values")?,
+    ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
+
     let cmd = CreateOrganization {
         name: body.name,
         slug: body.slug,
@@ -74,6 +103,7 @@ pub(crate) async fn create_organization(
             issuer_url: oidc.issuer_url,
             audience: oidc.audience,
             discovery_url: oidc.discovery_url,
+            claim_mapping,
         },
     };
 

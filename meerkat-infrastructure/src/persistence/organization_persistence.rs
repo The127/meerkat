@@ -121,8 +121,10 @@ impl OrganizationPersistence {
         config: &OidcConfig,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
-            "INSERT INTO oidc_configs (id, organization_id, name, client_id, issuer_url, audience, discovery_url, status, created_at, updated_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+            "INSERT INTO oidc_configs (id, organization_id, name, client_id, issuer_url, audience, discovery_url, \
+             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values, \
+             status, created_at, updated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
         )
         .bind(config.id().as_uuid())
         .bind(org_id.as_uuid())
@@ -131,6 +133,12 @@ impl OrganizationPersistence {
         .bind(config.issuer_url().as_str())
         .bind(config.audience().as_str())
         .bind(config.discovery_url().map(|u| u.as_str().to_string()))
+        .bind(config.claim_mapping().sub_claim().as_str())
+        .bind(config.claim_mapping().name_claim().as_str())
+        .bind(config.claim_mapping().role_claim().as_str())
+        .bind(config.claim_mapping().owner_values().as_slice())
+        .bind(config.claim_mapping().admin_values().as_slice())
+        .bind(config.claim_mapping().member_values().as_slice())
         .bind(config.status().as_ref())
         .bind(config.created_at())
         .bind(config.updated_at())
@@ -147,13 +155,21 @@ impl OrganizationPersistence {
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "UPDATE oidc_configs SET name = $1, client_id = $2, issuer_url = $3, audience = $4, \
-             discovery_url = $5, status = $6, updated_at = $7 WHERE id = $8",
+             discovery_url = $5, sub_claim = $6, name_claim = $7, role_claim = $8, \
+             owner_values = $9, admin_values = $10, member_values = $11, \
+             status = $12, updated_at = $13 WHERE id = $14",
         )
         .bind(config.name())
         .bind(config.client_id().as_str())
         .bind(config.issuer_url().as_str())
         .bind(config.audience().as_str())
         .bind(config.discovery_url().map(|u| u.as_str().to_string()))
+        .bind(config.claim_mapping().sub_claim().as_str())
+        .bind(config.claim_mapping().name_claim().as_str())
+        .bind(config.claim_mapping().role_claim().as_str())
+        .bind(config.claim_mapping().owner_values().as_slice())
+        .bind(config.claim_mapping().admin_values().as_slice())
+        .bind(config.claim_mapping().member_values().as_slice())
         .bind(config.status().as_ref())
         .bind(config.updated_at())
         .bind(config.id().as_uuid())
@@ -184,6 +200,7 @@ fn oidc_config_changed(current: &OidcConfig, snapshot: &OidcConfig) -> bool {
         || current.issuer_url() != snapshot.issuer_url()
         || current.audience() != snapshot.audience()
         || current.discovery_url() != snapshot.discovery_url()
+        || current.claim_mapping() != snapshot.claim_mapping()
         || current.status() != snapshot.status()
         || current.updated_at() != snapshot.updated_at()
 }

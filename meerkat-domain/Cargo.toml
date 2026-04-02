@@ -17,6 +17,7 @@ async-trait = "0.1"
 parking_lot = { version = "0.12", optional = true }
 strum = { version = "0.28.0", features = ["derive"] }
 utoipa = { version = "5", optional = true }
+vec1 = { version = "1.12.1", features = ["serde"] }
 
 [dev-dependencies]
 parking_lot = "0.12"

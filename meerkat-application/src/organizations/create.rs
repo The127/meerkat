@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig, Url};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, Url};
 use meerkat_domain::models::organization::{Organization, OrganizationId, OrganizationSlug};
 
 use crate::context::RequestContext;
@@ -13,6 +13,7 @@ pub struct CreateOrganizationOidcConfig {
     pub issuer_url: Url,
     pub audience: Audience,
     pub discovery_url: Option<Url>,
+    pub claim_mapping: ClaimMapping,
 }
 
 pub struct CreateOrganization {
@@ -37,7 +38,7 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
         let oidc = cmd.oidc_config;
         let oidc_config = OidcConfig::new(
             oidc.name, oidc.client_id, oidc.issuer_url, oidc.audience, oidc.discovery_url,
-            ctx.clock(),
+            oidc.claim_mapping, ctx.clock(),
         )?;
 
         let org = Organization::new(
@@ -57,6 +58,7 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
 #[cfg(test)]
 mod tests {
     use meerkat_domain::models::oidc_config::{Audience, ClientId, Url};
+    use meerkat_domain::testing::test_claim_mapping;
     use meerkat_domain::models::organization::OrganizationSlug;
 
     use crate::context::RequestContext;
@@ -76,6 +78,7 @@ mod tests {
                 issuer_url: Url::new("https://auth.example.com").unwrap(),
                 audience: Audience::new("meerkat-api").unwrap(),
                 discovery_url: None,
+                claim_mapping: test_claim_mapping(),
             },
         }
     }

@@ -8,7 +8,15 @@ Content-Type: application/json
         "name": "Default SSO",
         "client_id": "meerkat-client",
         "issuer_url": "https://auth.example.com",
-        "audience": "meerkat-api"
+        "audience": "meerkat-api",
+        "claim_mapping": {
+            "sub_claim": "sub",
+            "name_claim": "preferred_username",
+            "role_claim": "roles",
+            "owner_values": ["owner"],
+            "admin_values": ["admin"],
+            "member_values": ["member"]
+        }
     }
 }
 HTTP 201
@@ -25,7 +33,15 @@ Content-Type: application/json
         "name": "Default SSO",
         "client_id": "meerkat-client",
         "issuer_url": "https://auth.example.com",
-        "audience": "meerkat-api"
+        "audience": "meerkat-api",
+        "claim_mapping": {
+            "sub_claim": "sub",
+            "name_claim": "preferred_username",
+            "role_claim": "roles",
+            "owner_values": ["owner"],
+            "admin_values": ["admin"],
+            "member_values": ["member"]
+        }
     }
 }
 HTTP 400
@@ -42,7 +58,15 @@ Content-Type: application/json
         "name": "Default SSO",
         "client_id": "meerkat-client",
         "issuer_url": "https://auth.example.com",
-        "audience": "meerkat-api"
+        "audience": "meerkat-api",
+        "claim_mapping": {
+            "sub_claim": "sub",
+            "name_claim": "preferred_username",
+            "role_claim": "roles",
+            "owner_values": ["owner"],
+            "admin_values": ["admin"],
+            "member_values": ["member"]
+        }
     }
 }
 HTTP 422

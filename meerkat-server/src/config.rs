@@ -1,4 +1,11 @@
 use anyhow::Context;
+use vec1::Vec1;
+
+fn parse_csv_env(name: &str) -> Vec<String> {
+    std::env::var(name)
+        .map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
+        .unwrap_or_default()
+}
 
 pub(crate) struct MeerkatConfig {
     pub(crate) database_url: String,
@@ -11,6 +18,12 @@ pub(crate) struct MeerkatConfig {
     pub(crate) master_oidc_issuer_url: String,
     pub(crate) master_oidc_audience: String,
     pub(crate) master_oidc_discovery_url: Option<String>,
+    pub(crate) master_oidc_sub_claim: String,
+    pub(crate) master_oidc_name_claim: String,
+    pub(crate) master_oidc_role_claim: String,
+    pub(crate) master_oidc_owner_values: Vec1<String>,
+    pub(crate) master_oidc_admin_values: Vec1<String>,
+    pub(crate) master_oidc_member_values: Vec1<String>,
 }
 
 impl MeerkatConfig {
@@ -44,6 +57,24 @@ impl MeerkatConfig {
 
         let master_oidc_discovery_url = std::env::var("MEERKAT_MASTER_OIDC_DISCOVERY_URL").ok();
 
+        let master_oidc_sub_claim = std::env::var("MEERKAT_MASTER_OIDC_SUB_CLAIM")
+            .unwrap_or_else(|_| "sub".to_string());
+
+        let master_oidc_name_claim = std::env::var("MEERKAT_MASTER_OIDC_NAME_CLAIM")
+            .unwrap_or_else(|_| "preferred_username".to_string());
+
+        let master_oidc_role_claim = std::env::var("MEERKAT_MASTER_OIDC_ROLE_CLAIM")
+            .unwrap_or_else(|_| "roles".to_string());
+
+        let master_oidc_owner_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_OWNER_VALUES"))
+            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_OWNER_VALUES must be set with at least one comma-separated value"))?;
+
+        let master_oidc_admin_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_ADMIN_VALUES"))
+            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_ADMIN_VALUES must be set with at least one comma-separated value"))?;
+
+        let master_oidc_member_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_MEMBER_VALUES"))
+            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_MEMBER_VALUES must be set with at least one comma-separated value"))?;
+
         Ok(Self {
             database_url,
             listen_addr,
@@ -55,6 +86,12 @@ impl MeerkatConfig {
             master_oidc_issuer_url,
             master_oidc_audience,
             master_oidc_discovery_url,
+            master_oidc_sub_claim,
+            master_oidc_name_claim,
+            master_oidc_role_claim,
+            master_oidc_owner_values,
+            master_oidc_admin_values,
+            master_oidc_member_values,
         })
     }
 }

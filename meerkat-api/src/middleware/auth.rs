@@ -196,6 +196,7 @@ mod tests {
     use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfigId};
     use meerkat_domain::models::organization::OrganizationId;
     use meerkat_domain::shared::url::Url;
+    use meerkat_domain::testing::test_claim_mapping;
 
     fn test_config(discovery_url: Option<&str>) -> OidcConfigReadModel {
         OidcConfigReadModel {
@@ -206,6 +207,7 @@ mod tests {
             issuer_url: Url::new("https://auth.example.com").unwrap(),
             audience: Audience::new("my-api").unwrap(),
             discovery_url: discovery_url.map(|u| Url::new(u).unwrap()),
+            claim_mapping: test_claim_mapping(),
         }
     }
 

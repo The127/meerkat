@@ -4,7 +4,7 @@ use tracing::info;
 
 use meerkat_application::ports::organization_read_store::OrganizationReadStore;
 use meerkat_application::ports::unit_of_work::UnitOfWorkFactory;
-use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfig};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig};
 use meerkat_domain::models::organization::{Organization, OrganizationSlug};
 use meerkat_domain::ports::clock::Clock;
 use meerkat_domain::shared::url::Url;
@@ -49,12 +49,23 @@ pub(crate) async fn bootstrap_master(
         .transpose()
         .context("Invalid master OIDC discovery URL")?;
 
+    let claim_mapping = ClaimMapping::new(
+        config.master_oidc_sub_claim.clone(),
+        config.master_oidc_name_claim.clone(),
+        config.master_oidc_role_claim.clone(),
+        config.master_oidc_owner_values.clone(),
+        config.master_oidc_admin_values.clone(),
+        config.master_oidc_member_values.clone(),
+    )
+    .context("Failed to create master claim mapping")?;
+
     let oidc_config = OidcConfig::new(
         config.master_oidc_name.clone(),
         client_id,
         issuer_url,
         audience,
         discovery_url,
+        claim_mapping,
         clock,
     )
     .context("Failed to create master OIDC config")?;

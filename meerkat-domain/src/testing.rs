@@ -1,7 +1,17 @@
-use crate::models::oidc_config::{Audience, ClientId, OidcConfig, Url};
+use vec1::vec1;
+use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, Url};
 use crate::models::organization::{Organization, OrganizationSlug};
 use crate::models::project::{Project, ProjectSlug};
 use crate::ports::clock::MockClock;
+
+pub fn test_claim_mapping() -> ClaimMapping {
+    ClaimMapping::new(
+        "sub", "preferred_username", "roles",
+        vec1!["owner".to_string()],
+        vec1!["admin".to_string()],
+        vec1!["member".to_string()],
+    ).unwrap()
+}
 
 pub fn draft_config(name: &str, clock: &MockClock) -> OidcConfig {
     OidcConfig::new(
@@ -9,7 +19,9 @@ pub fn draft_config(name: &str, clock: &MockClock) -> OidcConfig {
         ClientId::new("meerkat-client").unwrap(),
         Url::new("https://auth.example.com").unwrap(),
         Audience::new("meerkat-api").unwrap(),
-        None, clock,
+        None,
+        test_claim_mapping(),
+        clock,
     ).unwrap()
 }
 
