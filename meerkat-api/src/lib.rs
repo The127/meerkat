@@ -4,7 +4,6 @@ use utoipa::OpenApi;
 use crate::handlers::{health, oidc, organizations, projects};
 use crate::state::AppState;
 
-pub(crate) mod auth_context;
 pub mod error;
 pub mod handlers;
 mod middleware;

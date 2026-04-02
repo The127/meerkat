@@ -5,6 +5,7 @@ use tokio::sync::{Mutex, MutexGuard};
 
 use meerkat_domain::ports::clock::Clock;
 
+use crate::auth_context::AuthContext;
 use crate::ports::error_observer::ErrorObserver;
 use crate::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
@@ -47,6 +48,7 @@ impl AppContext {
 /// Per-request context. Created fresh for each mediator dispatch.
 pub struct RequestContext {
     pub app: Arc<AppContext>,
+    auth: Option<AuthContext>,
     scoped_uow: Mutex<Option<Box<dyn UnitOfWork>>>,
 }
 
@@ -54,8 +56,18 @@ impl RequestContext {
     pub fn new(app: Arc<AppContext>) -> Self {
         Self {
             app,
+            auth: None,
             scoped_uow: Mutex::new(None),
         }
+    }
+
+    pub fn with_auth(mut self, auth: AuthContext) -> Self {
+        self.auth = Some(auth);
+        self
+    }
+
+    pub fn auth(&self) -> Option<&AuthContext> {
+        self.auth.as_ref()
     }
 
     pub fn clock(&self) -> &dyn Clock {

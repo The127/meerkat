@@ -1,3 +1,4 @@
+pub mod auth_context;
 pub mod behaviors;
 pub mod context;
 pub mod error;

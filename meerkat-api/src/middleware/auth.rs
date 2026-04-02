@@ -5,16 +5,16 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 use jsonwebtoken::{decode, decode_header, jwk::Jwk, DecodingKey, TokenData, Validation};
 
+use meerkat_application::auth_context::AuthContext;
 use meerkat_application::ports::oidc_config_read_store::OidcConfigReadModel;
+use meerkat_domain::models::member::Sub;
 
-use crate::auth_context::AuthContext;
 use crate::error::ErrorDto;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
 
 #[derive(serde::Deserialize)]
 struct Claims {
-    sub: String,
     iss: Option<String>,
     aud: Option<Aud>,
 }
@@ -78,15 +78,59 @@ async fn authenticate_inner(
     validation.set_audience(&[config.audience.as_str()]);
     validation.set_issuer(&[config.issuer_url.as_str()]);
 
-    let token_data: TokenData<Claims> =
+    let token_data: TokenData<serde_json::Value> =
         decode(token, &decoding_key, &validation).map_err(|_| unauthorized("token validation failed"))?;
 
-    request.extensions_mut().insert(AuthContext {
-        sub: token_data.claims.sub,
+    let claims = &token_data.claims;
+    let claim_mapping = &config.claim_mapping;
+
+    let sub_value = claims
+        .get(claim_mapping.sub_claim().as_str())
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| unauthorized("missing sub claim"))?;
+
+    let sub = Sub::new(sub_value).map_err(|_| unauthorized("invalid sub claim"))?;
+
+    let role_values = extract_string_values(claims, claim_mapping.role_claim().as_str());
+    let role_refs: Vec<&str> = role_values.iter().map(|s| s.as_str()).collect();
+    let org_roles = claim_mapping.resolve_roles(&role_refs);
+
+    if org_roles.is_empty() {
+        return Err(unauthorized("no matching org role"));
+    }
+
+    let preferred_name = claims
+        .get(claim_mapping.name_claim().as_str())
+        .and_then(|v| v.as_str())
+        .unwrap_or(sub_value);
+
+    let member_id = state
+        .member_repository
+        .find_or_create(&resolved_org.id, &sub, preferred_name)
+        .await
+        .map_err(|_| internal_error())?;
+
+    let auth_context = AuthContext {
+        sub,
         org_id: resolved_org.id,
-    });
+        org_roles,
+        member_id,
+    };
+
+    request.extensions_mut().insert(auth_context);
 
     Ok(next.run(request).await)
+}
+
+fn extract_string_values(claims: &serde_json::Value, key: &str) -> Vec<String> {
+    match claims.get(key) {
+        Some(serde_json::Value::String(s)) => vec![s.clone()],
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect(),
+        _ => vec![],
+    }
 }
 
 #[allow(clippy::result_large_err)]
@@ -311,5 +355,41 @@ mod tests {
         assert!(aud.contains("api-1"));
         assert!(aud.contains("api-2"));
         assert!(!aud.contains("api-3"));
+    }
+
+    #[test]
+    fn given_string_role_claim_then_extracts_single_value() {
+        // arrange
+        let claims = serde_json::json!({"roles": "admin"});
+
+        // act
+        let values = extract_string_values(&claims, "roles");
+
+        // assert
+        assert_eq!(values, vec!["admin"]);
+    }
+
+    #[test]
+    fn given_array_role_claim_then_extracts_all_values() {
+        // arrange
+        let claims = serde_json::json!({"roles": ["admin", "member"]});
+
+        // act
+        let values = extract_string_values(&claims, "roles");
+
+        // assert
+        assert_eq!(values, vec!["admin", "member"]);
+    }
+
+    #[test]
+    fn given_missing_role_claim_then_returns_empty() {
+        // arrange
+        let claims = serde_json::json!({"sub": "user-1"});
+
+        // act
+        let values = extract_string_values(&claims, "roles");
+
+        // assert
+        assert!(values.is_empty());
     }
 }

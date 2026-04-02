@@ -1,5 +1,6 @@
 pub mod error_observer;
 pub mod health;
+pub mod member_repository;
 pub mod jwks_provider;
 pub mod oidc_discovery_provider;
 pub mod oidc_config_read_store;
