@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod error_observer;
 pub mod health;
 pub mod member_repository;
