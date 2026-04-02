@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, slug_id};
 use vec1::Vec1;
-use crate::models::permission::Permission;
+use crate::models::permission::ProjectPermission;
 use crate::models::project::ProjectId;
 use crate::ports::clock::Clock;
 
@@ -20,7 +20,7 @@ pub struct ProjectRole {
     project_id: ProjectId,
     name: String,
     slug: ProjectRoleSlug,
-    permissions: Vec1<Permission>,
+    permissions: Vec1<ProjectPermission>,
     is_default: bool,
     created_at: DateTime<Utc>,
 }
@@ -36,7 +36,7 @@ impl ProjectRole {
         project_id: ProjectId,
         name: String,
         slug: ProjectRoleSlug,
-        permissions: Vec1<Permission>,
+        permissions: Vec1<ProjectPermission>,
         is_default: bool,
         clock: &dyn Clock,
     ) -> Result<Self, ProjectRoleError> {
@@ -63,7 +63,7 @@ impl ProjectRole {
                 project_id: project_id.clone(),
                 name: "Viewer".to_string(),
                 slug: ProjectRoleSlug::new("viewer").unwrap(),
-                permissions: Vec1::new(Permission::ProjectRead),
+                permissions: Vec1::new(ProjectPermission::ProjectRead),
                 is_default: true,
                 created_at: clock.now(),
             },
@@ -73,8 +73,8 @@ impl ProjectRole {
                 name: "Editor".to_string(),
                 slug: ProjectRoleSlug::new("editor").unwrap(),
                 permissions: Vec1::try_from_vec(vec![
-                    Permission::ProjectRead,
-                    Permission::ProjectWrite,
+                    ProjectPermission::ProjectRead,
+                    ProjectPermission::ProjectWrite,
                 ]).unwrap(),
                 is_default: true,
                 created_at: clock.now(),
@@ -85,10 +85,10 @@ impl ProjectRole {
                 name: "Admin".to_string(),
                 slug: ProjectRoleSlug::new("admin").unwrap(),
                 permissions: Vec1::try_from_vec(vec![
-                    Permission::ProjectRead,
-                    Permission::ProjectWrite,
-                    Permission::ProjectDelete,
-                    Permission::ProjectManageMembers,
+                    ProjectPermission::ProjectRead,
+                    ProjectPermission::ProjectWrite,
+                    ProjectPermission::ProjectDelete,
+                    ProjectPermission::ProjectManageMembers,
                 ]).unwrap(),
                 is_default: true,
                 created_at: clock.now(),
@@ -100,7 +100,7 @@ impl ProjectRole {
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
     pub fn name(&self) -> &str { &self.name }
     pub fn slug(&self) -> &ProjectRoleSlug { &self.slug }
-    pub fn permissions(&self) -> &Vec1<Permission> { &self.permissions }
+    pub fn permissions(&self) -> &Vec1<ProjectPermission> { &self.permissions }
     pub fn is_default(&self) -> bool { self.is_default }
     pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
 }
@@ -123,7 +123,7 @@ mod tests {
             project_id.clone(),
             "Custom Role".into(),
             ProjectRoleSlug::new("custom-role").unwrap(),
-            vec1![Permission::ProjectRead],
+            vec1![ProjectPermission::ProjectRead],
             false,
             &clock,
         ).unwrap();
@@ -132,7 +132,7 @@ mod tests {
         assert_eq!(role.name(), "Custom Role");
         assert_eq!(role.slug().as_str(), "custom-role");
         assert_eq!(role.project_id(), &project_id);
-        assert_eq!(role.permissions(), &vec1![Permission::ProjectRead]);
+        assert_eq!(role.permissions(), &vec1![ProjectPermission::ProjectRead]);
         assert!(!role.is_default());
     }
 
@@ -146,7 +146,7 @@ mod tests {
             ProjectId::new(),
             "  ".into(),
             ProjectRoleSlug::new("empty").unwrap(),
-            vec1![Permission::ProjectRead],
+            vec1![ProjectPermission::ProjectRead],
             false,
             &clock,
         );
@@ -174,7 +174,7 @@ mod tests {
         assert_eq!(viewer.name(), "Viewer");
         assert_eq!(viewer.slug().as_str(), "viewer");
         assert!(viewer.is_default());
-        assert_eq!(viewer.permissions(), &vec1![Permission::ProjectRead]);
+        assert_eq!(viewer.permissions(), &vec1![ProjectPermission::ProjectRead]);
         assert_eq!(viewer.project_id(), &project_id);
 
         let editor = &roles[1];
@@ -188,6 +188,6 @@ mod tests {
         assert_eq!(admin.slug().as_str(), "admin");
         assert!(admin.is_default());
         assert_eq!(admin.permissions().len(), 4);
-        assert!(admin.permissions().contains(&Permission::ProjectManageMembers));
+        assert!(admin.permissions().contains(&ProjectPermission::ProjectManageMembers));
     }
 }

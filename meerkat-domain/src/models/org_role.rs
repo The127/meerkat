@@ -1,3 +1,5 @@
+use crate::models::permission::OrgPermission;
+
 #[derive(Debug, Clone, PartialEq, Eq, strum::Display, strum::EnumString, strum::AsRefStr)]
 pub enum OrgRole {
     #[strum(serialize = "owner")]
@@ -6,4 +8,23 @@ pub enum OrgRole {
     Admin,
     #[strum(serialize = "member")]
     Member,
+}
+
+impl OrgRole {
+    pub fn permissions(&self) -> Vec<OrgPermission> {
+        match self {
+            OrgRole::Owner => vec![
+                OrgPermission::OrgRename,
+                OrgPermission::OrgDelete,
+                OrgPermission::OrgManageOidc,
+                OrgPermission::OrgManageMembers,
+            ],
+            OrgRole::Admin => vec![
+                OrgPermission::OrgRename,
+                OrgPermission::OrgManageOidc,
+                OrgPermission::OrgManageMembers,
+            ],
+            OrgRole::Member => vec![],
+        }
+    }
 }
