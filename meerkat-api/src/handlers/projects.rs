@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::projects::create::CreateProject;
+use meerkat_application::projects::delete::DeleteProject;
 use meerkat_application::projects::rename::RenameProject;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
@@ -211,4 +212,27 @@ pub(crate) async fn get_project(
         created_at: p.created_at,
         updated_at: p.updated_at,
     }))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/projects/{slug}",
+    responses(
+        (status = 204, description = "Project deleted"),
+        (status = 404, description = "Project not found"),
+    )
+)]
+pub(crate) async fn delete_project(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(slug): Path<ProjectSlug>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = DeleteProject {
+        identifier: ProjectIdentifier::Slug(resolved_org.id, slug),
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
