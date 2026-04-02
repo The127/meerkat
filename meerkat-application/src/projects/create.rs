@@ -5,7 +5,7 @@ use meerkat_domain::models::project::{Project, ProjectId, ProjectSlug};
 
 use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::RequiredPermissions;
+use crate::behaviors::authorization::{CommandName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -22,6 +22,7 @@ impl Command for CreateProject {
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
+        ext.insert(CommandName("CreateProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectWrite.into()]));
         ext
     }

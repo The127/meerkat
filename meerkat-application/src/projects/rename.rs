@@ -4,7 +4,7 @@ use meerkat_domain::models::project::ProjectIdentifier;
 
 use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::RequiredPermissions;
+use crate::behaviors::authorization::{CommandName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -20,6 +20,7 @@ impl Command for RenameProject {
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
+        ext.insert(CommandName("RenameProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectWrite.into()]));
         ext
     }
