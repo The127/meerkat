@@ -25,6 +25,7 @@ pub mod state;
         projects::create_project,
         projects::list_projects,
         projects::get_project,
+        projects::rename_project,
     ),
     components(schemas(
         error::ErrorDto,
@@ -39,6 +40,7 @@ pub mod state;
         projects::ListProjectsResponseDto,
         projects::ProjectDto,
         projects::ProjectListItemDto,
+        projects::RenameProjectRequestDto,
     ))
 )]
 struct ApiDoc;
@@ -49,7 +51,8 @@ pub fn router(state: AppState) -> Router {
 
     let project_routes = Router::new()
         .route("/", get(projects::list_projects).post(projects::create_project))
-        .route("/{slug}", get(projects::get_project));
+        .route("/{slug}", get(projects::get_project))
+        .route("/{slug}/rename", post(projects::rename_project));
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)

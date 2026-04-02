@@ -9,6 +9,7 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::projects::create::CreateProject;
+use meerkat_application::projects::rename::RenameProject;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
@@ -20,6 +21,46 @@ use crate::pagination::PaginationQueryDto;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::search::SearchQueryDto;
 use crate::state::AppState;
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct RenameProjectRequestDto {
+    #[serde(rename = "name")]
+    pub name: String,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/rename",
+    request_body = RenameProjectRequestDto,
+    responses(
+        (status = 204, description = "Project renamed"),
+        (status = 400, description = "Validation error"),
+        (status = 404, description = "Project not found"),
+        (status = 409, description = "Conflict"),
+    )
+)]
+pub(crate) async fn rename_project(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(slug): Path<ProjectSlug>,
+    Json(body): Json<RenameProjectRequestDto>,
+) -> Result<StatusCode, ApiError> {
+    let project = state
+        .project_read_store
+        .find_by_slug(&resolved_org.id, &slug)
+        .await?
+        .ok_or(ApplicationError::NotFound)?;
+
+    let cmd = RenameProject {
+        project_id: project.id,
+        name: body.name,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub(crate) struct CreateProjectRequestDto {

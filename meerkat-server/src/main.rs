@@ -16,6 +16,7 @@ use meerkat_application::organizations::create::{CreateOrganization, CreateOrgan
 use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
 use meerkat_application::organizations::rename::{RenameOrganization, RenameOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
+use meerkat_application::projects::rename::{RenameProject, RenameProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
@@ -103,6 +104,7 @@ fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
     mediator.register::<DeleteOrganization, _>(DeleteOrganizationHandler);
     mediator.register::<CreateProject, _>(CreateProjectHandler);
+    mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator
 }
 
