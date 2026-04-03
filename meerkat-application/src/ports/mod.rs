@@ -8,6 +8,7 @@ pub mod oidc_discovery_provider;
 pub mod oidc_config_read_store;
 pub mod organization_read_store;
 pub mod organization_repository;
+pub mod project_member_read_store;
 pub mod project_member_repository;
 pub mod project_permission_read_store;
 pub mod project_read_store;

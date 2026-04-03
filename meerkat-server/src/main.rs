@@ -28,6 +28,7 @@ use meerkat_application::projects::create::{CreateProject, CreateProjectHandler}
 use meerkat_application::projects::delete::{DeleteProject, DeleteProjectHandler};
 use meerkat_application::projects::get::{GetProject, GetProjectHandler};
 use meerkat_application::projects::list::{ListProjects, ListProjectsHandler};
+use meerkat_application::projects::list_members::{ListProjectMembers, ListProjectMembersHandler};
 use meerkat_application::projects::list_roles::{ListProjectRoles, ListProjectRolesHandler};
 use meerkat_application::members::get_current_user::{GetCurrentUser, GetCurrentUserHandler};
 use meerkat_application::members::list_members::{ListMembers, ListMembersHandler};
@@ -119,7 +120,7 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
         .context("Failed to connect to database")
 }
 
-fn build_mediator(
+struct MediatorDeps {
     audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger>,
     project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore>,
     org_read_store: Arc<dyn meerkat_application::ports::organization_read_store::OrganizationReadStore>,
@@ -127,16 +128,19 @@ fn build_mediator(
     project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore>,
     member_read_store: Arc<dyn meerkat_application::ports::member_read_store::MemberReadStore>,
     project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore>,
-) -> Mediator<RequestContext, ApplicationError> {
+    project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
+}
+
+fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
-    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store.clone(), project_read_store.clone())));
+    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(deps.audit_logger, deps.project_permission_store.clone(), deps.project_read_store.clone())));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
     mediator.register::<DeleteOrganization, _>(DeleteOrganizationHandler);
-    mediator.register::<GetOrganization, _>(GetOrganizationHandler::new(org_read_store));
-    mediator.register::<GetOidcConfig, _>(GetOidcConfigHandler::new(oidc_config_read_store.clone()));
-    mediator.register::<ListOidcConfigs, _>(ListOidcConfigsHandler::new(oidc_config_read_store));
+    mediator.register::<GetOrganization, _>(GetOrganizationHandler::new(deps.org_read_store));
+    mediator.register::<GetOidcConfig, _>(GetOidcConfigHandler::new(deps.oidc_config_read_store.clone()));
+    mediator.register::<ListOidcConfigs, _>(ListOidcConfigsHandler::new(deps.oidc_config_read_store));
     mediator.register::<AddOidcConfig, _>(AddOidcConfigHandler);
     mediator.register::<ActivateOidcConfig, _>(ActivateOidcConfigHandler);
     mediator.register::<DeleteOidcConfig, _>(DeleteOidcConfigHandler);
@@ -144,11 +148,12 @@ fn build_mediator(
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);
-    mediator.register::<GetProject, _>(GetProjectHandler::new(project_read_store.clone()));
-    mediator.register::<ListProjects, _>(ListProjectsHandler::new(project_read_store.clone()));
-    mediator.register::<GetCurrentUser, _>(GetCurrentUserHandler::new(project_permission_store.clone()));
-    mediator.register::<ListMembers, _>(ListMembersHandler::new(member_read_store));
-    mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(project_read_store, project_role_read_store));
+    mediator.register::<GetProject, _>(GetProjectHandler::new(deps.project_read_store.clone()));
+    mediator.register::<ListProjects, _>(ListProjectsHandler::new(deps.project_read_store.clone()));
+    mediator.register::<GetCurrentUser, _>(GetCurrentUserHandler::new(deps.project_permission_store.clone()));
+    mediator.register::<ListMembers, _>(ListMembersHandler::new(deps.member_read_store));
+    mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(deps.project_read_store.clone(), deps.project_role_read_store));
+    mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store, deps.project_member_read_store));
     mediator
 }
 
@@ -184,7 +189,18 @@ async fn run_api(
         Arc::new(meerkat_infrastructure::persistence::pg_member_read_store::PgMemberReadStore::new(pool.clone()));
     let project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore> =
         Arc::new(meerkat_infrastructure::persistence::pg_project_role_read_store::PgProjectRoleReadStore::new(pool.clone()));
-    let mediator = Arc::new(build_mediator(audit_logger, project_permission_store, org_read_store.clone(), oidc_config_read_store.clone(), project_read_store.clone(), member_read_store, project_role_read_store));
+    let project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore> =
+        Arc::new(meerkat_infrastructure::persistence::pg_project_member_read_store::PgProjectMemberReadStore::new(pool.clone()));
+    let mediator = Arc::new(build_mediator(MediatorDeps {
+        audit_logger,
+        project_permission_store,
+        org_read_store: org_read_store.clone(),
+        oidc_config_read_store: oidc_config_read_store.clone(),
+        project_read_store: project_read_store.clone(),
+        member_read_store,
+        project_role_read_store,
+        project_member_read_store,
+    }));
     let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
     let member_repository = Arc::new(PgMemberRepository::new(pool.clone()));
     let oidc_discovery_provider = Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300)));

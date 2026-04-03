@@ -8,6 +8,7 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::members::list_members::ListMembers;
+use meerkat_application::projects::list_members::ListProjectMembers;
 use meerkat_application::projects::list_roles::ListProjectRoles;
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::project::ProjectSlug;
@@ -105,6 +106,58 @@ pub(crate) async fn list_project_roles(
             slug: r.slug.as_str().to_string(),
             permissions: r.permissions.into_iter().map(|p| p.to_string()).collect(),
             is_default: r.is_default,
+        })
+        .collect();
+
+    Ok(Json(items))
+}
+
+// --- Project members ---
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct ProjectMemberDto {
+    #[serde(rename = "member_id")]
+    pub member_id: MemberId,
+    #[serde(rename = "preferred_name")]
+    pub preferred_name: String,
+    #[serde(rename = "sub")]
+    pub sub: String,
+    #[serde(rename = "role_id")]
+    pub role_id: ProjectRoleId,
+    #[serde(rename = "role_name")]
+    pub role_name: String,
+    #[serde(rename = "created_at")]
+    pub created_at: DateTime<Utc>,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/projects/{slug}/members",
+    responses(
+        (status = 200, description = "List of project members", body = Vec<ProjectMemberDto>),
+        (status = 404, description = "Project not found"),
+    )
+)]
+pub(crate) async fn list_project_members(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(slug): Path<ProjectSlug>,
+) -> Result<Json<Vec<ProjectMemberDto>>, ApiError> {
+    let members = state
+        .mediator
+        .dispatch(ListProjectMembers { org_id: resolved_org.id, slug }, &req_ctx)
+        .await?;
+
+    let items = members
+        .into_iter()
+        .map(|m| ProjectMemberDto {
+            member_id: m.member_id,
+            preferred_name: m.preferred_name,
+            sub: m.sub,
+            role_id: m.role_id,
+            role_name: m.role_name,
+            created_at: m.created_at,
         })
         .collect();
 

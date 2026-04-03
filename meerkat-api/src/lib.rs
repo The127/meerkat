@@ -34,6 +34,7 @@ pub mod state;
         oidc_admin::update_oidc_claim_mapping,
         team::list_members,
         team::list_project_roles,
+        team::list_project_members,
     ),
     components(schemas(
         error::ErrorDto,
@@ -55,6 +56,7 @@ pub mod state;
         oidc_admin::AddOidcConfigResponseDto,
         team::MemberDto,
         team::ProjectRoleDto,
+        team::ProjectMemberDto,
     ))
 )]
 struct ApiDoc;
@@ -67,7 +69,8 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(projects::list_projects).post(projects::create_project))
         .route("/{slug}", get(projects::get_project).delete(projects::delete_project))
         .route("/{slug}/rename", post(projects::rename_project))
-        .route("/{slug}/roles", get(team::list_project_roles));
+        .route("/{slug}/roles", get(team::list_project_roles))
+        .route("/{slug}/members", get(team::list_project_members));
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)
