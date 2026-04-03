@@ -32,10 +32,19 @@ initialVirtualServer:
     primaryEmail: admin@meerkat.local
     # Default password: "meerkat" — change before exposing to the internet
     passwordHash: "$argon2id$v=19$m=16,t=2,p=1$MTIzNDU2Nzg$QWu7e+sjG5knAdNLoKdLDg"
+    roles:
+      - "meerkat:owner"
   projects:
     - slug: "meerkat"
       name: "Meerkat"
       description: "Meerkat error reporting platform"
+      roles:
+        - name: "owner"
+          description: "Organization owner"
+        - name: "admin"
+          description: "Organization admin"
+        - name: "member"
+          description: "Organization member"
       applications:
         - name: "meerkat-api"
           displayName: "Meerkat API"
