@@ -1,7 +1,8 @@
 use vec1::vec1;
 use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, Url};
 use crate::models::organization::{Organization, OrganizationSlug};
-use crate::models::project::{Project, ProjectSlug};
+use crate::models::project::{Project, ProjectId, ProjectSlug};
+use crate::models::project_key::ProjectKey;
 use crate::ports::clock::MockClock;
 
 pub fn test_claim_mapping() -> ClaimMapping {
@@ -45,4 +46,11 @@ pub fn test_project() -> (Project, MockClock) {
     let slug = ProjectSlug::new("test-project").unwrap();
     let project = Project::new(org_id, "Test Project".into(), slug, &clock).unwrap();
     (project, clock)
+}
+
+pub fn test_project_key() -> (ProjectKey, MockClock) {
+    let clock = MockClock::new(chrono::Utc::now());
+    let project_id = ProjectId::new();
+    let key = ProjectKey::generate(project_id, "Default".into(), &clock).unwrap();
+    (key, clock)
 }
