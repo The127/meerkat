@@ -61,7 +61,8 @@ pub fn router(state: AppState) -> Router {
         .nest("/api/v1/projects", project_routes)
         .route("/api/v1/organization/rename", post(organizations::rename_organization))
         .route("/api/v1/organization", delete(organizations::delete_organization))
-        .route("/api/v1/me", get(members::get_current_user));
+        .route("/api/v1/me", get(members::get_current_user))
+        .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context));
 
     if state.auth_enabled {
         protected_routes = protected_routes
@@ -72,6 +73,7 @@ pub fn router(state: AppState) -> Router {
         .merge(protected_routes)
         .route("/api/v1/oidc", get(oidc::get_oidc_config))
         .route("/api/v1/organization", get(organizations::get_organization))
+        .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::resolve_subdomain));
 
     Router::new()
@@ -80,6 +82,5 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health::liveness))
         .route("/health/ready", get(health::readiness))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::error_observer))
-        .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context))
         .with_state(state)
 }

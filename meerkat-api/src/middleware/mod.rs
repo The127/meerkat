@@ -7,6 +7,7 @@ use axum::extract::State;
 use axum::middleware::Next;
 use axum::response::Response;
 
+use meerkat_application::auth_context::AuthContext;
 use meerkat_application::context::RequestContext;
 use meerkat_application::ports::error_observer::ErrorReport;
 
@@ -17,11 +18,15 @@ pub(crate) use subdomain::resolve_subdomain;
 
 pub(crate) async fn request_context(
     State(state): State<AppState>,
-    mut request: axum::extract::Request,
+    request: axum::extract::Request,
     next: Next,
 ) -> Response {
-    let ctx = Arc::new(RequestContext::new(state.context.clone()));
-    request.extensions_mut().insert(ctx);
+    let mut ctx = RequestContext::new(state.context.clone());
+    if let Some(auth) = request.extensions().get::<AuthContext>().cloned() {
+        ctx = ctx.with_auth(auth);
+    }
+    let mut request = request;
+    request.extensions_mut().insert(Arc::new(ctx));
     next.run(request).await
 }
 
