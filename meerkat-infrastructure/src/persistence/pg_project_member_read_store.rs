@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
-use meerkat_application::ports::project_member_read_store::{ProjectMemberReadModel, ProjectMemberReadStore};
+use meerkat_application::ports::project_member_read_store::{MemberProjectReadModel, ProjectMemberReadModel, ProjectMemberReadStore};
 use meerkat_domain::models::member::MemberId;
-use meerkat_domain::models::project::ProjectId;
+use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 use meerkat_domain::models::project_role::ProjectRoleId;
 
 use super::error::map_sqlx_error;
@@ -60,6 +60,44 @@ impl ProjectMemberReadStore for PgProjectMemberReadStore {
                 role_id: ProjectRoleId::from_uuid(r.role_id),
                 role_name: r.role_name,
                 created_at: r.created_at,
+            })
+            .collect())
+    }
+
+    async fn list_by_member(
+        &self,
+        member_id: &MemberId,
+    ) -> Result<Vec<MemberProjectReadModel>, ApplicationError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            project_name: String,
+            project_slug: String,
+            role_id: sqlx::types::Uuid,
+            role_name: String,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            "SELECT p.name AS project_name, p.slug AS project_slug, \
+                    pr.id AS role_id, pr.name AS role_name \
+             FROM project_members pm \
+             JOIN projects p ON p.id = pm.project_id \
+             JOIN project_member_roles pmr ON pmr.project_member_id = pm.id \
+             JOIN project_roles pr ON pr.id = pmr.role_id \
+             WHERE pm.member_id = $1 \
+             ORDER BY p.name",
+        )
+        .bind(member_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| MemberProjectReadModel {
+                project_name: r.project_name,
+                project_slug: ProjectSlug::new(r.project_slug).expect("invalid slug in database"),
+                role_id: ProjectRoleId::from_uuid(r.role_id),
+                role_name: r.role_name,
             })
             .collect())
     }

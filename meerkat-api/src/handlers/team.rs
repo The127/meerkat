@@ -7,6 +7,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
+use meerkat_application::members::list_member_projects::ListMemberProjects;
 use meerkat_application::members::list_members::ListMembers;
 use meerkat_application::projects::list_members::ListProjectMembers;
 use meerkat_application::projects::list_roles::ListProjectRoles;
@@ -158,6 +159,50 @@ pub(crate) async fn list_project_members(
             role_id: m.role_id,
             role_name: m.role_name,
             created_at: m.created_at,
+        })
+        .collect();
+
+    Ok(Json(items))
+}
+
+// --- Member project memberships ---
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct MemberProjectDto {
+    #[serde(rename = "project_name")]
+    pub project_name: String,
+    #[serde(rename = "project_slug")]
+    pub project_slug: String,
+    #[serde(rename = "role_id")]
+    pub role_id: ProjectRoleId,
+    #[serde(rename = "role_name")]
+    pub role_name: String,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/members/{id}/projects",
+    responses(
+        (status = 200, description = "Member's project memberships", body = Vec<MemberProjectDto>),
+    )
+)]
+pub(crate) async fn list_member_projects(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Path(member_id): Path<MemberId>,
+) -> Result<Json<Vec<MemberProjectDto>>, ApiError> {
+    let projects = state
+        .mediator
+        .dispatch(ListMemberProjects { member_id }, &req_ctx)
+        .await?;
+
+    let items = projects
+        .into_iter()
+        .map(|p| MemberProjectDto {
+            project_name: p.project_name,
+            project_slug: p.project_slug.as_str().to_string(),
+            role_id: p.role_id,
+            role_name: p.role_name,
         })
         .collect();
 
