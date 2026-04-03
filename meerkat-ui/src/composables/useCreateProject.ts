@@ -22,6 +22,7 @@ export function useCreateProject() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: ['currentUser'] })
     },
   })
 }
