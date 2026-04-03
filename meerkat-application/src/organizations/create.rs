@@ -5,7 +5,7 @@ use meerkat_domain::models::organization::{Organization, OrganizationId, Organiz
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::mediator::{Command, Handler};
+use crate::mediator::{Request, Handler};
 
 pub struct CreateOrganizationOidcConfig {
     pub name: String,
@@ -22,7 +22,7 @@ pub struct CreateOrganization {
     pub oidc_config: CreateOrganizationOidcConfig,
 }
 
-impl Command for CreateOrganization {
+impl Request for CreateOrganization {
     type Output = OrganizationId;
 }
 

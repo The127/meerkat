@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::extensions::Extensions;
 
-pub trait Command: Send + Sync + 'static {
+pub trait Request: Send + Sync + 'static {
     type Output: Send + Sync + 'static;
 
     fn extensions(&self) -> Extensions {
@@ -20,7 +20,7 @@ pub trait Command: Send + Sync + 'static {
 #[async_trait]
 pub trait Handler<CMD, ERR, CTX>: Send + Sync
 where
-    CMD: Command,
+    CMD: Request,
 {
     async fn handle(&self, cmd: CMD, ctx: &CTX) -> Result<CMD::Output, ERR>;
 }
@@ -84,7 +84,7 @@ where
 
     pub fn register<CMD, H>(&mut self, handler: H)
     where
-        CMD: Command + 'static,
+        CMD: Request + 'static,
         CMD::Output: Send + 'static,
         H: Handler<CMD, ERR, CTX> + Send + Sync + 'static,
     {
@@ -110,7 +110,7 @@ where
         ctx: &CTX,
     ) -> Result<CMD::Output, MediatorError<ERR>>
     where
-        CMD: Command + 'static,
+        CMD: Request + 'static,
         CMD::Output: Send + 'static,
     {
         let handler = self
@@ -168,7 +168,7 @@ mod tests {
         id: u32,
     }
 
-    impl Command for MockCommand {
+    impl Request for MockCommand {
         type Output = String;
     }
 
@@ -217,7 +217,7 @@ mod tests {
     }
 
     struct FailingCommand;
-    impl Command for FailingCommand {
+    impl Request for FailingCommand {
         type Output = ();
     }
 
@@ -256,7 +256,7 @@ mod tests {
         mediator.register::<MockCommand, _>(MockHandler);
 
         struct AnotherCommand;
-        impl Command for AnotherCommand {
+        impl Request for AnotherCommand {
             type Output = u32;
         }
         struct AnotherHandler;

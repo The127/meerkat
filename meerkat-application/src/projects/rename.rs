@@ -4,23 +4,23 @@ use meerkat_domain::models::project::ProjectIdentifier;
 
 use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::{CommandName, RequiredPermissions};
+use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
-use crate::mediator::{Command, Handler};
+use crate::mediator::{Request, Handler};
 
 pub struct RenameProject {
     pub identifier: ProjectIdentifier,
     pub name: String,
 }
 
-impl Command for RenameProject {
+impl Request for RenameProject {
     type Output = ();
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
-        ext.insert(CommandName("RenameProject".to_string()));
+        ext.insert(RequestName("RenameProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectWrite.into()]));
         ext
     }

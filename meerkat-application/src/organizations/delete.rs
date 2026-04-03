@@ -4,22 +4,22 @@ use meerkat_domain::models::organization::OrganizationIdentifier;
 
 use meerkat_domain::models::permission::OrgPermission;
 
-use crate::behaviors::authorization::{CommandName, RequiredPermissions};
+use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
-use crate::mediator::{Command, Handler};
+use crate::mediator::{Request, Handler};
 
 pub struct DeleteOrganization {
     pub identifier: OrganizationIdentifier,
 }
 
-impl Command for DeleteOrganization {
+impl Request for DeleteOrganization {
     type Output = ();
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
-        ext.insert(CommandName("DeleteOrganization".to_string()));
+        ext.insert(RequestName("DeleteOrganization".to_string()));
         ext.insert(RequiredPermissions(vec![OrgPermission::OrgDelete.into()]));
         ext
     }

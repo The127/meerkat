@@ -4,22 +4,22 @@ use meerkat_domain::models::project::ProjectIdentifier;
 
 use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::{CommandName, RequiredPermissions};
+use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
-use crate::mediator::{Command, Handler};
+use crate::mediator::{Request, Handler};
 
 pub struct DeleteProject {
     pub identifier: ProjectIdentifier,
 }
 
-impl Command for DeleteProject {
+impl Request for DeleteProject {
     type Output = ();
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
-        ext.insert(CommandName("DeleteProject".to_string()));
+        ext.insert(RequestName("DeleteProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectDelete.into()]));
         ext
     }

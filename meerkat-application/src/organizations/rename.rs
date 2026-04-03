@@ -4,23 +4,23 @@ use meerkat_domain::models::organization::OrganizationIdentifier;
 
 use meerkat_domain::models::permission::OrgPermission;
 
-use crate::behaviors::authorization::{CommandName, RequiredPermissions};
+use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
-use crate::mediator::{Command, Handler};
+use crate::mediator::{Request, Handler};
 
 pub struct RenameOrganization {
     pub identifier: OrganizationIdentifier,
     pub name: String,
 }
 
-impl Command for RenameOrganization {
+impl Request for RenameOrganization {
     type Output = ();
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
-        ext.insert(CommandName("RenameOrganization".to_string()));
+        ext.insert(RequestName("RenameOrganization".to_string()));
         ext.insert(RequiredPermissions(vec![OrgPermission::OrgRename.into()]));
         ext
     }

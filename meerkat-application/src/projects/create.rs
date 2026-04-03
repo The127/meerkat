@@ -7,11 +7,11 @@ use meerkat_domain::models::project_role::ProjectRole;
 
 use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::{CommandName, RequiredPermissions};
+use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
-use crate::mediator::{Command, Handler};
+use crate::mediator::{Request, Handler};
 
 pub struct CreateProject {
     pub organization_id: OrganizationId,
@@ -19,12 +19,12 @@ pub struct CreateProject {
     pub slug: ProjectSlug,
 }
 
-impl Command for CreateProject {
+impl Request for CreateProject {
     type Output = ProjectId;
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
-        ext.insert(CommandName("CreateProject".to_string()));
+        ext.insert(RequestName("CreateProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectWrite.into()]));
         ext
     }

@@ -45,7 +45,7 @@ pub mod testing {
     }
 }
 
-pub struct CommandName(pub String);
+pub struct RequestName(pub String);
 
 pub struct AuthorizationBehavior {
     audit_logger: Arc<dyn AuditLogger>,
@@ -78,7 +78,7 @@ impl PipelineBehavior<RequestContext, ApplicationError> for AuthorizationBehavio
         }
 
         let action = extensions
-            .get::<CommandName>()
+            .get::<RequestName>()
             .map(|n| n.0.clone())
             .unwrap_or_else(|| "unknown".to_string());
 
@@ -150,22 +150,22 @@ mod tests {
     use crate::context::RequestContext;
     use crate::error::ApplicationError;
     use crate::extensions::Extensions;
-    use crate::mediator::{Command, Handler, Mediator};
+    use crate::mediator::{Request, Handler, Mediator};
     use crate::ports::audit::AuditOutcome;
 
     use super::*;
 
     struct NoAuthCommand;
-    impl Command for NoAuthCommand {
+    impl Request for NoAuthCommand {
         type Output = String;
     }
 
     struct ProtectedCommand;
-    impl Command for ProtectedCommand {
+    impl Request for ProtectedCommand {
         type Output = String;
         fn extensions(&self) -> Extensions {
             let mut ext = Extensions::new();
-            ext.insert(CommandName("ProtectedCommand".to_string()));
+            ext.insert(RequestName("ProtectedCommand".to_string()));
             ext.insert(RequiredPermissions(vec![OrgPermission::OrgRename.into()]));
             ext
         }
