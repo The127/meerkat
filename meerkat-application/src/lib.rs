@@ -4,6 +4,7 @@ pub mod context;
 pub mod extensions;
 pub mod error;
 pub mod mediator;
+pub mod members;
 pub mod organizations;
 pub mod ports;
 pub mod projects;

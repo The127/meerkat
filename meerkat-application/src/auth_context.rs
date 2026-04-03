@@ -11,6 +11,7 @@ pub struct AuthContext {
     pub org_id: OrganizationId,
     pub org_roles: Vec<OrgRole>,
     pub member_id: MemberId,
+    pub preferred_name: String,
     pub permissions: HashSet<EffectivePermission>,
 }
 

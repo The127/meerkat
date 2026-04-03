@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -5,7 +7,7 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore;
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::ProjectId;
+use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 
 use super::error::map_sqlx_error;
 
@@ -45,5 +47,33 @@ impl ProjectPermissionReadStore for PgProjectPermissionReadStore {
             .collect();
 
         Ok(permissions)
+    }
+
+    async fn get_all_member_permissions(
+        &self,
+        member_id: &MemberId,
+    ) -> Result<HashMap<ProjectSlug, Vec<ProjectPermission>>, ApplicationError> {
+        let rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT p.slug, prp.permission \
+             FROM project_members pm \
+             JOIN project_member_roles pmr ON pmr.project_member_id = pm.id \
+             JOIN project_role_permissions prp ON prp.role_id = pmr.role_id \
+             JOIN projects p ON p.id = pm.project_id \
+             WHERE pm.member_id = $1 \
+             ORDER BY p.slug",
+        )
+        .bind(member_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        let mut result: HashMap<ProjectSlug, Vec<ProjectPermission>> = HashMap::new();
+        for (slug, permission) in rows {
+            if let (Ok(slug), Ok(perm)) = (ProjectSlug::new(&slug), permission.parse::<ProjectPermission>()) {
+                result.entry(slug).or_default().push(perm);
+            }
+        }
+
+        Ok(result)
     }
 }

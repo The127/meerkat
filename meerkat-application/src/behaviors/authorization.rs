@@ -208,6 +208,7 @@ mod tests {
             org_id: OrganizationId::new(),
             org_roles: vec![],
             member_id: MemberId::new(),
+            preferred_name: "Test User".to_string(),
             permissions: HashSet::from_iter(permissions),
         }
     }

@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{delete, get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, oidc, organizations, projects};
+use crate::handlers::{health, members, oidc, organizations, projects};
 use crate::state::AppState;
 
 pub mod error;
@@ -16,6 +16,7 @@ pub mod state;
 #[openapi(
     paths(
         health::liveness,
+        members::get_current_user,
         oidc::get_oidc_config,
         organizations::create_organization,
         organizations::get_organization,
@@ -30,6 +31,7 @@ pub mod state;
     components(schemas(
         error::ErrorDto,
         health::HealthDto,
+        members::CurrentUserDto,
         oidc::OidcConfigDto,
         organizations::CreateOrganizationRequestDto,
         organizations::CreateOrganizationResponseDto,
@@ -58,7 +60,8 @@ pub fn router(state: AppState) -> Router {
         .nest("/api/v1/organizations", org_routes)
         .nest("/api/v1/projects", project_routes)
         .route("/api/v1/organization/rename", post(organizations::rename_organization))
-        .route("/api/v1/organization", delete(organizations::delete_organization));
+        .route("/api/v1/organization", delete(organizations::delete_organization))
+        .route("/api/v1/me", get(members::get_current_user));
 
     if state.auth_enabled {
         protected_routes = protected_routes

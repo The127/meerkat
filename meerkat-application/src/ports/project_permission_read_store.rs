@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::ProjectId;
+use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 
 use crate::error::ApplicationError;
 
@@ -12,4 +14,9 @@ pub trait ProjectPermissionReadStore: Send + Sync {
         member_id: &MemberId,
         project_id: &ProjectId,
     ) -> Result<Vec<ProjectPermission>, ApplicationError>;
+
+    async fn get_all_member_permissions(
+        &self,
+        member_id: &MemberId,
+    ) -> Result<HashMap<ProjectSlug, Vec<ProjectPermission>>, ApplicationError>;
 }

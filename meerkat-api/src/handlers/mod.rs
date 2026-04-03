@@ -2,6 +2,7 @@ use meerkat_application::error::ApplicationError;
 use vec1::Vec1;
 
 pub mod health;
+pub mod members;
 pub mod oidc;
 pub mod organizations;
 pub mod projects;

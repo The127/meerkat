@@ -124,6 +124,7 @@ async fn authenticate_inner(
         org_id: resolved_org.id,
         org_roles,
         member_id,
+        preferred_name: preferred_name.to_string(),
         permissions,
     };
 

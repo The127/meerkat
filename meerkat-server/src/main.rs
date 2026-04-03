@@ -23,6 +23,7 @@ use meerkat_application::projects::create::{CreateProject, CreateProjectHandler}
 use meerkat_application::projects::delete::{DeleteProject, DeleteProjectHandler};
 use meerkat_application::projects::get::{GetProject, GetProjectHandler};
 use meerkat_application::projects::list::{ListProjects, ListProjectsHandler};
+use meerkat_application::members::get_current_user::{GetCurrentUser, GetCurrentUserHandler};
 use meerkat_application::projects::rename::{RenameProject, RenameProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
@@ -115,7 +116,7 @@ fn build_mediator(
     project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore>,
 ) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
-    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store, project_read_store.clone())));
+    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store.clone(), project_read_store.clone())));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
@@ -127,6 +128,7 @@ fn build_mediator(
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);
     mediator.register::<GetProject, _>(GetProjectHandler::new(project_read_store.clone()));
     mediator.register::<ListProjects, _>(ListProjectsHandler::new(project_read_store));
+    mediator.register::<GetCurrentUser, _>(GetCurrentUserHandler::new(project_permission_store.clone()));
     mediator
 }
 
