@@ -4,14 +4,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use meerkat_domain::models::permission::EffectivePermission;
+use meerkat_domain::models::project::ProjectId;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
 use crate::mediator::{PipelineBehavior, PipelineNext};
 use crate::ports::audit::{AuditEvent, AuditLogger, AuditOutcome};
+use crate::ports::project_permission_read_store::ProjectPermissionReadStore;
 
 pub struct RequiredPermissions(pub Vec<EffectivePermission>);
+pub struct ProjectContext(pub ProjectId);
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod testing {
@@ -46,11 +49,15 @@ pub struct CommandName(pub String);
 
 pub struct AuthorizationBehavior {
     audit_logger: Arc<dyn AuditLogger>,
+    project_permission_store: Arc<dyn ProjectPermissionReadStore>,
 }
 
 impl AuthorizationBehavior {
-    pub fn new(audit_logger: Arc<dyn AuditLogger>) -> Self {
-        Self { audit_logger }
+    pub fn new(
+        audit_logger: Arc<dyn AuditLogger>,
+        project_permission_store: Arc<dyn ProjectPermissionReadStore>,
+    ) -> Self {
+        Self { audit_logger, project_permission_store }
     }
 }
 
@@ -89,8 +96,21 @@ impl PipelineBehavior<RequestContext, ApplicationError> for AuthorizationBehavio
             }
         };
 
+        let mut effective = auth.permissions.clone();
+
+        if let Some(ProjectContext(project_id)) = extensions.get::<ProjectContext>() {
+            let project_perms = self.project_permission_store
+                .get_member_permissions(&auth.member_id, project_id)
+                .await
+                .map_err(|_| ApplicationError::Internal("failed to load project permissions".to_string()))?;
+
+            for p in project_perms {
+                effective.insert(EffectivePermission::Project(p));
+            }
+        }
+
         for permission in required {
-            if !auth.has_permission(permission.clone()) {
+            if !effective.contains(permission) {
                 self.audit_logger.log(&AuditEvent {
                     sub: Some(auth.sub.clone()),
                     org_id: Some(auth.org_id.clone()),
@@ -178,8 +198,11 @@ mod tests {
     }
 
     fn build_mediator(audit_logger: Arc<dyn crate::ports::audit::AuditLogger>) -> Mediator<RequestContext, ApplicationError> {
+        let mut perm_store = crate::ports::project_permission_read_store::MockProjectPermissionReadStore::new();
+        perm_store.expect_get_member_permissions().returning(|_, _| Box::pin(async { Ok(vec![]) }));
+
         let mut mediator = Mediator::new();
-        mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger)));
+        mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, Arc::new(perm_store))));
         mediator.register::<NoAuthCommand, _>(EchoHandler);
         mediator.register::<ProtectedCommand, _>(EchoHandler);
         mediator

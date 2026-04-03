@@ -28,6 +28,7 @@ use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
+use meerkat_infrastructure::persistence::pg_project_permission_read_store::PgProjectPermissionReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::persistence::pg_project_read_store::PgProjectReadStore;
 use meerkat_infrastructure::tracing_audit_logger::TracingAuditLogger;
@@ -102,9 +103,12 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
         .context("Failed to connect to database")
 }
 
-fn build_mediator(audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger>) -> Mediator<RequestContext, ApplicationError> {
+fn build_mediator(
+    audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger>,
+    project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore>,
+) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
-    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger)));
+    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store)));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
@@ -137,7 +141,9 @@ async fn run_api(
     let audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger> = Arc::new(AuditPipeline::new(vec![
         Arc::new(TracingAuditLogger),
     ]));
-    let mediator = Arc::new(build_mediator(audit_logger));
+    let project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore> =
+        Arc::new(PgProjectPermissionReadStore::new(pool.clone()));
+    let mediator = Arc::new(build_mediator(audit_logger, project_permission_store));
 
     let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
     let project_read_store = Arc::new(PgProjectReadStore::new(pool.clone()));
