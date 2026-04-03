@@ -1,7 +1,12 @@
+use std::sync::Arc;
+
 use axum::extract::State;
 use axum::{Extension, Json};
 use serde::Serialize;
 use utoipa::ToSchema;
+
+use meerkat_application::context::RequestContext;
+use meerkat_application::organizations::get_oidc_config::GetOidcConfig;
 
 use crate::error::ApiError;
 use crate::resolved_organization::ResolvedOrganization;
@@ -44,12 +49,14 @@ pub(crate) struct OidcConfigDto {
 )]
 pub(crate) async fn get_oidc_config(
     State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
 ) -> Result<Json<OidcConfigDto>, ApiError> {
-    let config = state
-        .oidc_config_read_store
-        .find_active_by_org_id(&resolved_org.id)
-        .await?;
+    let query = GetOidcConfig {
+        org_id: resolved_org.id,
+    };
+
+    let config = state.mediator.dispatch(query, &req_ctx).await?;
 
     let cm = config.claim_mapping;
     Ok(Json(OidcConfigDto {
