@@ -31,3 +31,10 @@ export interface PaginatedResponse<T> {
   items: T[]
   total: number
 }
+
+export interface CurrentUser {
+  member_id: string
+  preferred_name: string
+  org_permissions: string[]
+  project_permissions: Record<string, string[]>
+}

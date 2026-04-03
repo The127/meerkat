@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { FolderOpen, Plus, Search } from 'lucide-vue-next'
 import { RouterLink, RouterView } from 'vue-router'
 import { useProjects } from '@/composables/useProjects'
+import { useCurrentUser } from '@/composables/useCurrentUser'
 import MkCardList from '@/components/meerkat/MkCardList.vue'
 import MkButton from '@/components/meerkat/MkButton.vue'
 import MkInput from '@/components/meerkat/MkInput.vue'
@@ -17,6 +18,7 @@ watch(search, (val) => {
 const searchQuery = computed(() => debouncedSearch.value.trim() || undefined)
 
 const { data, isLoading } = useProjects({ search: searchQuery })
+const { canCreateProject } = useCurrentUser()
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -34,7 +36,7 @@ function formatDate(iso: string): string {
         <h1 class="text-xl font-semibold text-foreground mb-1">Projects</h1>
         <p class="text-sm text-muted-foreground">Manage your projects and their SDKs.</p>
       </div>
-      <RouterLink v-if="data?.items?.length || searchQuery" :to="{ name: 'projects-new' }">
+      <RouterLink v-if="canCreateProject && (data?.items?.length || searchQuery)" :to="{ name: 'projects-new' }">
         <MkButton size="sm">
           <Plus class="h-4 w-4 mr-1.5" />
           Create Project
@@ -71,7 +73,7 @@ function formatDate(iso: string): string {
         </RouterLink>
       </template>
       <template #empty>
-        <RouterLink v-if="!searchQuery" :to="{ name: 'projects-new' }">
+        <RouterLink v-if="canCreateProject && !searchQuery" :to="{ name: 'projects-new' }">
           <MkButton size="sm">
             <Plus class="h-4 w-4 mr-1.5" />
             Create Project
