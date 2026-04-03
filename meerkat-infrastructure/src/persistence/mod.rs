@@ -1,10 +1,14 @@
 pub(crate) mod error;
 pub mod pg_member_repository;
 pub(crate) mod organization_persistence;
+pub(crate) mod project_member_persistence;
 pub(crate) mod project_persistence;
+pub(crate) mod project_role_persistence;
 pub mod pg_oidc_config_read_store;
 pub mod pg_organization_read_store;
+pub mod pg_project_member_repository;
 pub mod pg_project_read_store;
+pub mod pg_project_role_repository;
 pub mod pg_organization_repository;
 pub mod pg_project_repository;
 pub mod pg_unit_of_work;
