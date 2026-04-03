@@ -2,6 +2,8 @@ use async_trait::async_trait;
 
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{Project, ProjectId, ProjectSlug};
+use meerkat_domain::models::project_member::ProjectMember;
+use meerkat_domain::models::project_role::ProjectRole;
 
 use meerkat_domain::models::permission::ProjectPermission;
 
@@ -38,12 +40,28 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
         ctx: &RequestContext,
     ) -> Result<ProjectId, ApplicationError> {
         let project = Project::new(cmd.organization_id, cmd.name, cmd.slug, ctx.clock())?;
+        let project_id = project.id().clone();
 
-        let id = project.id().clone();
+        let (default_roles, admin_role_id) = ProjectRole::default_roles(project_id.clone(), ctx.clock());
 
-        ctx.uow().await.projects().add(project);
+        let uow = ctx.uow().await;
+        uow.projects().add(project);
 
-        Ok(id)
+        for role in default_roles {
+            uow.project_roles().add(role);
+        }
+
+        if let Some(auth) = ctx.auth() {
+            let member = ProjectMember::new(
+                auth.member_id.clone(),
+                project_id.clone(),
+                vec![admin_role_id],
+                ctx.clock(),
+            );
+            uow.project_members().add(member);
+        }
+
+        Ok(project_id)
     }
 }
 

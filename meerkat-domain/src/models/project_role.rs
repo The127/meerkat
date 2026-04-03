@@ -56,8 +56,10 @@ impl ProjectRole {
         })
     }
 
-    pub fn default_roles(project_id: ProjectId, clock: &dyn Clock) -> Vec<ProjectRole> {
-        vec![
+    pub fn default_roles(project_id: ProjectId, clock: &dyn Clock) -> (Vec<ProjectRole>, ProjectRoleId) {
+        let admin_id = ProjectRoleId::new();
+
+        let roles = vec![
             ProjectRole {
                 id: ProjectRoleId::new(),
                 project_id: project_id.clone(),
@@ -80,7 +82,7 @@ impl ProjectRole {
                 created_at: clock.now(),
             },
             ProjectRole {
-                id: ProjectRoleId::new(),
+                id: admin_id.clone(),
                 project_id,
                 name: "Admin".to_string(),
                 slug: ProjectRoleSlug::new("admin").unwrap(),
@@ -93,7 +95,9 @@ impl ProjectRole {
                 is_default: true,
                 created_at: clock.now(),
             },
-        ]
+        ];
+
+        (roles, admin_id)
     }
 
     pub fn id(&self) -> &ProjectRoleId { &self.id }
@@ -165,7 +169,7 @@ mod tests {
         let project_id = ProjectId::new();
 
         // act
-        let roles = ProjectRole::default_roles(project_id.clone(), &clock);
+        let (roles, admin_role_id) = ProjectRole::default_roles(project_id.clone(), &clock);
 
         // assert
         assert_eq!(roles.len(), 3);
@@ -189,5 +193,6 @@ mod tests {
         assert!(admin.is_default());
         assert_eq!(admin.permissions().len(), 4);
         assert!(admin.permissions().contains(&ProjectPermission::ProjectManageMembers));
+        assert_eq!(admin.id(), &admin_role_id);
     }
 }
