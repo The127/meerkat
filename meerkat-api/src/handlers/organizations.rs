@@ -10,6 +10,7 @@ use meerkat_application::context::RequestContext;
 use meerkat_application::error::ApplicationError;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationOidcConfig};
 use meerkat_application::organizations::delete::DeleteOrganization;
+use meerkat_application::organizations::get::GetOrganization;
 use meerkat_application::organizations::rename::RenameOrganization;
 use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId};
 use meerkat_domain::shared::url::Url;
@@ -130,13 +131,21 @@ pub(crate) struct OrganizationDto {
     )
 )]
 pub(crate) async fn get_organization(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-) -> Json<OrganizationDto> {
-    Json(OrganizationDto {
-        id: resolved_org.id,
-        slug: resolved_org.slug,
-        name: resolved_org.name,
-    })
+) -> Result<Json<OrganizationDto>, ApiError> {
+    let query = GetOrganization {
+        identifier: resolved_org.id.into(),
+    };
+
+    let org = state.mediator.dispatch(query, &req_ctx).await?;
+
+    Ok(Json(OrganizationDto {
+        id: org.id,
+        slug: org.slug,
+        name: org.name,
+    }))
 }
 
 #[derive(Debug, Deserialize, ToSchema)]

@@ -16,9 +16,12 @@ use meerkat_application::ports::audit::AuditPipeline;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
+use meerkat_application::organizations::get::{GetOrganization, GetOrganizationHandler};
 use meerkat_application::organizations::rename::{RenameOrganization, RenameOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::projects::delete::{DeleteProject, DeleteProjectHandler};
+use meerkat_application::projects::get::{GetProject, GetProjectHandler};
+use meerkat_application::projects::list::{ListProjects, ListProjectsHandler};
 use meerkat_application::projects::rename::{RenameProject, RenameProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
@@ -106,6 +109,8 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
 fn build_mediator(
     audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger>,
     project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore>,
+    org_read_store: Arc<dyn meerkat_application::ports::organization_read_store::OrganizationReadStore>,
+    project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore>,
 ) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
     mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store)));
@@ -113,9 +118,12 @@ fn build_mediator(
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
     mediator.register::<DeleteOrganization, _>(DeleteOrganizationHandler);
+    mediator.register::<GetOrganization, _>(GetOrganizationHandler::new(org_read_store));
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);
+    mediator.register::<GetProject, _>(GetProjectHandler::new(project_read_store.clone()));
+    mediator.register::<ListProjects, _>(ListProjectsHandler::new(project_read_store));
     mediator
 }
 
@@ -138,15 +146,15 @@ async fn run_api(
         error_observer,
     ));
 
+    let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
+    let project_read_store = Arc::new(PgProjectReadStore::new(pool.clone()));
+
     let audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger> = Arc::new(AuditPipeline::new(vec![
         Arc::new(TracingAuditLogger),
     ]));
     let project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore> =
         Arc::new(PgProjectPermissionReadStore::new(pool.clone()));
-    let mediator = Arc::new(build_mediator(audit_logger, project_permission_store));
-
-    let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
-    let project_read_store = Arc::new(PgProjectReadStore::new(pool.clone()));
+    let mediator = Arc::new(build_mediator(audit_logger, project_permission_store, org_read_store.clone(), project_read_store.clone()));
     let oidc_config_read_store = Arc::new(PgOidcConfigReadStore::new(pool.clone()));
     let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
     let member_repository = Arc::new(PgMemberRepository::new(pool.clone()));

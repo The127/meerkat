@@ -10,12 +10,13 @@ use utoipa::ToSchema;
 use meerkat_application::context::RequestContext;
 use meerkat_application::projects::create::CreateProject;
 use meerkat_application::projects::delete::DeleteProject;
+use meerkat_application::projects::get::GetProject;
+use meerkat_application::projects::list::ListProjects;
 use meerkat_application::projects::rename::RenameProject;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{ProjectId, ProjectIdentifier, ProjectSlug};
 
-use meerkat_application::error::ApplicationError;
 
 use crate::error::ApiError;
 use crate::pagination::PaginationQueryDto;
@@ -134,20 +135,19 @@ pub(crate) struct ListProjectsResponseDto {
 )]
 pub(crate) async fn list_projects(
     State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
     Query(pagination): Query<PaginationQueryDto>,
     Query(search): Query<SearchQueryDto>,
 ) -> Result<Json<ListProjectsResponseDto>, ApiError> {
-    let filter = search.search.as_deref().and_then(SearchFilter::new);
-    let result = state
-        .project_read_store
-        .list_by_org(
-            &resolved_org.id,
-            filter.as_ref(),
-            pagination.limit(),
-            pagination.offset(),
-        )
-        .await?;
+    let query = ListProjects {
+        org_id: resolved_org.id,
+        search: search.search.as_deref().and_then(SearchFilter::new),
+        limit: pagination.limit(),
+        offset: pagination.offset(),
+    };
+
+    let result = state.mediator.dispatch(query, &req_ctx).await?;
 
     let items = result
         .items
@@ -195,14 +195,16 @@ pub(crate) struct ProjectDto {
 )]
 pub(crate) async fn get_project(
     State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
     Path(slug): Path<ProjectSlug>,
 ) -> Result<Json<ProjectDto>, ApiError> {
-    let p = state
-        .project_read_store
-        .find_by_slug(&resolved_org.id, &slug)
-        .await?
-        .ok_or(ApplicationError::NotFound)?;
+    let query = GetProject {
+        org_id: resolved_org.id,
+        slug,
+    };
+
+    let p = state.mediator.dispatch(query, &req_ctx).await?;
 
     Ok(Json(ProjectDto {
         id: p.id,
