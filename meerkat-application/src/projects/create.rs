@@ -10,6 +10,7 @@ use meerkat_domain::models::permission::OrgPermission;
 use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
+use crate::events::DomainEvent;
 use crate::extensions::Extensions;
 use crate::mediator::{Request, Handler};
 
@@ -61,6 +62,8 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
             uow.project_members().add(member);
         }
 
+        ctx.raise(DomainEvent::ProjectCreated { project_id: project_id.clone() }).await;
+
         Ok(project_id)
     }
 }
@@ -71,6 +74,7 @@ mod tests {
     use meerkat_domain::models::project::ProjectSlug;
 
     use crate::context::RequestContext;
+    use crate::events::DomainEvent;
     use crate::mediator::Handler;
     use crate::ports::project_repository::MockProjectRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
@@ -78,7 +82,7 @@ mod tests {
     use super::{CreateProject, CreateProjectHandler};
 
     #[tokio::test]
-    async fn given_valid_input_then_adds_project_with_correct_fields_and_returns_id() {
+    async fn given_valid_input_then_adds_project_and_raises_project_created_event() {
         // arrange
         let org_id = OrganizationId::new();
         let expected_org_id = org_id.clone();
@@ -104,10 +108,17 @@ mod tests {
         };
 
         // act
-        let result = handler.handle(cmd, &ctx).await;
+        let project_id = handler.handle(cmd, &ctx).await.expect("handler should succeed");
 
         // assert
-        assert!(result.is_ok());
-        assert!(!result.unwrap().as_uuid().is_nil());
+        assert!(!project_id.as_uuid().is_nil());
+
+        let events = ctx.drain_events().await;
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            DomainEvent::ProjectCreated { project_id: event_pid } => {
+                assert_eq!(event_pid, &project_id);
+            }
+        }
     }
 }

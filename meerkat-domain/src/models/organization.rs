@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, slug_id, Reconstitute};
 use crate::shared::version::Version;
-use crate::shared::change_tracker::ChangeTracker;
 use crate::ports::clock::Clock;
 use crate::models::oidc_config::{ClaimMapping, OidcConfig, OidcConfigId, OidcConfigStatus};
 
@@ -31,39 +30,6 @@ pub struct Organization {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     version: Version,
-    #[reconstitute_ignore]
-    changes: ChangeTracker<OrganizationChange>,
-}
-
-#[derive(Debug, Clone)]
-pub enum OrganizationChange {
-    Created {
-        id: OrganizationId,
-        name: String,
-        slug: OrganizationSlug,
-        initial_oidc_config: OidcConfig,
-    },
-    NameUpdated {
-        id: OrganizationId,
-        old_name: String,
-        new_name: String,
-    },
-    OidcConfigAdded {
-        org_id: OrganizationId,
-        config: OidcConfig,
-    },
-    ActiveOidcConfigSwitched {
-        org_id: OrganizationId,
-        old_config_id: OidcConfigId,
-        new_config_id: OidcConfigId,
-    },
-    OidcConfigDeleted {
-        org_id: OrganizationId,
-        config_id: OidcConfigId,
-    },
-    Deleted {
-        id: OrganizationId,
-    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -95,28 +61,16 @@ impl Organization {
         oidc_config.activate()?;
 
         let id = OrganizationId::new();
-        let name_str = name.to_string();
-
-        let change = OrganizationChange::Created {
-            id: id.clone(),
-            name: name_str.clone(),
-            slug: slug.clone(),
-            initial_oidc_config: oidc_config.clone(),
-        };
-
         let now = clock.now();
-        let mut changes = ChangeTracker::new();
-        changes.record(change);
 
         Ok(Organization {
             id,
-            name: name_str,
+            name: name.to_string(),
             slug,
             oidc_configs: vec![oidc_config],
             created_at: now,
             updated_at: now,
             version: Version::initial(),
-            changes,
         })
     }
 
@@ -130,17 +84,7 @@ impl Organization {
             return Ok(());
         }
 
-        let old_name = self.name.clone();
-        let new_name_str = new_name.to_string();
-
-        self.changes.record(OrganizationChange::NameUpdated {
-            id: self.id.clone(),
-            old_name,
-            new_name: new_name_str.clone(),
-        });
-
-        self.name = new_name_str;
-
+        self.name = new_name.to_string();
         Ok(())
     }
 
@@ -152,13 +96,7 @@ impl Organization {
             return Err(OrganizationError::OidcConfigMustBeDraft);
         }
 
-        self.changes.record(OrganizationChange::OidcConfigAdded {
-            org_id: self.id.clone(),
-            config: config.clone(),
-        });
-
         self.oidc_configs.push(config);
-
         Ok(())
     }
 
@@ -168,7 +106,6 @@ impl Organization {
     ) -> Result<(), OrganizationError> {
         let current_config = self.oidc_configs.iter_mut().find(|c| c.is_active())
             .expect("organization invariant violated: no active OIDC config");
-        let old_config_id = current_config.id().clone();
 
         if current_config.id() == config_id {
             return Ok(())
@@ -180,13 +117,6 @@ impl Organization {
             .ok_or(OrganizationError::OidcConfigNotFound)?;
 
         target_config.activate()?;
-
-        self.changes.record(OrganizationChange::ActiveOidcConfigSwitched {
-            org_id: self.id.clone(),
-            old_config_id,
-            new_config_id: config_id.clone(),
-        });
-
         Ok(())
     }
 
@@ -215,21 +145,8 @@ impl Organization {
             return Err(OrganizationError::CannotDeleteActiveConfig);
         }
 
-        let before = self.oidc_configs.len();
         self.oidc_configs.retain(|c| c.id() != config_id);
-
-        if self.oidc_configs.len() < before {
-            self.changes.record(OrganizationChange::OidcConfigDeleted {
-                org_id: self.id.clone(),
-                config_id: config_id.clone(),
-            });
-        }
-
         Ok(())
-    }
-
-    pub fn pull_changes(&mut self) -> Vec<OrganizationChange> {
-        self.changes.pull_changes()
     }
 
     pub fn id(&self) -> &OrganizationId { &self.id }
@@ -248,7 +165,7 @@ mod tests {
     use crate::testing::{draft_config, test_org};
 
     #[test]
-    fn given_valid_name_and_slug_organization_creation_should_succeed_and_record_creation_event() {
+    fn given_valid_name_and_slug_then_organization_creation_succeeds() {
         // arrange
         let slug = OrganizationSlug::new("meerkat-inc").unwrap();
         let expected_now = Utc::now();
@@ -256,7 +173,7 @@ mod tests {
         let oidc_config = draft_config("Default SSO", &clock);
 
         // act
-        let mut org = Organization::new("Meerkat Inc.".into(), slug.clone(), oidc_config, &clock)
+        let org = Organization::new("Meerkat Inc.".into(), slug.clone(), oidc_config, &clock)
             .expect("Failed to create organization");
 
         // assert
@@ -268,22 +185,10 @@ mod tests {
         assert_eq!(org.updated_at(), &expected_now);
         assert_eq!(org.oidc_configs().len(), 1);
         assert!(org.oidc_configs()[0].is_active());
-
-        let changes = org.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OrganizationChange::Created { id, name: event_name, slug: event_slug, initial_oidc_config } => {
-                assert_eq!(id, org.id());
-                assert_eq!(event_name, "Meerkat Inc.");
-                assert_eq!(event_slug, &slug);
-                assert!(initial_oidc_config.is_active());
-            },
-            _ => panic!("Expected Created change"),
-        }
     }
 
     #[test]
-    fn given_an_empty_name_organization_creation_should_fail_with_an_empty_name_error() {
+    fn given_an_empty_name_then_organization_creation_fails() {
         // arrange
         let clock = MockClock::new(Utc::now());
         let slug = OrganizationSlug::new("empty-name").unwrap();
@@ -299,7 +204,7 @@ mod tests {
     }
 
     #[test]
-    fn given_a_name_with_extra_spaces_organization_creation_should_trim_the_name() {
+    fn given_a_name_with_extra_spaces_then_organization_creation_trims() {
         // arrange
         let clock = MockClock::new(Utc::now());
         let slug = OrganizationSlug::new("meerkat-inc").unwrap();
@@ -313,32 +218,19 @@ mod tests {
     }
 
     #[test]
-    fn given_an_existing_organization_updating_its_name_should_succeed_and_record_change_event() {
+    fn given_existing_org_then_updating_name_succeeds() {
         // arrange
         let (mut org, _) = test_org();
-        let _ = org.pull_changes();
 
         // act
         org.update_name("New Name".into()).expect("Failed to update organization name");
 
         // assert
         assert_eq!(org.name(), "New Name");
-        assert_eq!(org.version(), &Version::initial());
-
-        let changes = org.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OrganizationChange::NameUpdated { id, old_name, new_name } => {
-                assert_eq!(id, org.id());
-                assert_eq!(old_name, "Test Org");
-                assert_eq!(new_name, "New Name");
-            },
-            _ => panic!("Expected NameUpdated change"),
-        }
     }
 
     #[test]
-    fn given_an_existing_organization_updating_its_name_to_empty_should_fail() {
+    fn given_empty_name_then_updating_name_fails() {
         // arrange
         let (mut org, _) = test_org();
 
@@ -353,29 +245,24 @@ mod tests {
     }
 
     #[test]
-    fn given_the_same_name_updating_organization_name_should_do_nothing() {
+    fn given_same_name_then_updating_name_is_idempotent() {
         // arrange
         let (mut org, _) = test_org();
-        let _ = org.pull_changes();
 
         // act
         org.update_name("Test Org".into()).expect("Update should succeed");
 
         // assert
         assert_eq!(org.name(), "Test Org");
-        assert_eq!(org.version(), &Version::initial());
-        assert!(org.pull_changes().is_empty());
     }
 
     // --- add_draft_oidc_config ---
 
     #[test]
-    fn given_a_draft_config_adding_it_should_succeed_and_record_oidc_config_added_event() {
+    fn given_a_draft_config_then_adding_it_succeeds() {
         // arrange
         let (mut org, clock) = test_org();
-        let _ = org.pull_changes();
         let new_config = draft_config("Secondary SSO", &clock);
-        let expected_id = new_config.id().clone();
 
         // act
         org.add_draft_oidc_config(new_config)
@@ -383,23 +270,10 @@ mod tests {
 
         // assert
         assert_eq!(org.oidc_configs().len(), 2);
-
-        let added = org.oidc_configs().iter().find(|c| c.id() == &expected_id).unwrap();
-        assert_eq!(added.status(), &OidcConfigStatus::Draft);
-
-        let changes = org.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OrganizationChange::OidcConfigAdded { org_id, config } => {
-                assert_eq!(org_id, org.id());
-                assert_eq!(config.id(), &expected_id);
-            },
-            _ => panic!("Expected OidcConfigAdded change"),
-        }
     }
 
     #[test]
-    fn given_a_non_draft_config_adding_it_should_fail_with_oidc_config_must_be_draft() {
+    fn given_a_non_draft_config_then_adding_it_fails() {
         // arrange
         let (mut org, clock) = test_org();
         let mut active_config = draft_config("Already Active", &clock);
@@ -418,14 +292,13 @@ mod tests {
     // --- switch_active_oidc_config ---
 
     #[test]
-    fn given_a_draft_config_switching_to_it_should_activate_it_and_deactivate_the_old_one() {
+    fn given_a_draft_config_then_switching_to_it_activates_it_and_deactivates_old() {
         // arrange
         let (mut org, clock) = test_org();
         let old_active_id = org.oidc_configs()[0].id().clone();
         let new_config = draft_config("New SSO", &clock);
         let new_config_id = new_config.id().clone();
         org.add_draft_oidc_config(new_config).unwrap();
-        let _ = org.pull_changes();
 
         // act
         org.switch_active_oidc_config(&new_config_id)
@@ -437,21 +310,10 @@ mod tests {
 
         let new = org.oidc_configs().iter().find(|c| c.id() == &new_config_id).unwrap();
         assert_eq!(new.status(), &OidcConfigStatus::Active);
-
-        let changes = org.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OrganizationChange::ActiveOidcConfigSwitched { org_id, old_config_id, new_config_id: event_new_id } => {
-                assert_eq!(org_id, org.id());
-                assert_eq!(old_config_id, &old_active_id);
-                assert_eq!(event_new_id, &new_config_id);
-            },
-            _ => panic!("Expected ActiveOidcConfigSwitched change"),
-        }
     }
 
     #[test]
-    fn given_a_nonexistent_config_id_switching_should_fail_with_oidc_config_not_found() {
+    fn given_nonexistent_config_id_then_switching_fails() {
         // arrange
         let (mut org, _) = test_org();
         let nonexistent_id = OidcConfigId::new();
@@ -467,11 +329,10 @@ mod tests {
     }
 
     #[test]
-    fn given_the_already_active_config_switching_should_do_nothing() {
+    fn given_already_active_config_then_switching_is_idempotent() {
         // arrange
         let (mut org, _) = test_org();
         let active_id = org.oidc_configs()[0].id().clone();
-        let _ = org.pull_changes();
 
         // act
         org.switch_active_oidc_config(&active_id)
@@ -479,19 +340,17 @@ mod tests {
 
         // assert
         assert!(org.oidc_configs()[0].is_active());
-        assert!(org.pull_changes().is_empty());
     }
 
     // --- delete_oidc_config ---
 
     #[test]
-    fn given_an_inactive_config_deleting_it_should_remove_it_and_record_oidc_config_deleted_event() {
+    fn given_inactive_config_then_deleting_it_removes_it() {
         // arrange
         let (mut org, clock) = test_org();
         let draft = draft_config("To Delete", &clock);
         let draft_id = draft.id().clone();
         org.add_draft_oidc_config(draft).unwrap();
-        let _ = org.pull_changes();
 
         // act
         org.delete_oidc_config(&draft_id)
@@ -500,20 +359,10 @@ mod tests {
         // assert
         assert_eq!(org.oidc_configs().len(), 1);
         assert!(org.oidc_configs().iter().all(|c| c.id() != &draft_id));
-
-        let changes = org.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OrganizationChange::OidcConfigDeleted { org_id, config_id } => {
-                assert_eq!(org_id, org.id());
-                assert_eq!(config_id, &draft_id);
-            },
-            _ => panic!("Expected OidcConfigDeleted change"),
-        }
     }
 
     #[test]
-    fn given_the_active_config_deleting_it_should_fail_with_cannot_delete_active_config() {
+    fn given_active_config_then_deleting_it_fails() {
         // arrange
         let (mut org, _) = test_org();
         let active_id = org.oidc_configs()[0].id().clone();
@@ -527,5 +376,4 @@ mod tests {
             _ => panic!("Expected CannotDeleteActiveConfig error, got {:?}", result),
         }
     }
-
 }

@@ -3,7 +3,6 @@ use meerkat_macros::{uuid_id, Reconstitute};
 use vec1::Vec1;
 use crate::models::org_role::OrgRole;
 use crate::ports::clock::Clock;
-use crate::shared::change_tracker::ChangeTracker;
 pub use crate::shared::url::Url;
 
 uuid_id!(OidcConfigId);
@@ -163,30 +162,6 @@ pub enum OidcConfigStatus {
     Inactive,
 }
 
-#[derive(Debug, Clone)]
-pub enum OidcConfigChange {
-    Created {
-        id: OidcConfigId,
-        name: String,
-        client_id: ClientId,
-        issuer_url: Url,
-        audience: Audience,
-        discovery_url: Option<Url>,
-        claim_mapping: ClaimMapping,
-    },
-    ClaimMappingUpdated {
-        id: OidcConfigId,
-        claim_mapping: ClaimMapping,
-    },
-    Activated {
-        id: OidcConfigId,
-        from: OidcConfigStatus,
-    },
-    Deactivated {
-        id: OidcConfigId,
-    },
-}
-
 #[derive(Debug, Clone, Reconstitute)]
 pub struct OidcConfig {
     id: OidcConfigId,
@@ -199,8 +174,6 @@ pub struct OidcConfig {
     status: OidcConfigStatus,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
-    #[reconstitute_ignore]
-    changes: ChangeTracker<OidcConfigChange>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -235,19 +208,6 @@ impl OidcConfig {
         let now = clock.now();
         let id = OidcConfigId::new();
 
-        let change = OidcConfigChange::Created {
-            id: id.clone(),
-            name: name.clone(),
-            client_id: client_id.clone(),
-            issuer_url: issuer_url.clone(),
-            audience: audience.clone(),
-            discovery_url: discovery_url.clone(),
-            claim_mapping: claim_mapping.clone(),
-        };
-
-        let mut changes = ChangeTracker::new();
-        changes.record(change);
-
         Ok(Self {
             id,
             name,
@@ -259,7 +219,6 @@ impl OidcConfig {
             status: OidcConfigStatus::Draft,
             created_at: now,
             updated_at: now,
-            changes,
         })
     }
 
@@ -281,12 +240,7 @@ impl OidcConfig {
     pub fn activate(&mut self) -> Result<(), OidcConfigError> {
         match self.status {
             OidcConfigStatus::Draft | OidcConfigStatus::Inactive => {
-                let from = self.status.clone();
                 self.status = OidcConfigStatus::Active;
-                self.changes.record(OidcConfigChange::Activated {
-                    id: self.id.clone(),
-                    from,
-                });
                 Ok(())
             }
             OidcConfigStatus::Active => Err(OidcConfigError::InvalidStatusTransition {
@@ -300,9 +254,6 @@ impl OidcConfig {
         match self.status {
             OidcConfigStatus::Active => {
                 self.status = OidcConfigStatus::Inactive;
-                self.changes.record(OidcConfigChange::Deactivated {
-                    id: self.id.clone(),
-                });
                 Ok(())
             }
             OidcConfigStatus::Inactive => Err(OidcConfigError::InvalidStatusTransition {
@@ -321,15 +272,7 @@ impl OidcConfig {
             return;
         }
 
-        self.claim_mapping = claim_mapping.clone();
-        self.changes.record(OidcConfigChange::ClaimMappingUpdated {
-            id: self.id.clone(),
-            claim_mapping,
-        });
-    }
-
-    pub fn pull_changes(&mut self) -> Vec<OidcConfigChange> {
-        self.changes.pull_changes()
+        self.claim_mapping = claim_mapping;
     }
 }
 
@@ -344,13 +287,13 @@ mod tests {
     // --- creation ---
 
     #[test]
-    fn given_valid_input_then_creation_succeeds_with_draft_status_and_records_created_event() {
+    fn given_valid_input_then_creation_succeeds_with_draft_status() {
         // arrange
         let expected_now = Utc::now();
         let clock = MockClock::new(expected_now);
 
         // act
-        let mut config = OidcConfig::new(
+        let config = OidcConfig::new(
             "My SSO".into(),
             ClientId::new("client-id").unwrap(),
             Url::new("https://auth.example.com").unwrap(),
@@ -370,21 +313,6 @@ mod tests {
         assert_eq!(config.status(), &OidcConfigStatus::Draft);
         assert!(!config.is_active());
         assert_eq!(config.created_at(), &expected_now);
-
-        let changes = config.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OidcConfigChange::Created { id, name, client_id, issuer_url, audience, discovery_url, claim_mapping } => {
-                assert_eq!(id, config.id());
-                assert_eq!(name, "My SSO");
-                assert_eq!(client_id.as_str(), "client-id");
-                assert_eq!(issuer_url.as_str(), "https://auth.example.com");
-                assert_eq!(audience.as_str(), "my-api");
-                assert_eq!(discovery_url.as_ref().unwrap().as_str(), "https://auth.example.com/.well-known/openid-configuration");
-                assert_eq!(claim_mapping.sub_claim().as_str(), "sub");
-            },
-            _ => panic!("Expected Created change"),
-        }
     }
 
     #[test]
@@ -479,9 +407,6 @@ mod tests {
         assert_eq!(mapping.sub_claim().as_str(), "sub");
         assert_eq!(mapping.name_claim().as_str(), "preferred_username");
         assert_eq!(mapping.role_claim().as_str(), "roles");
-        assert_eq!(mapping.owner_values(), &["owner"]);
-        assert_eq!(mapping.admin_values(), &["admin"]);
-        assert_eq!(mapping.member_values(), &["member"]);
     }
 
     #[test]
@@ -521,51 +446,40 @@ mod tests {
     }
 
     #[test]
-    fn given_config_then_update_claim_mapping_records_change() {
+    fn given_config_then_update_claim_mapping_updates() {
         // arrange
         let (mut config, _) = test_config();
-        let _ = config.pull_changes();
         let new_mapping = ClaimMapping::new(
             "sub", "name", "groups",
             vec1!["superadmin".into()], vec1!["staff".into()], vec1!["user".into()],
         ).unwrap();
 
         // act
-        config.update_claim_mapping(new_mapping.clone());
+        config.update_claim_mapping(new_mapping);
 
         // assert
         assert_eq!(config.claim_mapping().role_claim().as_str(), "groups");
-        let changes = config.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OidcConfigChange::ClaimMappingUpdated { id, claim_mapping } => {
-                assert_eq!(id, config.id());
-                assert_eq!(claim_mapping.role_claim().as_str(), "groups");
-            },
-            _ => panic!("Expected ClaimMappingUpdated change"),
-        }
     }
 
     #[test]
-    fn given_same_claim_mapping_then_update_does_nothing() {
+    fn given_same_claim_mapping_then_update_is_idempotent() {
         // arrange
         let (mut config, _) = test_config();
-        let _ = config.pull_changes();
+        let original = config.claim_mapping().clone();
 
         // act
         config.update_claim_mapping(test_claim_mapping());
 
         // assert
-        assert!(config.pull_changes().is_empty());
+        assert_eq!(config.claim_mapping(), &original);
     }
 
     // --- activate ---
 
     #[test]
-    fn given_draft_config_then_activate_transitions_to_active_and_records_activated_event() {
+    fn given_draft_config_then_activate_transitions_to_active() {
         // arrange
         let (mut config, _) = test_config();
-        let _ = config.pull_changes();
 
         // act
         config.activate().unwrap();
@@ -573,45 +487,24 @@ mod tests {
         // assert
         assert_eq!(config.status(), &OidcConfigStatus::Active);
         assert!(config.is_active());
-
-        let changes = config.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OidcConfigChange::Activated { id, from } => {
-                assert_eq!(id, config.id());
-                assert_eq!(from, &OidcConfigStatus::Draft);
-            },
-            _ => panic!("Expected Activated change"),
-        }
     }
 
     #[test]
-    fn given_inactive_config_then_activate_transitions_to_active_and_records_activated_event() {
+    fn given_inactive_config_then_activate_transitions_to_active() {
         // arrange
         let (mut config, _) = test_config();
         config.activate().unwrap();
         config.deactivate().unwrap();
-        let _ = config.pull_changes();
 
         // act
         config.activate().unwrap();
 
         // assert
         assert_eq!(config.status(), &OidcConfigStatus::Active);
-
-        let changes = config.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OidcConfigChange::Activated { id, from } => {
-                assert_eq!(id, config.id());
-                assert_eq!(from, &OidcConfigStatus::Inactive);
-            },
-            _ => panic!("Expected Activated change"),
-        }
     }
 
     #[test]
-    fn given_active_config_then_activate_fails_with_invalid_transition() {
+    fn given_active_config_then_activate_fails() {
         // arrange
         let (mut config, _) = test_config();
         config.activate().unwrap();
@@ -632,11 +525,10 @@ mod tests {
     // --- deactivate ---
 
     #[test]
-    fn given_active_config_then_deactivate_transitions_to_inactive_and_records_deactivated_event() {
+    fn given_active_config_then_deactivate_transitions_to_inactive() {
         // arrange
         let (mut config, _) = test_config();
         config.activate().unwrap();
-        let _ = config.pull_changes();
 
         // act
         config.deactivate().unwrap();
@@ -644,19 +536,10 @@ mod tests {
         // assert
         assert_eq!(config.status(), &OidcConfigStatus::Inactive);
         assert!(!config.is_active());
-
-        let changes = config.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            OidcConfigChange::Deactivated { id } => {
-                assert_eq!(id, config.id());
-            },
-            _ => panic!("Expected Deactivated change"),
-        }
     }
 
     #[test]
-    fn given_draft_config_then_deactivate_fails_with_invalid_transition() {
+    fn given_draft_config_then_deactivate_fails() {
         // arrange
         let (mut config, _) = test_config();
 
@@ -674,7 +557,7 @@ mod tests {
     }
 
     #[test]
-    fn given_inactive_config_then_deactivate_fails_with_invalid_transition() {
+    fn given_inactive_config_then_deactivate_fails() {
         // arrange
         let (mut config, _) = test_config();
         config.activate().unwrap();

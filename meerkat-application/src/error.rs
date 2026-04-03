@@ -1,6 +1,7 @@
 use meerkat_domain::models::oidc_config::OidcConfigError;
 use meerkat_domain::models::organization::OrganizationError;
 use meerkat_domain::models::project::ProjectError;
+use meerkat_domain::models::project_key::ProjectKeyError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ApplicationError {
@@ -32,6 +33,12 @@ impl From<ProjectError> for ApplicationError {
 
 impl From<OidcConfigError> for ApplicationError {
     fn from(e: OidcConfigError) -> Self {
+        ApplicationError::Validation(e.to_string())
+    }
+}
+
+impl From<ProjectKeyError> for ApplicationError {
+    fn from(e: ProjectKeyError) -> Self {
         ApplicationError::Validation(e.to_string())
     }
 }

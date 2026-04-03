@@ -28,7 +28,7 @@ pub trait UnitOfWorkFactory: Send + Sync {
 pub struct MockUnitOfWork {
     org_repo: crate::ports::organization_repository::MockOrganizationRepository,
     project_repo: crate::ports::project_repository::MockProjectRepository,
-    project_key_repo: crate::ports::project_key_repository::NoOpProjectKeyRepository,
+    project_key_repo: crate::ports::project_key_repository::MockProjectKeyRepository,
     project_role_repo: crate::ports::project_role_repository::NoOpProjectRoleRepository,
     project_member_repo: crate::ports::project_member_repository::NoOpProjectMemberRepository,
     save_changes_result: Option<Result<(), ApplicationError>>,
@@ -40,7 +40,7 @@ impl Default for MockUnitOfWork {
         Self {
             org_repo: crate::ports::organization_repository::MockOrganizationRepository::new(),
             project_repo: crate::ports::project_repository::MockProjectRepository::new(),
-            project_key_repo: crate::ports::project_key_repository::NoOpProjectKeyRepository,
+            project_key_repo: crate::ports::project_key_repository::MockProjectKeyRepository::new(),
             project_role_repo: crate::ports::project_role_repository::NoOpProjectRoleRepository,
             project_member_repo: crate::ports::project_member_repository::NoOpProjectMemberRepository,
             save_changes_result: Some(Ok(())),
@@ -61,6 +61,11 @@ impl MockUnitOfWork {
 
     pub fn with_project_repo(mut self, repo: crate::ports::project_repository::MockProjectRepository) -> Self {
         self.project_repo = repo;
+        self
+    }
+
+    pub fn with_project_key_repo(mut self, repo: crate::ports::project_key_repository::MockProjectKeyRepository) -> Self {
+        self.project_key_repo = repo;
         self
     }
 

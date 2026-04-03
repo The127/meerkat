@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
 use crate::shared::version::Version;
-use crate::shared::change_tracker::ChangeTracker;
 use crate::models::project::ProjectId;
 use crate::ports::clock::Clock;
 
@@ -49,21 +48,6 @@ pub struct ProjectKey {
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     version: Version,
-    #[reconstitute_ignore]
-    changes: ChangeTracker<ProjectKeyChange>,
-}
-
-#[derive(Debug, Clone)]
-pub enum ProjectKeyChange {
-    Generated {
-        id: ProjectKeyId,
-        project_id: ProjectId,
-        key_token: KeyToken,
-        label: String,
-    },
-    Revoked {
-        id: ProjectKeyId,
-    },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -91,14 +75,6 @@ impl ProjectKey {
         let key_token = KeyToken::generate();
         let now = clock.now();
 
-        let mut changes = ChangeTracker::new();
-        changes.record(ProjectKeyChange::Generated {
-            id: id.clone(),
-            project_id: project_id.clone(),
-            key_token: key_token.clone(),
-            label: label.clone(),
-        });
-
         Ok(ProjectKey {
             id,
             project_id,
@@ -108,7 +84,6 @@ impl ProjectKey {
             created_at: now,
             updated_at: now,
             version: Version::initial(),
-            changes,
         })
     }
 
@@ -118,15 +93,7 @@ impl ProjectKey {
         }
 
         self.status = ProjectKeyStatus::Revoked;
-        self.changes.record(ProjectKeyChange::Revoked {
-            id: self.id.clone(),
-        });
-
         Ok(())
-    }
-
-    pub fn pull_changes(&mut self) -> Vec<ProjectKeyChange> {
-        self.changes.pull_changes()
     }
 
     pub fn id(&self) -> &ProjectKeyId { &self.id }
@@ -146,14 +113,14 @@ mod tests {
     use crate::testing::test_project_key;
 
     #[test]
-    fn given_valid_input_then_generate_succeeds_and_records_change() {
+    fn given_valid_input_then_generate_succeeds() {
         // arrange
         let project_id = ProjectId::new();
         let expected_now = Utc::now();
         let clock = MockClock::new(expected_now);
 
         // act
-        let mut key = ProjectKey::generate(project_id.clone(), "Default".into(), &clock)
+        let key = ProjectKey::generate(project_id.clone(), "Default".into(), &clock)
             .expect("Failed to generate key");
 
         // assert
@@ -162,18 +129,6 @@ mod tests {
         assert_eq!(key.status(), &ProjectKeyStatus::Active);
         assert_eq!(key.created_at(), &expected_now);
         assert_eq!(key.key_token().as_str().len(), 32);
-
-        let changes = key.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            ProjectKeyChange::Generated { id, project_id: pid, key_token, label } => {
-                assert_eq!(id, key.id());
-                assert_eq!(pid, &project_id);
-                assert_eq!(key_token, key.key_token());
-                assert_eq!(label, "Default");
-            }
-            _ => panic!("Expected Generated change"),
-        }
     }
 
     #[test]
@@ -192,25 +147,15 @@ mod tests {
     }
 
     #[test]
-    fn given_active_key_then_revoke_succeeds_and_records_change() {
+    fn given_active_key_then_revoke_succeeds() {
         // arrange
         let (mut key, _) = test_project_key();
-        let _ = key.pull_changes();
 
         // act
         key.revoke().expect("Failed to revoke key");
 
         // assert
         assert_eq!(key.status(), &ProjectKeyStatus::Revoked);
-
-        let changes = key.pull_changes();
-        assert_eq!(changes.len(), 1);
-        match &changes[0] {
-            ProjectKeyChange::Revoked { id } => {
-                assert_eq!(id, key.id());
-            }
-            _ => panic!("Expected Revoked change"),
-        }
     }
 
     #[test]

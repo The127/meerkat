@@ -11,6 +11,7 @@ use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
+use meerkat_application::events::EventDispatcher;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
@@ -31,7 +32,8 @@ use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 
 fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
-    mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
+    let event_dispatcher = Arc::new(EventDispatcher::new());
+    mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(event_dispatcher)));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator

@@ -6,6 +6,7 @@ use tokio::sync::{Mutex, MutexGuard};
 use meerkat_domain::ports::clock::Clock;
 
 use crate::auth_context::AuthContext;
+use crate::events::DomainEvent;
 use crate::ports::error_observer::ErrorObserver;
 use crate::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 
@@ -50,6 +51,7 @@ pub struct RequestContext {
     pub app: Arc<AppContext>,
     auth: Option<AuthContext>,
     scoped_uow: Mutex<Option<Box<dyn UnitOfWork>>>,
+    events: Mutex<Vec<DomainEvent>>,
 }
 
 impl RequestContext {
@@ -58,6 +60,7 @@ impl RequestContext {
             app,
             auth: None,
             scoped_uow: Mutex::new(None),
+            events: Mutex::new(Vec::new()),
         }
     }
 
@@ -88,6 +91,14 @@ impl RequestContext {
 
     pub async fn uow(&self) -> ScopedUow<'_> {
         ScopedUow(self.scoped_uow.lock().await)
+    }
+
+    pub async fn raise(&self, event: DomainEvent) {
+        self.events.lock().await.push(event);
+    }
+
+    pub async fn drain_events(&self) -> Vec<DomainEvent> {
+        std::mem::take(&mut *self.events.lock().await)
     }
 }
 

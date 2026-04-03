@@ -14,6 +14,8 @@ use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::authorization::AuthorizationBehavior;
 use meerkat_application::ports::audit::AuditPipeline;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
+use meerkat_application::events::EventDispatcher;
+use meerkat_application::project_keys::on_project_created::GenerateProjectKeyOnProjectCreated;
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
 use meerkat_application::organizations::get::{GetOrganization, GetOrganizationHandler};
@@ -135,7 +137,10 @@ struct MediatorDeps {
 fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
     mediator.add_behavior(Arc::new(AuthorizationBehavior::new(deps.audit_logger, deps.project_permission_store.clone(), deps.project_read_store.clone())));
-    mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
+
+    let mut event_dispatcher = EventDispatcher::new();
+    event_dispatcher.register(Arc::new(GenerateProjectKeyOnProjectCreated));
+    mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(Arc::new(event_dispatcher))));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
     mediator.register::<DeleteOrganization, _>(DeleteOrganizationHandler);
