@@ -18,11 +18,13 @@ impl OrgRole {
                 OrgPermission::OrgDelete,
                 OrgPermission::OrgManageOidc,
                 OrgPermission::OrgManageMembers,
+                OrgPermission::OrgCreateProject,
             ],
             OrgRole::Admin => vec![
                 OrgPermission::OrgRename,
                 OrgPermission::OrgManageOidc,
                 OrgPermission::OrgManageMembers,
+                OrgPermission::OrgCreateProject,
             ],
             OrgRole::Member => vec![],
         }

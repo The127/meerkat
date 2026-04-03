@@ -1,12 +1,9 @@
 use async_trait::async_trait;
 
 use meerkat_domain::models::organization::OrganizationId;
-use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
 use crate::mediator::{Request, Handler};
 use crate::ports::project_read_store::{PagedResult, ProjectReadModel, ProjectReadStore};
 use crate::search::SearchFilter;
@@ -20,13 +17,6 @@ pub struct ListProjects {
 
 impl Request for ListProjects {
     type Output = PagedResult<ProjectReadModel>;
-
-    fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("ListProjects".to_string()));
-        ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectRead.into()]));
-        ext
-    }
 }
 
 pub struct ListProjectsHandler {

@@ -2,9 +2,9 @@ use async_trait::async_trait;
 
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::ProjectSlug;
+use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
+use crate::behaviors::authorization::{ProjectContext, RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -23,6 +23,7 @@ impl Request for GetProject {
         let mut ext = Extensions::new();
         ext.insert(RequestName("GetProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectRead.into()]));
+        ext.insert(ProjectContext(ProjectIdentifier::Slug(self.org_id.clone(), self.slug.clone())));
         ext
     }
 }

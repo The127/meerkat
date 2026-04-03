@@ -4,7 +4,7 @@ use meerkat_domain::models::project::ProjectIdentifier;
 
 use meerkat_domain::models::permission::ProjectPermission;
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
+use crate::behaviors::authorization::{ProjectContext, RequestName, RequiredPermissions};
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -21,6 +21,7 @@ impl Request for DeleteProject {
         let mut ext = Extensions::new();
         ext.insert(RequestName("DeleteProject".to_string()));
         ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectDelete.into()]));
+        ext.insert(ProjectContext(self.identifier.clone()));
         ext
     }
 }

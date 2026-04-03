@@ -10,6 +10,8 @@ pub enum OrgPermission {
     OrgManageOidc,
     #[strum(serialize = "org_manage_members")]
     OrgManageMembers,
+    #[strum(serialize = "org_create_project")]
+    OrgCreateProject,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, strum::Display, strum::EnumString, strum::AsRefStr)]

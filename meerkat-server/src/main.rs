@@ -113,7 +113,7 @@ fn build_mediator(
     project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore>,
 ) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
-    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store)));
+    mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store, project_read_store.clone())));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
