@@ -1,4 +1,5 @@
 pub(crate) mod error;
+pub mod pg_member_read_store;
 pub mod pg_member_repository;
 pub(crate) mod organization_persistence;
 pub(crate) mod project_member_persistence;

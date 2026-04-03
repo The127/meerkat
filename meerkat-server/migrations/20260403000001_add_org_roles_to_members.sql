@@ -1,0 +1,1 @@
+ALTER TABLE members ADD COLUMN org_roles TEXT[] NOT NULL DEFAULT '{}';

@@ -109,7 +109,7 @@ async fn authenticate_inner(
 
     let member_id = state
         .member_repository
-        .find_or_create(&resolved_org.id, &sub, preferred_name)
+        .find_or_create(&resolved_org.id, &sub, preferred_name, &org_roles)
         .await
         .map_err(|_| internal_error())?;
 

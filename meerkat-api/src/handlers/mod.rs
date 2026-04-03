@@ -7,6 +7,7 @@ pub mod oidc;
 pub mod oidc_admin;
 pub mod organizations;
 pub mod projects;
+pub mod team;
 
 pub(crate) fn vec1_from_dto(values: Vec<String>, field: &str) -> Result<Vec1<String>, ApplicationError> {
     Vec1::try_from_vec(values)

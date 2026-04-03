@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{delete, get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, members, oidc, oidc_admin, organizations, projects};
+use crate::handlers::{health, members, oidc, oidc_admin, organizations, projects, team};
 use crate::state::AppState;
 
 pub mod error;
@@ -32,6 +32,7 @@ pub mod state;
         oidc_admin::activate_oidc_config,
         oidc_admin::delete_oidc_config,
         oidc_admin::update_oidc_claim_mapping,
+        team::list_members,
     ),
     components(schemas(
         error::ErrorDto,
@@ -51,6 +52,7 @@ pub mod state;
         oidc_admin::OidcConfigListItemDto,
         oidc_admin::AddOidcConfigRequestDto,
         oidc_admin::AddOidcConfigResponseDto,
+        team::MemberDto,
     ))
 )]
 struct ApiDoc;
@@ -74,6 +76,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/organization/oidc-configs/{id}/claim-mapping", axum::routing::put(oidc_admin::update_oidc_claim_mapping))
         .route("/api/v1/organization/oidc-configs/{id}", delete(oidc_admin::delete_oidc_config))
         .route("/api/v1/me", get(members::get_current_user))
+        .route("/api/v1/members", get(team::list_members))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context));
 
     if state.auth_enabled {
