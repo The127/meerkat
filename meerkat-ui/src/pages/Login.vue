@@ -56,7 +56,7 @@ async function handleLogin() {
         <div class="space-y-6">
           <h1 class="text-5xl font-semibold text-white leading-tight">
             Error tracking,<br />
-            <span class="text-primary">open source.</span>
+            <span class="text-primary">without the baggage.</span>
           </h1>
           <p class="text-white/50 text-lg max-w-md leading-relaxed">
             Lightweight error monitoring you can self-host. Capture, triage, and resolve. No vendor lock-in.
@@ -65,18 +65,18 @@ async function handleLogin() {
           <!-- Decorative stats -->
           <div class="flex gap-10 pt-6">
             <div>
-              <div class="text-3xl font-semibold text-white font-mono">99.9%</div>
-              <div class="text-xs text-white/40 mt-1 uppercase tracking-wider">Uptime</div>
+              <div class="text-3xl font-semibold text-white font-mono">&lt;10 min</div>
+              <div class="text-xs text-white/40 mt-1 uppercase tracking-wider">to first event</div>
             </div>
             <div class="w-px bg-white/15" />
             <div>
-              <div class="text-3xl font-semibold text-white font-mono">&lt;50ms</div>
-              <div class="text-xs text-white/40 mt-1 uppercase tracking-wider">Ingestion</div>
+              <div class="text-3xl font-semibold text-white font-mono">&lt;100MB</div>
+              <div class="text-xs text-white/40 mt-1 uppercase tracking-wider">memory footprint</div>
             </div>
             <div class="w-px bg-white/15" />
             <div>
-              <div class="text-3xl font-semibold text-white font-mono">OSS</div>
-              <div class="text-xs text-white/40 mt-1 uppercase tracking-wider">Licensed</div>
+              <div class="text-3xl font-semibold text-white font-mono">100% yours</div>
+              <div class="text-xs text-white/40 mt-1 uppercase tracking-wider">Your data on your severs</div>
             </div>
           </div>
         </div>
