@@ -65,11 +65,14 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cli = Cli::parse();
-    let config = MeerkatConfig::from_env()?;
 
     match cli.command {
         Commands::Migrate => {
-            let pool = create_pool(&config).await?;
+            let database_url = std::env::var("MEERKAT_DATABASE_URL")
+                .context("MEERKAT_DATABASE_URL environment variable must be set")?;
+            let pool = PgPool::connect(&database_url)
+                .await
+                .context("Failed to connect to database")?;
             info!("Running database migrations...");
             sqlx::migrate!()
                 .run(&pool)
@@ -78,6 +81,7 @@ async fn main() -> anyhow::Result<()> {
             info!("Migrations complete.");
         }
         Commands::Api => {
+            let config = MeerkatConfig::from_env()?;
             let pool = create_pool(&config).await?;
 
             bootstrap::bootstrap_master(&config, &pool, &SystemClock).await?;
