@@ -3,7 +3,7 @@ use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::organization_read_store::{OrganizationReadModel, OrganizationReadStore};
-use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
+use meerkat_domain::models::organization::{OrganizationId, OrganizationIdentifier, OrganizationSlug};
 
 use super::error::map_sqlx_error;
 
@@ -47,16 +47,28 @@ impl OrganizationReadStore for PgOrganizationReadStore {
         Ok(exists)
     }
 
-    async fn find_by_slug(
+    async fn find(
         &self,
-        slug: &OrganizationSlug,
+        identifier: &OrganizationIdentifier,
     ) -> Result<Option<OrganizationReadModel>, ApplicationError> {
-        let row = sqlx::query_as::<_, OrganizationRow>(
-            "SELECT id, slug, name FROM organizations WHERE slug = $1"
-        )
-        .bind(slug.as_str())
-        .fetch_optional(&self.pool)
-        .await
+        let row = match identifier {
+            OrganizationIdentifier::Id(id) => {
+                sqlx::query_as::<_, OrganizationRow>(
+                    "SELECT id, slug, name FROM organizations WHERE id = $1"
+                )
+                .bind(id.as_uuid())
+                .fetch_optional(&self.pool)
+                .await
+            }
+            OrganizationIdentifier::Slug(slug) => {
+                sqlx::query_as::<_, OrganizationRow>(
+                    "SELECT id, slug, name FROM organizations WHERE slug = $1"
+                )
+                .bind(slug.as_str())
+                .fetch_optional(&self.pool)
+                .await
+            }
+        }
         .map_err(map_sqlx_error)?;
 
         Ok(row.map(Into::into))

@@ -14,6 +14,14 @@ pub enum OrganizationIdentifier {
     Slug(OrganizationSlug),
 }
 
+impl From<OrganizationId> for OrganizationIdentifier {
+    fn from(id: OrganizationId) -> Self { Self::Id(id) }
+}
+
+impl From<OrganizationSlug> for OrganizationIdentifier {
+    fn from(slug: OrganizationSlug) -> Self { Self::Slug(slug) }
+}
+
 #[derive(Debug, Clone, Reconstitute)]
 pub struct Organization {
     id: OrganizationId,

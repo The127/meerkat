@@ -1,4 +1,4 @@
-use meerkat_domain::models::organization::{OrganizationId, OrganizationSlug};
+use meerkat_domain::models::organization::{OrganizationId, OrganizationIdentifier, OrganizationSlug};
 
 use crate::error::ApplicationError;
 
@@ -14,8 +14,8 @@ pub struct OrganizationReadModel {
 pub trait OrganizationReadStore: Send + Sync {
     async fn any_exists(&self) -> Result<bool, ApplicationError>;
 
-    async fn find_by_slug(
+    async fn find(
         &self,
-        slug: &OrganizationSlug,
+        identifier: &OrganizationIdentifier,
     ) -> Result<Option<OrganizationReadModel>, ApplicationError>;
 }

@@ -42,7 +42,7 @@ pub(crate) async fn resolve_subdomain(
         }
     };
 
-    match state.org_read_store.find_by_slug(&slug_to_lookup).await {
+    match state.org_read_store.find(&slug_to_lookup.into()).await {
         Ok(Some(org)) => {
             request.extensions_mut().insert(ResolvedOrganization {
                 id: org.id,
