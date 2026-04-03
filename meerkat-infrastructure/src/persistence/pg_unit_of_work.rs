@@ -3,6 +3,7 @@ use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::organization_repository::OrganizationRepository;
+use meerkat_application::ports::project_key_repository::ProjectKeyRepository;
 use meerkat_application::ports::project_member_repository::ProjectMemberRepository;
 use meerkat_application::ports::project_repository::ProjectRepository;
 use meerkat_application::ports::project_role_repository::ProjectRoleRepository;
@@ -11,9 +12,11 @@ use meerkat_application::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 use crate::persistence::error::map_sqlx_error;
 use crate::persistence::organization_persistence::OrganizationPersistence;
 use crate::persistence::pg_organization_repository::{OrgEntry, PgOrganizationRepository};
+use crate::persistence::pg_project_key_repository::{PgProjectKeyRepository, ProjectKeyEntry};
 use crate::persistence::pg_project_member_repository::PgProjectMemberRepository;
 use crate::persistence::pg_project_repository::{PgProjectRepository, ProjectEntry};
 use crate::persistence::pg_project_role_repository::PgProjectRoleRepository;
+use crate::persistence::project_key_persistence::ProjectKeyPersistence;
 use crate::persistence::project_member_persistence::ProjectMemberPersistence;
 use crate::persistence::project_persistence::ProjectPersistence;
 use crate::persistence::project_role_persistence::ProjectRolePersistence;
@@ -22,6 +25,7 @@ pub struct PgUnitOfWork {
     pool: PgPool,
     org_repo: PgOrganizationRepository,
     project_repo: PgProjectRepository,
+    project_key_repo: PgProjectKeyRepository,
     project_role_repo: PgProjectRoleRepository,
     project_member_repo: PgProjectMemberRepository,
 }
@@ -31,6 +35,7 @@ impl PgUnitOfWork {
         Self {
             org_repo: PgOrganizationRepository::new(pool.clone()),
             project_repo: PgProjectRepository::new(pool.clone()),
+            project_key_repo: PgProjectKeyRepository::new(pool.clone()),
             project_role_repo: PgProjectRoleRepository::new(),
             project_member_repo: PgProjectMemberRepository::new(),
             pool,
@@ -48,6 +53,10 @@ impl UnitOfWork for PgUnitOfWork {
         &self.project_repo
     }
 
+    fn project_keys(&self) -> &dyn ProjectKeyRepository {
+        &self.project_key_repo
+    }
+
     fn project_roles(&self) -> &dyn ProjectRoleRepository {
         &self.project_role_repo
     }
@@ -59,11 +68,13 @@ impl UnitOfWork for PgUnitOfWork {
     async fn save_changes(&mut self) -> Result<(), ApplicationError> {
         let org_entries = self.org_repo.take_entries();
         let project_entries = self.project_repo.take_entries();
+        let key_entries = self.project_key_repo.take_entries();
         let role_entries = self.project_role_repo.take_entries();
         let member_entries = self.project_member_repo.take_entries();
 
         if org_entries.is_empty() && project_entries.is_empty()
-            && role_entries.is_empty() && member_entries.is_empty()
+            && key_entries.is_empty() && role_entries.is_empty()
+            && member_entries.is_empty()
         {
             return Ok(());
         }
@@ -94,6 +105,17 @@ impl UnitOfWork for PgUnitOfWork {
                 }
                 ProjectEntry::Deleted(id) => {
                     ProjectPersistence::delete(&mut tx, id).await?;
+                }
+            }
+        }
+
+        for entry in &key_entries {
+            match entry {
+                ProjectKeyEntry::Added(key) => {
+                    ProjectKeyPersistence::insert(&mut tx, key).await?;
+                }
+                ProjectKeyEntry::Modified { entity, snapshot } => {
+                    ProjectKeyPersistence::update(&mut tx, entity, snapshot).await?;
                 }
             }
         }
