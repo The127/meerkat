@@ -248,7 +248,7 @@ mod tests {
     use super::*;
     use axum::http::Request;
     use meerkat_application::ports::oidc_config_read_store::OidcConfigReadModel;
-    use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfigId};
+    use meerkat_domain::models::oidc_config::{Audience, ClientId, OidcConfigId, OidcConfigStatus};
     use meerkat_domain::models::organization::OrganizationId;
     use meerkat_domain::shared::url::Url;
     use meerkat_domain::testing::test_claim_mapping;
@@ -263,6 +263,7 @@ mod tests {
             audience: Audience::new("my-api").unwrap(),
             discovery_url: discovery_url.map(|u| Url::new(u).unwrap()),
             claim_mapping: test_claim_mapping(),
+            status: OidcConfigStatus::Active,
         }
     }
 

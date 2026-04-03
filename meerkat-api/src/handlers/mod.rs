@@ -4,6 +4,7 @@ use vec1::Vec1;
 pub mod health;
 pub mod members;
 pub mod oidc;
+pub mod oidc_admin;
 pub mod organizations;
 pub mod projects;
 

@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{delete, get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, members, oidc, organizations, projects};
+use crate::handlers::{health, members, oidc, oidc_admin, organizations, projects};
 use crate::state::AppState;
 
 pub mod error;
@@ -27,6 +27,10 @@ pub mod state;
         projects::get_project,
         projects::rename_project,
         projects::delete_project,
+        oidc_admin::list_oidc_configs,
+        oidc_admin::add_oidc_config,
+        oidc_admin::activate_oidc_config,
+        oidc_admin::delete_oidc_config,
     ),
     components(schemas(
         error::ErrorDto,
@@ -43,6 +47,9 @@ pub mod state;
         projects::ProjectDto,
         projects::ProjectListItemDto,
         projects::RenameProjectRequestDto,
+        oidc_admin::OidcConfigListItemDto,
+        oidc_admin::AddOidcConfigRequestDto,
+        oidc_admin::AddOidcConfigResponseDto,
     ))
 )]
 struct ApiDoc;
@@ -61,6 +68,9 @@ pub fn router(state: AppState) -> Router {
         .nest("/api/v1/projects", project_routes)
         .route("/api/v1/organization/rename", post(organizations::rename_organization))
         .route("/api/v1/organization", delete(organizations::delete_organization))
+        .route("/api/v1/organization/oidc-configs", get(oidc_admin::list_oidc_configs).post(oidc_admin::add_oidc_config))
+        .route("/api/v1/organization/oidc-configs/{id}/activate", post(oidc_admin::activate_oidc_config))
+        .route("/api/v1/organization/oidc-configs/{id}", delete(oidc_admin::delete_oidc_config))
         .route("/api/v1/me", get(members::get_current_user))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context));
 

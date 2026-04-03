@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use meerkat_application::error::ApplicationError;
 use vec1::Vec1;
 use meerkat_application::ports::oidc_config_read_store::{OidcConfigReadModel, OidcConfigReadStore};
-use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId, OidcConfigStatus};
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::shared::url::Url;
 
@@ -35,6 +35,7 @@ struct OidcConfigRow {
     owner_values: Vec<String>,
     admin_values: Vec<String>,
     member_values: Vec<String>,
+    status: String,
 }
 
 impl From<OidcConfigRow> for OidcConfigReadModel {
@@ -53,6 +54,7 @@ impl From<OidcConfigRow> for OidcConfigReadModel {
                 Vec1::try_from_vec(row.admin_values).expect("empty admin_values in database"),
                 Vec1::try_from_vec(row.member_values).expect("empty member_values in database"),
             ).expect("invalid claim_mapping in database"),
+            status: row.status.parse::<OidcConfigStatus>().expect("invalid status in database"),
         }
     }
 }
@@ -65,7 +67,7 @@ impl OidcConfigReadStore for PgOidcConfigReadStore {
     ) -> Result<OidcConfigReadModel, ApplicationError> {
         let row = sqlx::query_as::<_, OidcConfigRow>(
             "SELECT id, organization_id, name, client_id, issuer_url, audience, discovery_url, \
-             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values \
+             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values, status \
              FROM oidc_configs \
              WHERE organization_id = $1 AND status = 'active'"
         )
@@ -84,7 +86,7 @@ impl OidcConfigReadStore for PgOidcConfigReadStore {
     ) -> Result<Option<OidcConfigReadModel>, ApplicationError> {
         let row = sqlx::query_as::<_, OidcConfigRow>(
             "SELECT id, organization_id, name, client_id, issuer_url, audience, discovery_url, \
-             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values \
+             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values, status \
              FROM oidc_configs \
              WHERE issuer_url = $1 AND audience = $2 AND status = 'active'"
         )
@@ -95,6 +97,25 @@ impl OidcConfigReadStore for PgOidcConfigReadStore {
         .map_err(map_sqlx_error)?;
 
         Ok(row.map(Into::into))
+    }
+
+    async fn list_by_org_id(
+        &self,
+        org_id: &OrganizationId,
+    ) -> Result<Vec<OidcConfigReadModel>, ApplicationError> {
+        let rows = sqlx::query_as::<_, OidcConfigRow>(
+            "SELECT id, organization_id, name, client_id, issuer_url, audience, discovery_url, \
+             sub_claim, name_claim, role_claim, owner_values, admin_values, member_values, status \
+             FROM oidc_configs \
+             WHERE organization_id = $1 \
+             ORDER BY created_at"
+        )
+        .bind(org_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        Ok(rows.into_iter().map(Into::into).collect())
     }
 }
 

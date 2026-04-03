@@ -1,4 +1,4 @@
-use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId, OidcConfigStatus};
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::shared::url::Url;
 
@@ -14,6 +14,7 @@ pub struct OidcConfigReadModel {
     pub audience: Audience,
     pub discovery_url: Option<Url>,
     pub claim_mapping: ClaimMapping,
+    pub status: OidcConfigStatus,
 }
 
 #[async_trait::async_trait]
@@ -29,4 +30,9 @@ pub trait OidcConfigReadStore: Send + Sync {
         issuer_url: &Url,
         audience: &Audience,
     ) -> Result<Option<OidcConfigReadModel>, ApplicationError>;
+
+    async fn list_by_org_id(
+        &self,
+        org_id: &OrganizationId,
+    ) -> Result<Vec<OidcConfigReadModel>, ApplicationError>;
 }

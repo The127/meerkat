@@ -1,5 +1,9 @@
+pub mod activate_oidc_config;
+pub mod add_oidc_config;
 pub mod create;
 pub mod delete;
+pub mod delete_oidc_config;
 pub mod get;
 pub mod get_oidc_config;
+pub mod list_oidc_configs;
 pub mod rename;

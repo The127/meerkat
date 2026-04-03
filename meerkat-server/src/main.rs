@@ -18,6 +18,10 @@ use meerkat_application::organizations::create::{CreateOrganization, CreateOrgan
 use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
 use meerkat_application::organizations::get::{GetOrganization, GetOrganizationHandler};
 use meerkat_application::organizations::get_oidc_config::{GetOidcConfig, GetOidcConfigHandler};
+use meerkat_application::organizations::activate_oidc_config::{ActivateOidcConfig, ActivateOidcConfigHandler};
+use meerkat_application::organizations::add_oidc_config::{AddOidcConfig, AddOidcConfigHandler};
+use meerkat_application::organizations::delete_oidc_config::{DeleteOidcConfig, DeleteOidcConfigHandler};
+use meerkat_application::organizations::list_oidc_configs::{ListOidcConfigs, ListOidcConfigsHandler};
 use meerkat_application::organizations::rename::{RenameOrganization, RenameOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::projects::delete::{DeleteProject, DeleteProjectHandler};
@@ -126,7 +130,11 @@ fn build_mediator(
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
     mediator.register::<DeleteOrganization, _>(DeleteOrganizationHandler);
     mediator.register::<GetOrganization, _>(GetOrganizationHandler::new(org_read_store));
-    mediator.register::<GetOidcConfig, _>(GetOidcConfigHandler::new(oidc_config_read_store));
+    mediator.register::<GetOidcConfig, _>(GetOidcConfigHandler::new(oidc_config_read_store.clone()));
+    mediator.register::<ListOidcConfigs, _>(ListOidcConfigsHandler::new(oidc_config_read_store));
+    mediator.register::<AddOidcConfig, _>(AddOidcConfigHandler);
+    mediator.register::<ActivateOidcConfig, _>(ActivateOidcConfigHandler);
+    mediator.register::<DeleteOidcConfig, _>(DeleteOidcConfigHandler);
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);
