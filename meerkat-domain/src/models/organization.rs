@@ -3,7 +3,7 @@ use meerkat_macros::{uuid_id, slug_id, Reconstitute};
 use crate::shared::version::Version;
 use crate::shared::change_tracker::ChangeTracker;
 use crate::ports::clock::Clock;
-use crate::models::oidc_config::{OidcConfig, OidcConfigId, OidcConfigStatus};
+use crate::models::oidc_config::{ClaimMapping, OidcConfig, OidcConfigId, OidcConfigStatus};
 
 uuid_id!(OrganizationId);
 slug_id!(OrganizationSlug);
@@ -187,6 +187,19 @@ impl Organization {
             new_config_id: config_id.clone(),
         });
 
+        Ok(())
+    }
+
+    pub fn update_oidc_config_claim_mapping(
+        &mut self,
+        config_id: &OidcConfigId,
+        claim_mapping: ClaimMapping,
+    ) -> Result<(), OrganizationError> {
+        let config = self.oidc_configs.iter_mut()
+            .find(|c| c.id() == config_id)
+            .ok_or(OrganizationError::OidcConfigNotFound)?;
+
+        config.update_claim_mapping(claim_mapping);
         Ok(())
     }
 

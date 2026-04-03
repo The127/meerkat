@@ -7,3 +7,4 @@ pub mod get;
 pub mod get_oidc_config;
 pub mod list_oidc_configs;
 pub mod rename;
+pub mod update_oidc_claim_mapping;

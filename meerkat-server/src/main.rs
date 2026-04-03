@@ -21,6 +21,7 @@ use meerkat_application::organizations::get_oidc_config::{GetOidcConfig, GetOidc
 use meerkat_application::organizations::activate_oidc_config::{ActivateOidcConfig, ActivateOidcConfigHandler};
 use meerkat_application::organizations::add_oidc_config::{AddOidcConfig, AddOidcConfigHandler};
 use meerkat_application::organizations::delete_oidc_config::{DeleteOidcConfig, DeleteOidcConfigHandler};
+use meerkat_application::organizations::update_oidc_claim_mapping::{UpdateOidcClaimMapping, UpdateOidcClaimMappingHandler};
 use meerkat_application::organizations::list_oidc_configs::{ListOidcConfigs, ListOidcConfigsHandler};
 use meerkat_application::organizations::rename::{RenameOrganization, RenameOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
@@ -135,6 +136,7 @@ fn build_mediator(
     mediator.register::<AddOidcConfig, _>(AddOidcConfigHandler);
     mediator.register::<ActivateOidcConfig, _>(ActivateOidcConfigHandler);
     mediator.register::<DeleteOidcConfig, _>(DeleteOidcConfigHandler);
+    mediator.register::<UpdateOidcClaimMapping, _>(UpdateOidcClaimMappingHandler);
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);

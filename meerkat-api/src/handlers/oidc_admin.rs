@@ -12,6 +12,7 @@ use meerkat_application::organizations::activate_oidc_config::ActivateOidcConfig
 use meerkat_application::organizations::add_oidc_config::AddOidcConfig;
 use meerkat_application::organizations::delete_oidc_config::DeleteOidcConfig;
 use meerkat_application::organizations::list_oidc_configs::ListOidcConfigs;
+use meerkat_application::organizations::update_oidc_claim_mapping::UpdateOidcClaimMapping;
 use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId};
 use meerkat_domain::models::organization::OrganizationIdentifier;
 use meerkat_domain::shared::url::Url;
@@ -198,6 +199,43 @@ pub(crate) async fn delete_oidc_config(
     let cmd = DeleteOidcConfig {
         org_identifier: OrganizationIdentifier::Id(resolved_org.id),
         config_id,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Update claim mapping ---
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/organization/oidc-configs/{id}/claim-mapping",
+    request_body = ClaimMappingDto,
+    responses(
+        (status = 204, description = "Claim mapping updated"),
+        (status = 404, description = "Config not found"),
+        (status = 400, description = "Validation error"),
+    )
+)]
+pub(crate) async fn update_oidc_claim_mapping(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(config_id): Path<OidcConfigId>,
+    Json(body): Json<ClaimMappingDto>,
+) -> Result<StatusCode, ApiError> {
+    let claim_mapping = ClaimMapping::new(
+        body.sub_claim, body.name_claim, body.role_claim,
+        vec1_from_dto(body.owner_values, "owner_values")?,
+        vec1_from_dto(body.admin_values, "admin_values")?,
+        vec1_from_dto(body.member_values, "member_values")?,
+    ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
+
+    let cmd = UpdateOidcClaimMapping {
+        org_identifier: OrganizationIdentifier::Id(resolved_org.id),
+        config_id,
+        claim_mapping,
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;

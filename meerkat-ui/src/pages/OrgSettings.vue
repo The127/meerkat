@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { Plus, Shield, ShieldCheck, ShieldOff } from 'lucide-vue-next'
+import { Pencil, Plus, Shield, ShieldCheck, ShieldOff } from 'lucide-vue-next'
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,9 @@ import { useActivateOidcConfig } from '@/composables/useActivateOidcConfig'
 import { useDeleteOidcConfig } from '@/composables/useDeleteOidcConfig'
 import { useToast } from '@/composables/useToast'
 import { ApiRequestError } from '@/lib/api'
+import type { OidcConfigListItem } from '@/lib/types'
 import AddOidcConfigDialog from './AddOidcConfigDialog.vue'
+import EditOidcClaimMappingDialog from './EditOidcClaimMappingDialog.vue'
 
 const toast = useToast()
 const { data: org } = useOrganization()
@@ -88,6 +90,13 @@ async function submitDelete() {
 
 // --- OIDC configs ---
 const showAddOidcDialog = ref(false)
+const showEditClaimMappingDialog = ref(false)
+const editingConfig = ref<OidcConfigListItem | null>(null)
+
+function openEditClaimMapping(config: OidcConfigListItem) {
+  editingConfig.value = config
+  showEditClaimMappingDialog.value = true
+}
 
 async function handleActivateConfig(configId: string) {
   try {
@@ -174,9 +183,14 @@ function statusIcon(status: string) {
               </div>
               <p class="text-xs text-muted-foreground mt-0.5 ml-6 truncate">{{ config.issuer_url }}</p>
             </div>
-            <div v-if="config.status !== 'active'" class="flex items-center gap-1.5 shrink-0 ml-4">
-              <MkButton size="sm" variant="outline" @click="handleActivateConfig(config.id)">Activate</MkButton>
-              <MkButton size="sm" variant="destructive" @click="handleDeleteConfig(config.id)">Delete</MkButton>
+            <div class="flex items-center gap-1.5 shrink-0 ml-4">
+              <MkButton size="sm" variant="outline" @click="openEditClaimMapping(config)">
+                <Pencil class="h-3.5 w-3.5" />
+              </MkButton>
+              <template v-if="config.status !== 'active'">
+                <MkButton size="sm" variant="outline" @click="handleActivateConfig(config.id)">Activate</MkButton>
+                <MkButton size="sm" variant="destructive" @click="handleDeleteConfig(config.id)">Delete</MkButton>
+              </template>
             </div>
           </div>
 
@@ -247,5 +261,8 @@ function statusIcon(status: string) {
 
     <!-- Add OIDC config dialog -->
     <AddOidcConfigDialog v-model:open="showAddOidcDialog" />
+
+    <!-- Edit claim mapping dialog -->
+    <EditOidcClaimMappingDialog v-model:open="showEditClaimMappingDialog" :config="editingConfig" />
   </div>
 </template>

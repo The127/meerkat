@@ -31,6 +31,7 @@ pub mod state;
         oidc_admin::add_oidc_config,
         oidc_admin::activate_oidc_config,
         oidc_admin::delete_oidc_config,
+        oidc_admin::update_oidc_claim_mapping,
     ),
     components(schemas(
         error::ErrorDto,
@@ -70,6 +71,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/organization", delete(organizations::delete_organization))
         .route("/api/v1/organization/oidc-configs", get(oidc_admin::list_oidc_configs).post(oidc_admin::add_oidc_config))
         .route("/api/v1/organization/oidc-configs/{id}/activate", post(oidc_admin::activate_oidc_config))
+        .route("/api/v1/organization/oidc-configs/{id}/claim-mapping", axum::routing::put(oidc_admin::update_oidc_claim_mapping))
         .route("/api/v1/organization/oidc-configs/{id}", delete(oidc_admin::delete_oidc_config))
         .route("/api/v1/me", get(members::get_current_user))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context));
