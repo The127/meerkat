@@ -28,6 +28,7 @@ use meerkat_application::projects::create::{CreateProject, CreateProjectHandler}
 use meerkat_application::projects::delete::{DeleteProject, DeleteProjectHandler};
 use meerkat_application::projects::get::{GetProject, GetProjectHandler};
 use meerkat_application::projects::list::{ListProjects, ListProjectsHandler};
+use meerkat_application::projects::list_roles::{ListProjectRoles, ListProjectRolesHandler};
 use meerkat_application::members::get_current_user::{GetCurrentUser, GetCurrentUserHandler};
 use meerkat_application::members::list_members::{ListMembers, ListMembersHandler};
 use meerkat_application::projects::rename::{RenameProject, RenameProjectHandler};
@@ -125,6 +126,7 @@ fn build_mediator(
     oidc_config_read_store: Arc<dyn meerkat_application::ports::oidc_config_read_store::OidcConfigReadStore>,
     project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore>,
     member_read_store: Arc<dyn meerkat_application::ports::member_read_store::MemberReadStore>,
+    project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore>,
 ) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
     mediator.add_behavior(Arc::new(AuthorizationBehavior::new(audit_logger, project_permission_store.clone(), project_read_store.clone())));
@@ -143,9 +145,10 @@ fn build_mediator(
     mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);
     mediator.register::<GetProject, _>(GetProjectHandler::new(project_read_store.clone()));
-    mediator.register::<ListProjects, _>(ListProjectsHandler::new(project_read_store));
+    mediator.register::<ListProjects, _>(ListProjectsHandler::new(project_read_store.clone()));
     mediator.register::<GetCurrentUser, _>(GetCurrentUserHandler::new(project_permission_store.clone()));
     mediator.register::<ListMembers, _>(ListMembersHandler::new(member_read_store));
+    mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(project_read_store, project_role_read_store));
     mediator
 }
 
@@ -179,7 +182,9 @@ async fn run_api(
         Arc::new(PgProjectPermissionReadStore::new(pool.clone()));
     let member_read_store: Arc<dyn meerkat_application::ports::member_read_store::MemberReadStore> =
         Arc::new(meerkat_infrastructure::persistence::pg_member_read_store::PgMemberReadStore::new(pool.clone()));
-    let mediator = Arc::new(build_mediator(audit_logger, project_permission_store, org_read_store.clone(), oidc_config_read_store.clone(), project_read_store.clone(), member_read_store));
+    let project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore> =
+        Arc::new(meerkat_infrastructure::persistence::pg_project_role_read_store::PgProjectRoleReadStore::new(pool.clone()));
+    let mediator = Arc::new(build_mediator(audit_logger, project_permission_store, org_read_store.clone(), oidc_config_read_store.clone(), project_read_store.clone(), member_read_store, project_role_read_store));
     let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
     let member_repository = Arc::new(PgMemberRepository::new(pool.clone()));
     let oidc_discovery_provider = Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300)));

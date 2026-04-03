@@ -12,5 +12,6 @@ pub mod project_member_repository;
 pub mod project_permission_read_store;
 pub mod project_read_store;
 pub mod project_repository;
+pub mod project_role_read_store;
 pub mod project_role_repository;
 pub mod unit_of_work;

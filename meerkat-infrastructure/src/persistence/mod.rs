@@ -10,6 +10,7 @@ pub mod pg_organization_read_store;
 pub mod pg_project_member_repository;
 pub mod pg_project_permission_read_store;
 pub mod pg_project_read_store;
+pub mod pg_project_role_read_store;
 pub mod pg_project_role_repository;
 pub mod pg_organization_repository;
 pub mod pg_project_repository;
