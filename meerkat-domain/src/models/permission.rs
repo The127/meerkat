@@ -24,6 +24,8 @@ pub enum ProjectPermission {
     ProjectDelete,
     #[strum(serialize = "project_manage_members")]
     ProjectManageMembers,
+    #[strum(serialize = "project_manage_keys")]
+    ProjectManageKeys,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

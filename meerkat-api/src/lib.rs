@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{delete, get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, members, oidc, oidc_admin, organizations, projects, team};
+use crate::handlers::{health, members, oidc, oidc_admin, organizations, project_keys, projects, team};
 use crate::state::AppState;
 
 pub mod error;
@@ -72,7 +72,9 @@ pub fn router(state: AppState) -> Router {
         .route("/{slug}", get(projects::get_project).delete(projects::delete_project))
         .route("/{slug}/rename", post(projects::rename_project))
         .route("/{slug}/roles", get(team::list_project_roles))
-        .route("/{slug}/members", get(team::list_project_members));
+        .route("/{slug}/members", get(team::list_project_members))
+        .route("/{slug}/keys", get(project_keys::list_project_keys).post(project_keys::create_project_key))
+        .route("/{slug}/keys/{key_id}", delete(project_keys::revoke_project_key));
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)

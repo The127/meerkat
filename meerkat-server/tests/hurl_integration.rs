@@ -12,6 +12,10 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::events::EventDispatcher;
+use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectKeyHandler};
+use meerkat_application::project_keys::list::{ListProjectKeys, ListProjectKeysHandler};
+use meerkat_application::project_keys::on_project_created::GenerateProjectKeyOnProjectCreated;
+use meerkat_application::project_keys::revoke::{RevokeProjectKey, RevokeProjectKeyHandler};
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::projects::create::{CreateProject, CreateProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
@@ -30,12 +34,23 @@ use meerkat_infrastructure::persistence::pg_project_read_store::PgProjectReadSto
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 
-fn build_mediator() -> Mediator<RequestContext, ApplicationError> {
+fn build_mediator(pool: PgPool) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
-    let event_dispatcher = Arc::new(EventDispatcher::new());
-    mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(event_dispatcher)));
+
+    let mut event_dispatcher = EventDispatcher::new();
+    event_dispatcher.register(Arc::new(GenerateProjectKeyOnProjectCreated));
+    mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(Arc::new(event_dispatcher))));
+
+    let project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore> =
+        Arc::new(PgProjectReadStore::new(pool.clone()));
+    let project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore> =
+        Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool));
+
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<CreateProject, _>(CreateProjectHandler);
+    mediator.register::<ListProjectKeys, _>(ListProjectKeysHandler::new(project_read_store, project_key_read_store));
+    mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
+    mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
     mediator
 }
 
@@ -84,7 +99,7 @@ async fn hurl_integration_tests() {
 
     let state = AppState {
         health_checker: Arc::new(PgHealthChecker::new(pool.clone())),
-        mediator: Arc::new(build_mediator()),
+        mediator: Arc::new(build_mediator(pool.clone())),
         context: Arc::new(AppContext::new(
             Arc::new(SystemClock),
             Arc::new(PgUnitOfWorkFactory::new(pool.clone())),
@@ -92,6 +107,7 @@ async fn hurl_integration_tests() {
         )),
         org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),
         project_read_store: Arc::new(PgProjectReadStore::new(pool.clone())),
+        project_key_read_store: Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone())),
         oidc_config_read_store: Arc::new(PgOidcConfigReadStore::new(pool.clone())),
         jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
         member_repository: Arc::new(PgMemberRepository::new(pool.clone())),

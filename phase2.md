@@ -20,14 +20,17 @@ Sliced into small, vertically deliverable pieces. Each slice is independently te
 - `ProjectKeyPersistence` insert/update helpers
 - Wired into `UnitOfWork` / `PgUnitOfWork`
 
-## Slice 2b — Auto-Generate Key on Project Creation
+## Slice 2b — Auto-Generate Key on Project Creation ✓
 
-Event-driven: react to `ProjectCreated` domain event in the same UoW, not coupled to `CreateProject` handler.
+Event-driven: react to `ProjectCreated` domain event in the same UoW.
 
-- Domain event handler for `ProjectCreated` → generates default key
-- Include DSN string in project detail response (`{scheme}://{key_token}@{host}/{project_slug}`)
-- `ProjectKeyReadStore` port trait (list by project)
-- Handler tests
+- `DomainEvent` enum + `EventDispatcher` + `DomainEventHandler` trait
+- Event buffer on `RequestContext` with `raise()` / `drain_events()`
+- `UnitOfWorkBehavior` drains and dispatches events before `save_changes()`
+- `GenerateProjectKeyOnProjectCreated` event handler
+- `CreateProjectHandler` raises `ProjectCreated`
+- Removed `ChangeTracker` and all `*Change` enums from 6 aggregates
+- DSN display deferred to key management endpoints (Slice 10)
 
 ## Slice 3 — Event Value Objects
 

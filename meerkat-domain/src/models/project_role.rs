@@ -91,6 +91,7 @@ impl ProjectRole {
                     ProjectPermission::ProjectWrite,
                     ProjectPermission::ProjectDelete,
                     ProjectPermission::ProjectManageMembers,
+                    ProjectPermission::ProjectManageKeys,
                 ]).unwrap(),
                 is_default: true,
                 created_at: clock.now(),
@@ -191,8 +192,9 @@ mod tests {
         assert_eq!(admin.name(), "Admin");
         assert_eq!(admin.slug().as_str(), "admin");
         assert!(admin.is_default());
-        assert_eq!(admin.permissions().len(), 4);
+        assert_eq!(admin.permissions().len(), 5);
         assert!(admin.permissions().contains(&ProjectPermission::ProjectManageMembers));
+        assert!(admin.permissions().contains(&ProjectPermission::ProjectManageKeys));
         assert_eq!(admin.id(), &admin_role_id);
     }
 }

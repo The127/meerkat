@@ -15,7 +15,10 @@ use meerkat_application::behaviors::authorization::AuthorizationBehavior;
 use meerkat_application::ports::audit::AuditPipeline;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::events::EventDispatcher;
+use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectKeyHandler};
+use meerkat_application::project_keys::list::{ListProjectKeys, ListProjectKeysHandler};
 use meerkat_application::project_keys::on_project_created::GenerateProjectKeyOnProjectCreated;
+use meerkat_application::project_keys::revoke::{RevokeProjectKey, RevokeProjectKeyHandler};
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
 use meerkat_application::organizations::get::{GetOrganization, GetOrganizationHandler};
@@ -132,6 +135,7 @@ struct MediatorDeps {
     member_read_store: Arc<dyn meerkat_application::ports::member_read_store::MemberReadStore>,
     project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore>,
     project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
+    project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
 }
 
 fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
@@ -160,7 +164,10 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<ListMembers, _>(ListMembersHandler::new(deps.member_read_store));
     mediator.register::<ListMemberProjects, _>(ListMemberProjectsHandler::new(deps.project_member_read_store.clone()));
     mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(deps.project_read_store.clone(), deps.project_role_read_store));
-    mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store, deps.project_member_read_store));
+    mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store.clone(), deps.project_member_read_store));
+    mediator.register::<ListProjectKeys, _>(ListProjectKeysHandler::new(deps.project_read_store.clone(), deps.project_key_read_store));
+    mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
+    mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
     mediator
 }
 
@@ -198,6 +205,8 @@ async fn run_api(
         Arc::new(meerkat_infrastructure::persistence::pg_project_role_read_store::PgProjectRoleReadStore::new(pool.clone()));
     let project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore> =
         Arc::new(meerkat_infrastructure::persistence::pg_project_member_read_store::PgProjectMemberReadStore::new(pool.clone()));
+    let project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore> =
+        Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone()));
     let mediator = Arc::new(build_mediator(MediatorDeps {
         audit_logger,
         project_permission_store,
@@ -207,6 +216,7 @@ async fn run_api(
         member_read_store,
         project_role_read_store,
         project_member_read_store,
+        project_key_read_store: project_key_read_store.clone(),
     }));
     let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
     let member_repository = Arc::new(PgMemberRepository::new(pool.clone()));
@@ -218,6 +228,7 @@ async fn run_api(
         context,
         org_read_store,
         project_read_store,
+        project_key_read_store,
         oidc_config_read_store,
         jwks_provider,
         member_repository,

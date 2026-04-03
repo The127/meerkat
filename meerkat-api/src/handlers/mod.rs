@@ -6,6 +6,7 @@ pub mod members;
 pub mod oidc;
 pub mod oidc_admin;
 pub mod organizations;
+pub mod project_keys;
 pub mod projects;
 pub mod team;
 

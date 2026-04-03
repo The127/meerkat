@@ -8,6 +8,7 @@ pub(crate) mod project_persistence;
 pub(crate) mod project_role_persistence;
 pub mod pg_oidc_config_read_store;
 pub mod pg_organization_read_store;
+pub mod pg_project_key_read_store;
 pub mod pg_project_key_repository;
 pub mod pg_project_member_read_store;
 pub mod pg_project_member_repository;
