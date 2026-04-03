@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { Plus, Shield, ShieldCheck, ShieldOff } from 'lucide-vue-next'
 import {
   Dialog,
   DialogContent,
@@ -8,25 +9,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { MkCard, MkButton, MkInput, MkSpinner } from '@/components/meerkat'
+import { MkCard, MkButton, MkInput, MkSpinner, MkBadge } from '@/components/meerkat'
 import { useOrganization } from '@/composables/useOrganization'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useRenameOrganization } from '@/composables/useRenameOrganization'
 import { useDeleteOrganization } from '@/composables/useDeleteOrganization'
+import { useOidcConfigs } from '@/composables/useOidcConfigs'
+import { useActivateOidcConfig } from '@/composables/useActivateOidcConfig'
+import { useDeleteOidcConfig } from '@/composables/useDeleteOidcConfig'
 import { useToast } from '@/composables/useToast'
 import { ApiRequestError } from '@/lib/api'
+import AddOidcConfigDialog from './AddOidcConfigDialog.vue'
 
 const toast = useToast()
 const { data: org } = useOrganization()
-const { canRenameOrg, canDeleteOrg } = useCurrentUser()
+const { canRenameOrg, canDeleteOrg, canManageOidc } = useCurrentUser()
 const { mutateAsync: renameOrg, isPending: isRenaming } = useRenameOrganization()
 const { mutateAsync: deleteOrg, isPending: isDeleting } = useDeleteOrganization()
+const { data: oidcConfigs } = useOidcConfigs()
+const { mutateAsync: activateConfig } = useActivateOidcConfig()
+const { mutateAsync: deleteConfig } = useDeleteOidcConfig()
 
+// --- Rename ---
 const name = ref('')
 const renameError = ref('')
-const showDeleteDialog = ref(false)
-const deleteConfirmation = ref('')
-const deleteError = ref('')
 
 watch(() => org.value?.name, (val) => {
   if (val) name.value = val
@@ -54,6 +60,11 @@ async function submitRename() {
   }
 }
 
+// --- Delete org ---
+const showDeleteDialog = ref(false)
+const deleteConfirmation = ref('')
+const deleteError = ref('')
+
 function openDeleteDialog() {
   deleteConfirmation.value = ''
   deleteError.value = ''
@@ -74,6 +85,52 @@ async function submitDelete() {
     }
   }
 }
+
+// --- OIDC configs ---
+const showAddOidcDialog = ref(false)
+
+async function handleActivateConfig(configId: string) {
+  try {
+    await activateConfig(configId)
+    toast.success('OIDC configuration activated')
+  } catch (err) {
+    if (err instanceof ApiRequestError) {
+      toast.error(err.error.message)
+    } else {
+      toast.error('An unexpected error occurred')
+    }
+  }
+}
+
+async function handleDeleteConfig(configId: string) {
+  try {
+    await deleteConfig(configId)
+    toast.success('OIDC configuration deleted')
+  } catch (err) {
+    if (err instanceof ApiRequestError) {
+      toast.error(err.error.message)
+    } else {
+      toast.error('An unexpected error occurred')
+    }
+  }
+}
+
+function statusBadgeVariant(status: string) {
+  switch (status) {
+    case 'active': return 'success'
+    case 'draft': return 'secondary'
+    case 'inactive': return 'warning'
+    default: return 'secondary'
+  }
+}
+
+function statusIcon(status: string) {
+  switch (status) {
+    case 'active': return ShieldCheck
+    case 'inactive': return ShieldOff
+    default: return Shield
+  }
+}
 </script>
 
 <template>
@@ -81,7 +138,7 @@ async function submitDelete() {
     <h1 class="text-xl font-semibold text-foreground mb-1">Organization Settings</h1>
     <p class="text-sm text-muted-foreground mb-6">Manage your organization.</p>
 
-    <div class="space-y-6 max-w-lg">
+    <div class="space-y-6 max-w-2xl">
       <!-- Rename -->
       <MkCard v-if="canRenameOrg" title="General">
         <form @submit.prevent="submitRename" class="space-y-3">
@@ -99,6 +156,35 @@ async function submitDelete() {
             Save
           </MkButton>
         </form>
+      </MkCard>
+
+      <!-- OIDC Configurations -->
+      <MkCard v-if="canManageOidc" title="OIDC Configurations" description="Manage identity provider configurations.">
+        <div class="space-y-3">
+          <div
+            v-for="config in oidcConfigs"
+            :key="config.id"
+            class="flex items-center justify-between rounded-md border border-border px-4 py-3"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <component :is="statusIcon(config.status)" class="w-4 h-4 shrink-0 text-muted-foreground" />
+                <p class="text-sm font-medium text-foreground truncate">{{ config.name }}</p>
+                <MkBadge :variant="statusBadgeVariant(config.status)">{{ config.status }}</MkBadge>
+              </div>
+              <p class="text-xs text-muted-foreground mt-0.5 ml-6 truncate">{{ config.issuer_url }}</p>
+            </div>
+            <div v-if="config.status !== 'active'" class="flex items-center gap-1.5 shrink-0 ml-4">
+              <MkButton size="sm" variant="outline" @click="handleActivateConfig(config.id)">Activate</MkButton>
+              <MkButton size="sm" variant="destructive" @click="handleDeleteConfig(config.id)">Delete</MkButton>
+            </div>
+          </div>
+
+          <MkButton size="sm" variant="outline" @click="showAddOidcDialog = true">
+            <Plus class="h-4 w-4 mr-1.5" />
+            Add configuration
+          </MkButton>
+        </div>
       </MkCard>
 
       <!-- Danger zone -->
@@ -158,5 +244,8 @@ async function submitDelete() {
         </form>
       </DialogContent>
     </Dialog>
+
+    <!-- Add OIDC config dialog -->
+    <AddOidcConfigDialog v-model:open="showAddOidcDialog" />
   </div>
 </template>
