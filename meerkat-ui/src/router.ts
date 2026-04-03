@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
 
-const PUBLIC_ROUTES = new Set(['login', 'callback', 'logout'])
+const PUBLIC_ROUTES = new Set(['login', 'callback', 'logout', 'org-deleted'])
 
 const router = createRouter({
   history: createWebHistory(),
@@ -37,7 +37,17 @@ const router = createRouter({
           name: 'profile',
           component: () => import('@/pages/Profile.vue'),
         },
+        {
+          path: 'settings',
+          name: 'org-settings',
+          component: () => import('@/pages/OrgSettings.vue'),
+        },
       ],
+    },
+    {
+      path: '/org-deleted',
+      name: 'org-deleted',
+      component: () => import('@/pages/OrgDeleted.vue'),
     },
     {
       path: '/auth/login',

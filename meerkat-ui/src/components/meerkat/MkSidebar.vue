@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Layers, LayoutDashboard, PanelLeftClose, PanelLeftOpen } from 'lucide-vue-next'
+import { Layers, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-vue-next'
 import { useSidebar } from '@/composables/useSidebar'
 import MkProjectSelector from './MkProjectSelector.vue'
 
@@ -70,6 +70,24 @@ function isActive(path: string): boolean {
         <span v-if="!collapsed">{{ item.name }}</span>
       </RouterLink>
     </nav>
+
+    <!-- Settings -->
+    <div class="px-2 py-2 border-t border-border">
+      <RouterLink
+        to="/settings"
+        :title="collapsed ? 'Settings' : undefined"
+        :class="[
+          'flex items-center gap-2.5 rounded-md text-sm transition-colors',
+          collapsed ? 'justify-center px-0 py-1.5' : 'px-3 py-1.5',
+          isActive('/settings')
+            ? 'bg-accent text-accent-foreground font-medium'
+            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+        ]"
+      >
+        <Settings class="w-4 h-4 shrink-0" />
+        <span v-if="!collapsed">Settings</span>
+      </RouterLink>
+    </div>
 
     <!-- Collapse toggle -->
     <div class="px-2 py-3 border-t border-border">
