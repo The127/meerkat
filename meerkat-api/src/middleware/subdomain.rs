@@ -23,26 +23,26 @@ pub(crate) async fn resolve_subdomain(
 
     let host_without_port = strip_port(host);
 
-    let subdomain = extract_subdomain(host_without_port, &state.base_domain);
+    let subdomain = extract_subdomain(host_without_port, &state.tenant.base_domain);
 
     let (slug_to_lookup, is_master) = match subdomain {
         Some(sub) => match OrganizationSlug::new(sub) {
             Ok(slug) => {
-                let is_master = slug.as_str() == state.master_org_slug;
+                let is_master = slug.as_str() == state.tenant.master_org_slug;
                 (slug, is_master)
             }
             Err(_) => return not_found_response(),
         },
         None => {
             // Bare domain → master org
-            match OrganizationSlug::new(&state.master_org_slug) {
+            match OrganizationSlug::new(&state.tenant.master_org_slug) {
                 Ok(slug) => (slug, true),
                 Err(_) => return internal_error_response(),
             }
         }
     };
 
-    match state.org_read_store.find(&slug_to_lookup.into()).await {
+    match state.tenant.org_read_store.find(&slug_to_lookup.into()).await {
         Ok(Some(org)) => {
             request.extensions_mut().insert(ResolvedOrganization {
                 id: org.id,

@@ -65,6 +65,7 @@ async fn authenticate_inner(
         .ok_or_else(internal_error)?;
 
     let config = state
+        .auth
         .oidc_config_read_store
         .find_active_by_org_id(&resolved_org.id)
         .await
@@ -130,6 +131,7 @@ async fn resolve_identity(
         .unwrap_or(sub_value);
 
     let member_id = state
+        .auth
         .member_repository
         .find_or_create(&resolved_org.id, &sub, preferred_name, &org_roles)
         .await
@@ -187,12 +189,14 @@ async fn resolve_decoding_jwk(
     let discovery_url = discovery_url_for_config(config);
 
     let jwks_url = state
+        .auth
         .oidc_discovery_provider
         .resolve_jwks_uri(&discovery_url)
         .await
         .map_err(|_| internal_error())?;
 
     let jwk_value = state
+        .auth
         .jwks_provider
         .resolve_jwk(&jwks_url, kid)
         .await

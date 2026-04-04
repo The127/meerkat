@@ -77,7 +77,7 @@ pub(crate) async fn list_project_keys(
         .items
         .into_iter()
         .map(|k| {
-            let dsn = format!("https://{}@{}/{}", k.key_token, state.base_domain, slug.as_str());
+            let dsn = format!("https://{}@{}/{}", k.key_token, state.tenant.base_domain, slug.as_str());
             ProjectKeyListItemDto {
                 id: k.id,
                 key_token: k.key_token,

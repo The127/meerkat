@@ -9,22 +9,28 @@ use meerkat_application::ports::member_repository::MemberRepository;
 use meerkat_application::ports::oidc_discovery_provider::OidcDiscoveryProvider;
 use meerkat_application::ports::oidc_config_read_store::OidcConfigReadStore;
 use meerkat_application::ports::organization_read_store::OrganizationReadStore;
-use meerkat_application::ports::project_key_read_store::ProjectKeyReadStore;
-use meerkat_application::ports::project_read_store::ProjectReadStore;
+
+#[derive(Clone)]
+pub struct AuthState {
+    pub oidc_config_read_store: Arc<dyn OidcConfigReadStore>,
+    pub jwks_provider: Arc<dyn JwksProvider>,
+    pub oidc_discovery_provider: Arc<dyn OidcDiscoveryProvider>,
+    pub member_repository: Arc<dyn MemberRepository>,
+}
+
+#[derive(Clone)]
+pub struct TenantState {
+    pub org_read_store: Arc<dyn OrganizationReadStore>,
+    pub base_domain: String,
+    pub master_org_slug: String,
+}
 
 #[derive(Clone)]
 pub struct AppState {
     pub health_checker: Arc<dyn HealthChecker>,
     pub mediator: Arc<Mediator<RequestContext, ApplicationError>>,
     pub context: Arc<AppContext>,
-    pub org_read_store: Arc<dyn OrganizationReadStore>,
-    pub project_read_store: Arc<dyn ProjectReadStore>,
-    pub project_key_read_store: Arc<dyn ProjectKeyReadStore>,
-    pub oidc_config_read_store: Arc<dyn OidcConfigReadStore>,
-    pub jwks_provider: Arc<dyn JwksProvider>,
-    pub member_repository: Arc<dyn MemberRepository>,
-    pub oidc_discovery_provider: Arc<dyn OidcDiscoveryProvider>,
-    pub base_domain: String,
-    pub master_org_slug: String,
+    pub auth: AuthState,
+    pub tenant: TenantState,
     pub auth_enabled: bool,
 }

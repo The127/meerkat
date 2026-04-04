@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use sqlx::PgPool;
 use tokio::sync::watch;
 use tracing::info;
-use meerkat_api::state::AppState;
+use meerkat_api::state::{AppState, AuthState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
@@ -225,15 +225,17 @@ async fn run_api(
         health_checker,
         mediator,
         context,
-        org_read_store,
-        project_read_store,
-        project_key_read_store,
-        oidc_config_read_store,
-        jwks_provider,
-        member_repository,
-        oidc_discovery_provider,
-        base_domain: config.base_domain.clone(),
-        master_org_slug: config.master_org_slug.clone(),
+        auth: AuthState {
+            oidc_config_read_store,
+            jwks_provider,
+            oidc_discovery_provider,
+            member_repository,
+        },
+        tenant: TenantState {
+            org_read_store,
+            base_domain: config.base_domain.clone(),
+            master_org_slug: config.master_org_slug.clone(),
+        },
         auth_enabled: true,
     };
 

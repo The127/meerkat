@@ -6,7 +6,7 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tokio::net::TcpListener;
 
-use meerkat_api::state::AppState;
+use meerkat_api::state::{AppState, AuthState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
@@ -103,15 +103,17 @@ async fn hurl_integration_tests() {
             Arc::new(PgUnitOfWorkFactory::new(pool.clone(), Arc::new(SystemClock))),
             Arc::new(ErrorPipeline::new(vec![])),
         )),
-        org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),
-        project_read_store: Arc::new(PgProjectReadStore::new(pool.clone())),
-        project_key_read_store: Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone())),
-        oidc_config_read_store: Arc::new(PgOidcConfigReadStore::new(pool.clone())),
-        jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
-        member_repository: Arc::new(PgMemberRepository::new(pool.clone())),
-        oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),
-        base_domain: "127.0.0.1".to_string(),
-        master_org_slug: "master".to_string(),
+        auth: AuthState {
+            oidc_config_read_store: Arc::new(PgOidcConfigReadStore::new(pool.clone())),
+            jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
+            oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),
+            member_repository: Arc::new(PgMemberRepository::new(pool.clone())),
+        },
+        tenant: TenantState {
+            org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),
+            base_domain: "127.0.0.1".to_string(),
+            master_org_slug: "master".to_string(),
+        },
         auth_enabled: false,
     };
 
