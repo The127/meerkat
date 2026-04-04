@@ -61,6 +61,18 @@ export interface ProjectKey {
   created_at: string
 }
 
+export interface Issue {
+  id: string
+  project_id: string
+  title: string
+  fingerprint_hash: string
+  status: 'unresolved' | 'resolved' | 'ignored'
+  level: 'fatal' | 'error' | 'warning' | 'info' | 'debug'
+  event_count: number
+  first_seen: string
+  last_seen: string
+}
+
 export interface CurrentUser {
   member_id: string
   preferred_name: string

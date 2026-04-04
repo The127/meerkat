@@ -33,6 +33,11 @@ const router = createRouter({
           component: () => import('@/pages/projects/ProjectDetail.vue'),
         },
         {
+          path: 'projects/:slug/issues',
+          name: 'project-issues',
+          component: () => import('@/pages/projects/ProjectIssues.vue'),
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('@/pages/Profile.vue'),

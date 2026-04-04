@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Layers, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-vue-next'
+import { AlertCircle, Layers, PanelLeftClose, PanelLeftOpen, Settings, Wrench } from 'lucide-vue-next'
 import { useSidebar } from '@/composables/useSidebar'
 import MkProjectSelector from './MkProjectSelector.vue'
 
@@ -17,14 +17,22 @@ const navItems = computed(() => {
   if (!slug.value) return []
   return [
     {
-      name: 'Dashboard',
+      name: 'Issues',
+      path: `/projects/${slug.value}/issues`,
+      icon: AlertCircle,
+    },
+    {
+      name: 'Settings',
       path: `/projects/${slug.value}`,
-      icon: LayoutDashboard,
+      icon: Wrench,
     },
   ]
 })
 
 function isActive(path: string): boolean {
+  if (slug.value && path === `/projects/${slug.value}`) {
+    return route.path === path
+  }
   return route.path === path || route.path.startsWith(path + '/')
 }
 </script>
