@@ -20,4 +20,5 @@ dashmap = "6"
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 mockall = "0.13"
+parking_lot = "0.12"
 meerkat-domain = { path = "../meerkat-domain", features = ["test-utils"] }

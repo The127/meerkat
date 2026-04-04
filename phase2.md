@@ -5,13 +5,14 @@
 ## Done
 
 ### Project Key Domain & Persistence
-- `ProjectKey` aggregate with `KeyToken`, label, status (active/revoked)
+- `ProjectKey` aggregate with `KeyToken`, label, status (active/revoked), optional `RateLimit`
 - `project_keys` table, repository, persistence helpers, wired into UoW
 - Auto-generate default key on project creation via `ProjectCreated` domain event
 
 ### Project Key Management
 - `POST/GET/DELETE /api/v1/projects/:slug/keys` endpoints with RBAC
-- UI: Client Keys card on project settings page (create, revoke, copy DSN, status filter)
+- `POST /api/v1/projects/:slug/keys/:id/rate-limit` — set/clear per-key rate limit
+- UI: Client Keys page (create, revoke, copy DSN, status filter, pagination, inline rate limit editing)
 
 ### Event & Issue Domain Models
 - `Event` — immutable record (message, level, platform, timestamp, exception info, tags, extra, fingerprint hash)
@@ -32,43 +33,57 @@
 ### Ingest Endpoint
 - `POST /api/v1/ingest` with project key auth (`X-Meerkat-Key` header)
 - Computes fingerprint, finds-or-creates issue, saves event
+- Routed through mediator pipeline (not bypassed)
 - Returns `201 Created` with event ID
+
+### Per-Key Rate Limiting
+- `RateLimitBehavior` mediator behavior with DashMap fixed-window counters
+- `RateLimitKey` extension (opt-in, only on IngestEvent)
+- Per-key override via `RateLimit` value object (validated > 0), falls back to system default (1000/min)
+- Returns 429 with `Retry-After` header when exceeded
+- Revoked keys cannot have rate limits set
 
 ### Issues UI
 - `GET /api/v1/projects/:slug/issues` endpoint with status/search filtering
 - Issues page with filter tabs (all/unresolved/resolved/ignored)
 - Level and status badges, event counts, relative timestamps
 - "Send demo event" button
-- Sidebar navigation (Issues + Settings)
+- Sidebar navigation (Issues, Client Keys, Settings)
+
+### Code Quality
+- Extracted `RoleValues` value object from role-value triplet
+- `From`/`TryFrom` impls for ClaimMapping DTO conversions
+- `org_extensions`/`project_extensions` helpers for auth boilerplate
+- `ChangeBuffer`/`ChangeTracker` generics for repository pattern
+- Decomposed `authenticate_inner`, `save_changes`, `run_api`
+- `AppState` split into `AuthState`/`TenantState` sub-groups
+- `MasterOidcConfig` extracted from `MeerkatConfig`
+- `MkPagination` component and `usePagination` composable
 
 ---
 
 ## Remaining
+
+### Issue Management
+- Resolve/reopen/ignore actions from the issues page
+- Backend: commands + handlers for status transitions
+
+### Issue Detail Page
+- Click an issue to see its individual events
+- Event list with exception info, tags, extra context
+- Backend: event read store (list by issue)
 
 ### Payload Validation & Size Limits
 - Max payload size (200KB default)
 - Required fields, type checks, string length bounds
 - Tag count limit (max 50), extra data depth/size limit
 - Typed validation errors with descriptive messages
-- Tests for each rejection case
 
-### Rich Event Value Objects
+### Rich Event Data
 - `StackFrame` — filename, function, lineno, colno, context_line
 - `StackTrace` — vec of frames
-- `ExceptionValue` — type, value, stack trace (replace flat exception_type/exception_value strings)
-- `TagPair` — key + value with bounded length validation
-- `Environment`, `Release` validated string value objects
-- Update fingerprinting to use top N app frames instead of just exception type+value
-
-### Per-Key Rate Limiting
-- Rate limit config on `ProjectKey` (optional max events/min)
-- In-memory sliding window counter, keyed by public key
-- `429 Too Many Requests` + `Retry-After` header
-- Default project-level limit when no per-key override
-
-### Issue Management UI
-- Resolve/reopen/ignore actions from the issues page
-- Issue detail page showing individual events
+- Structured exception model (replace flat exception_type/exception_value strings)
+- Update fingerprinting to use top N app frames
 
 ---
 

@@ -115,6 +115,7 @@ mod tests {
             DomainEvent::ProjectCreated { project_id: event_pid } => {
                 assert_eq!(event_pid, &project_id);
             }
+            other => panic!("Expected ProjectCreated, got {:?}", other),
         }
     }
 }

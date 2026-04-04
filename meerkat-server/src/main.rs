@@ -16,7 +16,11 @@ use meerkat_application::behaviors::rate_limit::RateLimitBehavior;
 use meerkat_application::ports::audit::AuditPipeline;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::events::EventDispatcher;
+use meerkat_application::issues::ignore::{IgnoreIssue, IgnoreIssueHandler};
 use meerkat_application::issues::list::{ListIssues, ListIssuesHandler};
+use meerkat_application::issues::on_event_recorded::ReopenResolvedIssueOnNewEvent;
+use meerkat_application::issues::reopen::{ReopenIssue, ReopenIssueHandler};
+use meerkat_application::issues::resolve::{ResolveIssue, ResolveIssueHandler};
 use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectKeyHandler};
 use meerkat_application::project_keys::list::{ListProjectKeys, ListProjectKeysHandler};
 use meerkat_application::project_keys::on_project_created::GenerateProjectKeyOnProjectCreated;
@@ -49,8 +53,6 @@ use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_application::events::ingest::{IngestEvent, IngestEventHandler};
-use meerkat_infrastructure::persistence::pg_event_repository::PgEventRepository;
-use meerkat_infrastructure::persistence::pg_issue_repository::PgIssueRepository;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_project_permission_read_store::PgProjectPermissionReadStore;
@@ -155,8 +157,6 @@ struct MediatorDeps {
     project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
     project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
     issue_read_store: Arc<dyn meerkat_application::ports::issue_read_store::IssueReadStore>,
-    event_repo: Arc<dyn meerkat_application::ports::event_repository::EventRepository>,
-    issue_repo: Arc<dyn meerkat_application::ports::issue_repository::IssueRepository>,
     fingerprint_service: Arc<dyn meerkat_application::ports::fingerprint_service::FingerprintService>,
 }
 
@@ -167,6 +167,7 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
 
     let mut event_dispatcher = EventDispatcher::new();
     event_dispatcher.register(Arc::new(GenerateProjectKeyOnProjectCreated));
+    event_dispatcher.register(Arc::new(ReopenResolvedIssueOnNewEvent));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(Arc::new(event_dispatcher))));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);
@@ -190,10 +191,13 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store.clone(), deps.project_member_read_store));
     mediator.register::<ListProjectKeys, _>(ListProjectKeysHandler::new(deps.project_read_store.clone(), deps.project_key_read_store));
     mediator.register::<ListIssues, _>(ListIssuesHandler::new(deps.project_read_store.clone(), deps.issue_read_store));
+    mediator.register::<ResolveIssue, _>(ResolveIssueHandler);
+    mediator.register::<ReopenIssue, _>(ReopenIssueHandler);
+    mediator.register::<IgnoreIssue, _>(IgnoreIssueHandler);
     mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
     mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
     mediator.register::<UpdateProjectKeyRateLimit, _>(UpdateProjectKeyRateLimitHandler);
-    mediator.register::<IngestEvent, _>(IngestEventHandler::new(deps.event_repo, deps.issue_repo, deps.fingerprint_service));
+    mediator.register::<IngestEvent, _>(IngestEventHandler::new(deps.fingerprint_service));
     mediator
 }
 
@@ -222,8 +226,6 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
         Arc::new(TracingAuditLogger),
     ]));
 
-    let event_repo = Arc::new(PgEventRepository::new(pool.clone()));
-    let issue_repo = Arc::new(PgIssueRepository::new(pool.clone()));
     let fingerprint_service = Arc::new(meerkat_infrastructure::sha256_fingerprint_service::Sha256FingerprintService);
 
     let mediator = Arc::new(build_mediator(MediatorDeps {
@@ -237,8 +239,6 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
         project_member_read_store: stores.project_member.clone(),
         project_key_read_store: stores.project_key.clone(),
         issue_read_store: stores.issue.clone(),
-        event_repo,
-        issue_repo,
         fingerprint_service,
     }));
 

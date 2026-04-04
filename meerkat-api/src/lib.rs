@@ -74,6 +74,9 @@ pub fn router(state: AppState) -> Router {
         .route("/{slug}/roles", get(team::list_project_roles))
         .route("/{slug}/members", get(team::list_project_members))
         .route("/{slug}/issues", get(issues::list_issues))
+        .route("/{slug}/issues/{issue_id}/resolve", post(issues::resolve_issue))
+        .route("/{slug}/issues/{issue_id}/reopen", post(issues::reopen_issue))
+        .route("/{slug}/issues/{issue_id}/ignore", post(issues::ignore_issue))
         .route("/{slug}/keys", get(project_keys::list_project_keys).post(project_keys::create_project_key))
         .route("/{slug}/keys/{key_id}", delete(project_keys::revoke_project_key))
         .route("/{slug}/keys/{key_id}/rate-limit", post(project_keys::update_project_key_rate_limit));

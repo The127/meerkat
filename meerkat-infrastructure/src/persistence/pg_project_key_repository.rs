@@ -9,7 +9,7 @@ use meerkat_domain::models::project_key::{
 };
 use meerkat_domain::shared::version::Version;
 
-use super::change_buffer::ChangeTracker;
+use super::change_buffer::{BufferEntry, ChangeTracker};
 use super::error::map_sqlx_error;
 
 pub(crate) enum ProjectKeyEntry {
@@ -18,6 +18,26 @@ pub(crate) enum ProjectKeyEntry {
         entity: ProjectKey,
         snapshot: ProjectKey,
     },
+}
+
+impl BufferEntry<ProjectKeyId, ProjectKey> for ProjectKeyEntry {
+    fn id(&self) -> &ProjectKeyId {
+        match self {
+            ProjectKeyEntry::Added(k) => k.id(),
+            ProjectKeyEntry::Modified { entity, .. } => entity.id(),
+        }
+    }
+
+    fn update_entity(&mut self, key: ProjectKey) {
+        match self {
+            ProjectKeyEntry::Added(k) => *k = key,
+            ProjectKeyEntry::Modified { entity, .. } => *entity = key,
+        }
+    }
+
+    fn make_modified(entity: ProjectKey, snapshot: ProjectKey) -> Self {
+        ProjectKeyEntry::Modified { entity, snapshot }
+    }
 }
 
 pub struct PgProjectKeyRepository {
@@ -36,6 +56,15 @@ impl PgProjectKeyRepository {
     pub(crate) fn take_entries(&self) -> Vec<ProjectKeyEntry> {
         self.tracker.take_entries()
     }
+
+    fn find_in_buffer(&self, id: &ProjectKeyId) -> Option<ProjectKey> {
+        self.tracker.find_entry(|entry| {
+            let key = match entry {
+                ProjectKeyEntry::Added(k) | ProjectKeyEntry::Modified { entity: k, .. } => k,
+            };
+            if key.id() == id { Some(key.clone()) } else { None }
+        })
+    }
 }
 
 #[async_trait]
@@ -45,11 +74,15 @@ impl ProjectKeyRepository for PgProjectKeyRepository {
     }
 
     fn save(&self, key: ProjectKey) {
-        let snapshot = self.tracker.take_snapshot(key.id());
-        self.tracker.push(ProjectKeyEntry::Modified { entity: key, snapshot });
+        self.tracker.save(key.id().clone(), key);
     }
 
     async fn find(&self, id: &ProjectKeyId) -> Result<ProjectKey, ApplicationError> {
+        if let Some(key) = self.find_in_buffer(id) {
+            self.tracker.track(key.id().clone(), key.clone());
+            return Ok(key);
+        }
+
         let row = sqlx::query_as::<_, ProjectKeyRow>(
             "SELECT id, project_id, key_token, label, status, rate_limit, version \
              FROM project_keys WHERE id = $1",

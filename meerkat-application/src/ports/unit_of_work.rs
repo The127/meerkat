@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 
 use crate::error::ApplicationError;
+use crate::ports::event_repository::EventRepository;
+use crate::ports::issue_repository::IssueRepository;
 use crate::ports::organization_repository::OrganizationRepository;
 use crate::ports::project_key_repository::ProjectKeyRepository;
 use crate::ports::project_member_repository::ProjectMemberRepository;
@@ -14,6 +16,8 @@ pub trait UnitOfWork: Send + Sync {
     fn project_keys(&self) -> &dyn ProjectKeyRepository;
     fn project_roles(&self) -> &dyn ProjectRoleRepository;
     fn project_members(&self) -> &dyn ProjectMemberRepository;
+    fn events(&self) -> &dyn EventRepository;
+    fn issues(&self) -> &dyn IssueRepository;
     async fn save_changes(&mut self) -> Result<(), ApplicationError>;
 }
 
@@ -31,6 +35,8 @@ pub struct MockUnitOfWork {
     project_key_repo: crate::ports::project_key_repository::MockProjectKeyRepository,
     project_role_repo: crate::ports::project_role_repository::NoOpProjectRoleRepository,
     project_member_repo: crate::ports::project_member_repository::NoOpProjectMemberRepository,
+    event_repo: Box<dyn EventRepository>,
+    issue_repo: Box<dyn IssueRepository>,
     save_changes_result: Option<Result<(), ApplicationError>>,
 }
 
@@ -43,6 +49,8 @@ impl Default for MockUnitOfWork {
             project_key_repo: crate::ports::project_key_repository::MockProjectKeyRepository::new(),
             project_role_repo: crate::ports::project_role_repository::NoOpProjectRoleRepository,
             project_member_repo: crate::ports::project_member_repository::NoOpProjectMemberRepository,
+            event_repo: Box::new(crate::ports::event_repository::NoOpEventRepository),
+            issue_repo: Box::new(crate::ports::issue_repository::NoOpIssueRepository),
             save_changes_result: Some(Ok(())),
         }
     }
@@ -66,6 +74,16 @@ impl MockUnitOfWork {
 
     pub fn with_project_key_repo(mut self, repo: crate::ports::project_key_repository::MockProjectKeyRepository) -> Self {
         self.project_key_repo = repo;
+        self
+    }
+
+    pub fn with_event_repo(mut self, repo: crate::ports::event_repository::MockEventRepository) -> Self {
+        self.event_repo = Box::new(repo);
+        self
+    }
+
+    pub fn with_issue_repo(mut self, repo: crate::ports::issue_repository::MockIssueRepository) -> Self {
+        self.issue_repo = Box::new(repo);
         self
     }
 
@@ -96,6 +114,14 @@ impl UnitOfWork for MockUnitOfWork {
 
     fn project_members(&self) -> &dyn ProjectMemberRepository {
         &self.project_member_repo
+    }
+
+    fn events(&self) -> &dyn EventRepository {
+        self.event_repo.as_ref()
+    }
+
+    fn issues(&self) -> &dyn IssueRepository {
+        self.issue_repo.as_ref()
     }
 
     async fn save_changes(&mut self) -> Result<(), ApplicationError> {

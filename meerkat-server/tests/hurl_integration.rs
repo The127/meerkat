@@ -28,8 +28,7 @@ use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_application::events::ingest::{IngestEvent, IngestEventHandler};
-use meerkat_infrastructure::persistence::pg_event_repository::PgEventRepository;
-use meerkat_infrastructure::persistence::pg_issue_repository::PgIssueRepository;
+use meerkat_application::issues::on_event_recorded::ReopenResolvedIssueOnNewEvent;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
@@ -43,6 +42,7 @@ fn build_mediator(pool: PgPool) -> Mediator<RequestContext, ApplicationError> {
 
     let mut event_dispatcher = EventDispatcher::new();
     event_dispatcher.register(Arc::new(GenerateProjectKeyOnProjectCreated));
+    event_dispatcher.register(Arc::new(ReopenResolvedIssueOnNewEvent));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(Arc::new(event_dispatcher))));
 
     let project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore> =
@@ -56,8 +56,6 @@ fn build_mediator(pool: PgPool) -> Mediator<RequestContext, ApplicationError> {
     mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
     mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
     mediator.register::<IngestEvent, _>(IngestEventHandler::new(
-        Arc::new(PgEventRepository::new(pool.clone())),
-        Arc::new(PgIssueRepository::new(pool.clone())),
         Arc::new(meerkat_infrastructure::sha256_fingerprint_service::Sha256FingerprintService),
     ));
     mediator

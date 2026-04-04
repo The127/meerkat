@@ -6,6 +6,29 @@ use crate::shared::version::Version;
 
 uuid_id!(IssueId);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FingerprintHash(String);
+
+impl FingerprintHash {
+    pub fn new(value: impl Into<String>) -> Result<Self, IssueError> {
+        let value = value.into().trim().to_string();
+        if value.is_empty() {
+            return Err(IssueError::EmptyFingerprintHash);
+        }
+        Ok(Self(value))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum IssueIdentifier {
+    Id(IssueId),
+    Fingerprint(ProjectId, FingerprintHash),
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, strum::Display, strum::EnumString, strum::AsRefStr)]
 pub enum IssueStatus {
     #[strum(serialize = "unresolved")]
@@ -36,7 +59,7 @@ pub struct Issue {
     id: IssueId,
     project_id: ProjectId,
     title: String,
-    fingerprint_hash: String,
+    fingerprint_hash: FingerprintHash,
     status: IssueStatus,
     level: EventLevel,
     event_count: u64,
@@ -46,9 +69,21 @@ pub struct Issue {
 }
 
 impl Issue {
+    pub fn derive_title(
+        exception_type: Option<&str>,
+        exception_value: Option<&str>,
+        message: &str,
+    ) -> String {
+        match (exception_type, exception_value) {
+            (Some(t), Some(v)) => format!("{t}: {v}"),
+            (Some(t), None) => t.to_string(),
+            _ => message.to_string(),
+        }
+    }
+
     pub fn new(
         title: String,
-        fingerprint_hash: String,
+        fingerprint_hash: FingerprintHash,
         project_id: ProjectId,
         level: EventLevel,
         timestamp: DateTime<Utc>,
@@ -56,11 +91,6 @@ impl Issue {
         let title = title.trim().to_string();
         if title.is_empty() {
             return Err(IssueError::EmptyTitle);
-        }
-
-        let fingerprint_hash = fingerprint_hash.trim().to_string();
-        if fingerprint_hash.is_empty() {
-            return Err(IssueError::EmptyFingerprintHash);
         }
 
         Ok(Self {
@@ -114,7 +144,7 @@ impl Issue {
     pub fn id(&self) -> &IssueId { &self.id }
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
     pub fn title(&self) -> &str { &self.title }
-    pub fn fingerprint_hash(&self) -> &str { &self.fingerprint_hash }
+    pub fn fingerprint_hash(&self) -> &FingerprintHash { &self.fingerprint_hash }
     pub fn status(&self) -> &IssueStatus { &self.status }
     pub fn level(&self) -> &EventLevel { &self.level }
     pub fn event_count(&self) -> u64 { self.event_count }
@@ -137,7 +167,7 @@ mod tests {
         // act
         let issue = Issue::new(
             "TypeError: Cannot read property 'x'".into(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             project_id.clone(),
             EventLevel::Error,
             now,
@@ -147,7 +177,7 @@ mod tests {
         // assert
         assert_eq!(issue.project_id(), &project_id);
         assert_eq!(issue.title(), "TypeError: Cannot read property 'x'");
-        assert_eq!(issue.fingerprint_hash(), "abc123");
+        assert_eq!(issue.fingerprint_hash().as_str(), "abc123");
         assert_eq!(issue.status(), &IssueStatus::Unresolved);
         assert_eq!(issue.level(), &EventLevel::Error);
         assert_eq!(issue.event_count(), 1);
@@ -160,7 +190,7 @@ mod tests {
         // act
         let result = Issue::new(
             "  ".into(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             ProjectId::new(),
             EventLevel::Error,
             Utc::now(),
@@ -176,13 +206,7 @@ mod tests {
     #[test]
     fn given_empty_fingerprint_hash_then_creation_fails() {
         // act
-        let result = Issue::new(
-            "Something broke".into(),
-            "  ".into(),
-            ProjectId::new(),
-            EventLevel::Error,
-            Utc::now(),
-        );
+        let result = FingerprintHash::new("  ");
 
         // assert
         match result {
@@ -196,7 +220,7 @@ mod tests {
         // act
         let issue = Issue::new(
             "  Something broke  ".into(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             ProjectId::new(),
             EventLevel::Error,
             Utc::now(),
@@ -339,7 +363,7 @@ mod tests {
         // arrange
         let mut issue = Issue::new(
             "Something broke".into(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             ProjectId::new(),
             EventLevel::Warning,
             Utc::now(),
@@ -358,7 +382,7 @@ mod tests {
         // arrange
         let mut issue = Issue::new(
             "Something broke".into(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             ProjectId::new(),
             EventLevel::Fatal,
             Utc::now(),
@@ -383,5 +407,32 @@ mod tests {
 
         // assert
         assert_eq!(issue.status(), &IssueStatus::Unresolved);
+    }
+
+    #[test]
+    fn given_type_and_value_then_derive_title_formats_both() {
+        // act
+        let title = Issue::derive_title(Some("TypeError"), Some("x is not defined"), "fallback");
+
+        // assert
+        assert_eq!(title, "TypeError: x is not defined");
+    }
+
+    #[test]
+    fn given_type_only_then_derive_title_uses_type() {
+        // act
+        let title = Issue::derive_title(Some("TypeError"), None, "fallback");
+
+        // assert
+        assert_eq!(title, "TypeError");
+    }
+
+    #[test]
+    fn given_no_exception_info_then_derive_title_uses_message() {
+        // act
+        let title = Issue::derive_title(None, None, "Something broke");
+
+        // assert
+        assert_eq!(title, "Something broke");
     }
 }

@@ -5,6 +5,8 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
+use meerkat_application::ports::event_repository::EventRepository;
+use meerkat_application::ports::issue_repository::IssueRepository;
 use meerkat_application::ports::organization_repository::OrganizationRepository;
 use meerkat_application::ports::project_key_repository::ProjectKeyRepository;
 use meerkat_application::ports::project_member_repository::ProjectMemberRepository;
@@ -14,7 +16,11 @@ use meerkat_application::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
 use meerkat_application::ports::clock::Clock;
 
 use crate::persistence::error::map_sqlx_error;
+use crate::persistence::event_persistence::EventPersistence;
+use crate::persistence::issue_persistence::IssuePersistence;
 use crate::persistence::organization_persistence::OrganizationPersistence;
+use crate::persistence::pg_event_repository::{EventEntry, PgEventRepository};
+use crate::persistence::pg_issue_repository::{IssueEntry, PgIssueRepository};
 use crate::persistence::pg_organization_repository::{OrgEntry, PgOrganizationRepository};
 use crate::persistence::pg_project_key_repository::{PgProjectKeyRepository, ProjectKeyEntry};
 use crate::persistence::pg_project_member_repository::{PgProjectMemberRepository, ProjectMemberEntry};
@@ -33,6 +39,8 @@ pub struct PgUnitOfWork {
     project_key_repo: PgProjectKeyRepository,
     project_role_repo: PgProjectRoleRepository,
     project_member_repo: PgProjectMemberRepository,
+    event_repo: PgEventRepository,
+    issue_repo: PgIssueRepository,
 }
 
 impl PgUnitOfWork {
@@ -43,6 +51,8 @@ impl PgUnitOfWork {
             project_key_repo: PgProjectKeyRepository::new(pool.clone()),
             project_role_repo: PgProjectRoleRepository::new(),
             project_member_repo: PgProjectMemberRepository::new(),
+            event_repo: PgEventRepository::new(),
+            issue_repo: PgIssueRepository::new(pool.clone()),
             pool,
             clock,
         }
@@ -129,6 +139,35 @@ impl PgUnitOfWork {
         }
         Ok(())
     }
+
+    async fn save_event_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[EventEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            EventPersistence::insert(tx, &entry.0, now).await?;
+        }
+        Ok(())
+    }
+
+    async fn save_issue_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[IssueEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            match entry {
+                IssueEntry::Added(issue) => {
+                    IssuePersistence::insert(tx, issue, now).await?;
+                }
+                IssueEntry::Modified { entity, snapshot } => {
+                    IssuePersistence::update(tx, entity, snapshot, now).await?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -153,16 +192,27 @@ impl UnitOfWork for PgUnitOfWork {
         &self.project_member_repo
     }
 
+    fn events(&self) -> &dyn EventRepository {
+        &self.event_repo
+    }
+
+    fn issues(&self) -> &dyn IssueRepository {
+        &self.issue_repo
+    }
+
     async fn save_changes(&mut self) -> Result<(), ApplicationError> {
         let org_entries = self.org_repo.take_entries();
         let project_entries = self.project_repo.take_entries();
         let key_entries = self.project_key_repo.take_entries();
         let role_entries = self.project_role_repo.take_entries();
         let member_entries = self.project_member_repo.take_entries();
+        let event_entries = self.event_repo.take_entries();
+        let issue_entries = self.issue_repo.take_entries();
 
         if org_entries.is_empty() && project_entries.is_empty()
             && key_entries.is_empty() && role_entries.is_empty()
-            && member_entries.is_empty()
+            && member_entries.is_empty() && event_entries.is_empty()
+            && issue_entries.is_empty()
         {
             return Ok(());
         }
@@ -175,6 +225,8 @@ impl UnitOfWork for PgUnitOfWork {
         Self::save_project_key_entries(&mut tx, &key_entries, now).await?;
         Self::save_project_role_entries(&mut tx, &role_entries, now).await?;
         Self::save_project_member_entries(&mut tx, &member_entries, now).await?;
+        Self::save_issue_entries(&mut tx, &issue_entries, now).await?;
+        Self::save_event_entries(&mut tx, &event_entries, now).await?;
 
         tx.commit().await.map_err(map_sqlx_error)?;
 

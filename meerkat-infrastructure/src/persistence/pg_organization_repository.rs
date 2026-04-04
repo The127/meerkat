@@ -12,7 +12,7 @@ use meerkat_domain::models::organization::{
 };
 use meerkat_domain::shared::version::Version;
 
-use super::change_buffer::ChangeTracker;
+use super::change_buffer::{BufferEntry, ChangeTracker};
 use super::error::map_sqlx_error;
 
 pub(crate) enum OrgEntry {
@@ -22,6 +22,28 @@ pub(crate) enum OrgEntry {
         snapshot: Organization,
     },
     Deleted(OrganizationId),
+}
+
+impl BufferEntry<OrganizationId, Organization> for OrgEntry {
+    fn id(&self) -> &OrganizationId {
+        match self {
+            OrgEntry::Added(o) => o.id(),
+            OrgEntry::Modified { entity, .. } => entity.id(),
+            OrgEntry::Deleted(id) => id,
+        }
+    }
+
+    fn update_entity(&mut self, org: Organization) {
+        match self {
+            OrgEntry::Added(o) => *o = org,
+            OrgEntry::Modified { entity, .. } => *entity = org,
+            OrgEntry::Deleted(_) => panic!("cannot update a deleted entity"),
+        }
+    }
+
+    fn make_modified(entity: Organization, snapshot: Organization) -> Self {
+        OrgEntry::Modified { entity, snapshot }
+    }
 }
 
 pub struct PgOrganizationRepository {
@@ -40,6 +62,20 @@ impl PgOrganizationRepository {
     pub(crate) fn take_entries(&self) -> Vec<OrgEntry> {
         self.tracker.take_entries()
     }
+
+    fn find_in_buffer(&self, identifier: &OrganizationIdentifier) -> Option<Organization> {
+        self.tracker.find_entry(|entry| {
+            let org = match entry {
+                OrgEntry::Added(o) | OrgEntry::Modified { entity: o, .. } => o,
+                OrgEntry::Deleted(_) => return None,
+            };
+            let matches = match identifier {
+                OrganizationIdentifier::Id(id) => org.id() == id,
+                OrganizationIdentifier::Slug(slug) => org.slug() == slug,
+            };
+            if matches { Some(org.clone()) } else { None }
+        })
+    }
 }
 
 #[async_trait]
@@ -49,8 +85,7 @@ impl OrganizationRepository for PgOrganizationRepository {
     }
 
     fn save(&self, org: Organization) {
-        let snapshot = self.tracker.take_snapshot(org.id());
-        self.tracker.push(OrgEntry::Modified { entity: org, snapshot });
+        self.tracker.save(org.id().clone(), org);
     }
 
     fn delete(&self, id: OrganizationId) {
@@ -59,6 +94,11 @@ impl OrganizationRepository for PgOrganizationRepository {
     }
 
     async fn find(&self, identifier: &OrganizationIdentifier) -> Result<Organization, ApplicationError> {
+        if let Some(org) = self.find_in_buffer(identifier) {
+            self.tracker.track(org.id().clone(), org.clone());
+            return Ok(org);
+        }
+
         let row = match identifier {
             OrganizationIdentifier::Id(id) => {
                 sqlx::query_as::<_, OrgRow>(

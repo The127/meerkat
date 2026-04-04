@@ -7,7 +7,7 @@ use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{Project, ProjectId, ProjectIdentifier, ProjectSlug, ProjectState};
 use meerkat_domain::shared::version::Version;
 
-use super::change_buffer::ChangeTracker;
+use super::change_buffer::{BufferEntry, ChangeTracker};
 use super::error::map_sqlx_error;
 
 pub(crate) enum ProjectEntry {
@@ -17,6 +17,28 @@ pub(crate) enum ProjectEntry {
         snapshot: Project,
     },
     Deleted(ProjectId),
+}
+
+impl BufferEntry<ProjectId, Project> for ProjectEntry {
+    fn id(&self) -> &ProjectId {
+        match self {
+            ProjectEntry::Added(p) => p.id(),
+            ProjectEntry::Modified { entity, .. } => entity.id(),
+            ProjectEntry::Deleted(id) => id,
+        }
+    }
+
+    fn update_entity(&mut self, project: Project) {
+        match self {
+            ProjectEntry::Added(p) => *p = project,
+            ProjectEntry::Modified { entity, .. } => *entity = project,
+            ProjectEntry::Deleted(_) => panic!("cannot update a deleted entity"),
+        }
+    }
+
+    fn make_modified(entity: Project, snapshot: Project) -> Self {
+        ProjectEntry::Modified { entity, snapshot }
+    }
 }
 
 pub struct PgProjectRepository {
@@ -35,6 +57,22 @@ impl PgProjectRepository {
     pub(crate) fn take_entries(&self) -> Vec<ProjectEntry> {
         self.tracker.take_entries()
     }
+
+    fn find_in_buffer(&self, identifier: &ProjectIdentifier) -> Option<Project> {
+        self.tracker.find_entry(|entry| {
+            let project = match entry {
+                ProjectEntry::Added(p) | ProjectEntry::Modified { entity: p, .. } => p,
+                ProjectEntry::Deleted(_) => return None,
+            };
+            let matches = match identifier {
+                ProjectIdentifier::Id(id) => project.id() == id,
+                ProjectIdentifier::Slug(org_id, slug) => {
+                    project.organization_id() == org_id && project.slug() == slug
+                }
+            };
+            if matches { Some(project.clone()) } else { None }
+        })
+    }
 }
 
 #[async_trait]
@@ -44,8 +82,7 @@ impl ProjectRepository for PgProjectRepository {
     }
 
     fn save(&self, project: Project) {
-        let snapshot = self.tracker.take_snapshot(project.id());
-        self.tracker.push(ProjectEntry::Modified { entity: project, snapshot });
+        self.tracker.save(project.id().clone(), project);
     }
 
     fn delete(&self, id: ProjectId) {
@@ -54,6 +91,11 @@ impl ProjectRepository for PgProjectRepository {
     }
 
     async fn find(&self, identifier: &ProjectIdentifier) -> Result<Project, ApplicationError> {
+        if let Some(project) = self.find_in_buffer(identifier) {
+            self.tracker.track(project.id().clone(), project.clone());
+            return Ok(project);
+        }
+
         let row = match identifier {
             ProjectIdentifier::Id(id) => {
                 sqlx::query_as::<_, ProjectRow>(

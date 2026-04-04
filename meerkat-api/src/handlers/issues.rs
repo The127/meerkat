@@ -1,15 +1,21 @@
+use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::{Extension, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
 use meerkat_application::context::RequestContext;
+use meerkat_application::error::ApplicationError;
+use meerkat_application::issues::ignore::IgnoreIssue;
 use meerkat_application::issues::list::ListIssues;
+use meerkat_application::issues::reopen::ReopenIssue;
+use meerkat_application::issues::resolve::ResolveIssue;
 use meerkat_application::search::SearchFilter;
-use meerkat_domain::models::issue::IssueId;
+use meerkat_domain::models::issue::{IssueId, IssueStatus};
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 
 use crate::error::ApiError;
@@ -72,10 +78,18 @@ pub(crate) async fn list_issues(
     Query(search): Query<SearchQueryDto>,
     Query(status_filter): Query<IssueStatusFilterQueryDto>,
 ) -> Result<Json<ListIssuesResponseDto>, ApiError> {
+    let status = status_filter.status
+        .as_deref()
+        .map(IssueStatus::from_str)
+        .transpose()
+        .map_err(|_| ApplicationError::Validation(
+            format!("invalid status filter: '{}'", status_filter.status.as_deref().unwrap_or_default()),
+        ))?;
+
     let query = ListIssues {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
         search: search.search.as_deref().and_then(SearchFilter::new),
-        status: status_filter.status,
+        status: status.map(|s| s.to_string()),
         limit: pagination.limit(),
         offset: pagination.offset(),
     };
@@ -101,4 +115,82 @@ pub(crate) async fn list_issues(
         items,
         total: result.total,
     }))
+}
+
+// --- Resolve ---
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/issues/{issue_id}/resolve",
+    responses(
+        (status = 204, description = "Issue resolved"),
+        (status = 404, description = "Issue not found"),
+    )
+)]
+pub(crate) async fn resolve_issue(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = ResolveIssue {
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
+        issue_id,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Reopen ---
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/issues/{issue_id}/reopen",
+    responses(
+        (status = 204, description = "Issue reopened"),
+        (status = 404, description = "Issue not found"),
+    )
+)]
+pub(crate) async fn reopen_issue(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = ReopenIssue {
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
+        issue_id,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Ignore ---
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/issues/{issue_id}/ignore",
+    responses(
+        (status = 204, description = "Issue ignored"),
+        (status = 404, description = "Issue not found"),
+    )
+)]
+pub(crate) async fn ignore_issue(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = IgnoreIssue {
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
+        issue_id,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

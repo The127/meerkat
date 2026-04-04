@@ -1,7 +1,7 @@
 use chrono::Utc;
 use vec1::vec1;
 use crate::models::event::{Event, EventLevel};
-use crate::models::issue::{Issue, IssueId};
+use crate::models::issue::{FingerprintHash, Issue, IssueId};
 use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, RoleValues, Url};
 use crate::models::organization::{Organization, OrganizationSlug};
 use crate::models::project::{Project, ProjectId, ProjectSlug};
@@ -58,7 +58,7 @@ pub fn test_event() -> Event {
     Event::new(
         ProjectId::new(),
         IssueId::new(),
-        "abc123def456".into(),
+        FingerprintHash::new("abc123def456").unwrap(),
         "Test error".into(),
         EventLevel::Error,
         "python".into(),
@@ -77,7 +77,7 @@ pub fn test_event() -> Event {
 pub fn test_issue() -> Issue {
     Issue::new(
         "RuntimeError: something went wrong".into(),
-        "abc123def456".into(),
+        FingerprintHash::new("abc123def456").unwrap(),
         ProjectId::new(),
         EventLevel::Error,
         Utc::now(),

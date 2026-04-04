@@ -4,19 +4,71 @@ use sqlx::PgPool;
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::issue_repository::IssueRepository;
 use meerkat_domain::models::event::EventLevel;
-use meerkat_domain::models::issue::{Issue, IssueId, IssueState, IssueStatus};
+use meerkat_domain::models::issue::{FingerprintHash, Issue, IssueId, IssueIdentifier, IssueState, IssueStatus};
 use meerkat_domain::models::project::ProjectId;
 use meerkat_domain::shared::version::Version;
 
+use super::change_buffer::{BufferEntry, ChangeTracker};
 use super::error::map_sqlx_error;
+
+pub(crate) enum IssueEntry {
+    Added(Issue),
+    Modified {
+        entity: Issue,
+        snapshot: Issue,
+    },
+}
+
+impl BufferEntry<IssueId, Issue> for IssueEntry {
+    fn id(&self) -> &IssueId {
+        match self {
+            IssueEntry::Added(i) => i.id(),
+            IssueEntry::Modified { entity, .. } => entity.id(),
+        }
+    }
+
+    fn update_entity(&mut self, issue: Issue) {
+        match self {
+            IssueEntry::Added(i) => *i = issue,
+            IssueEntry::Modified { entity, .. } => *entity = issue,
+        }
+    }
+
+    fn make_modified(entity: Issue, snapshot: Issue) -> Self {
+        IssueEntry::Modified { entity, snapshot }
+    }
+}
 
 pub struct PgIssueRepository {
     pool: PgPool,
+    tracker: ChangeTracker<IssueId, Issue, IssueEntry>,
 }
 
 impl PgIssueRepository {
     pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            tracker: ChangeTracker::new(),
+        }
+    }
+
+    pub(crate) fn take_entries(&self) -> Vec<IssueEntry> {
+        self.tracker.take_entries()
+    }
+
+    fn find_in_buffer(&self, identifier: &IssueIdentifier) -> Option<Issue> {
+        self.tracker.find_entry(|entry| {
+            let issue = match entry {
+                IssueEntry::Added(i) | IssueEntry::Modified { entity: i, .. } => i,
+            };
+            let matches = match identifier {
+                IssueIdentifier::Id(id) => issue.id() == id,
+                IssueIdentifier::Fingerprint(project_id, hash) => {
+                    issue.project_id() == project_id && issue.fingerprint_hash() == hash
+                }
+            };
+            if matches { Some(issue.clone()) } else { None }
+        })
     }
 }
 
@@ -40,7 +92,7 @@ impl IssueRow {
             id: IssueId::from_uuid(self.id),
             project_id: ProjectId::from_uuid(self.project_id),
             title: self.title,
-            fingerprint_hash: self.fingerprint_hash,
+            fingerprint_hash: FingerprintHash::new(self.fingerprint_hash).expect("invalid fingerprint_hash in database"),
             status: self.status.parse::<IssueStatus>().expect("invalid status in database"),
             level: self.level.parse::<EventLevel>().expect("invalid level in database"),
             event_count: self.event_count as u64,
@@ -51,82 +103,53 @@ impl IssueRow {
     }
 }
 
+const SELECT_COLUMNS: &str = "id, project_id, title, fingerprint_hash, status, level, \
+    event_count, first_seen, last_seen, version";
+
 #[async_trait]
 impl IssueRepository for PgIssueRepository {
-    async fn find_by_fingerprint(
-        &self,
-        project_id: &ProjectId,
-        fingerprint_hash: &str,
-    ) -> Result<Option<Issue>, ApplicationError> {
-        let row = sqlx::query_as::<_, IssueRow>(
-            "SELECT id, project_id, title, fingerprint_hash, status, level, \
-             event_count, first_seen, last_seen, version \
-             FROM issues \
-             WHERE project_id = $1 AND fingerprint_hash = $2",
-        )
-        .bind(project_id.as_uuid())
-        .bind(fingerprint_hash)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(map_sqlx_error)?;
-
-        Ok(row.map(|r| r.into_issue()))
-    }
-
-    async fn add(&self, issue: &Issue) -> Result<(), ApplicationError> {
-        let now = chrono::Utc::now();
-
-        sqlx::query(
-            "INSERT INTO issues (id, project_id, title, fingerprint_hash, status, level, \
-             event_count, first_seen, last_seen, version, created_at, updated_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
-        )
-        .bind(issue.id().as_uuid())
-        .bind(issue.project_id().as_uuid())
-        .bind(issue.title())
-        .bind(issue.fingerprint_hash())
-        .bind(issue.status().as_ref())
-        .bind(issue.level().as_ref())
-        .bind(issue.event_count() as i64)
-        .bind(issue.first_seen())
-        .bind(issue.last_seen())
-        .bind(issue.version().as_u64() as i64)
-        .bind(now)
-        .bind(now)
-        .execute(&self.pool)
-        .await
-        .map_err(map_sqlx_error)?;
-
-        Ok(())
-    }
-
-    async fn save(&self, issue: &Issue) -> Result<(), ApplicationError> {
-        let now = chrono::Utc::now();
-        let new_version = issue.version().increment();
-
-        let result = sqlx::query(
-            "UPDATE issues SET title = $1, status = $2, level = $3, event_count = $4, \
-             first_seen = $5, last_seen = $6, version = $7, updated_at = $8 \
-             WHERE id = $9 AND version = $10",
-        )
-        .bind(issue.title())
-        .bind(issue.status().as_ref())
-        .bind(issue.level().as_ref())
-        .bind(issue.event_count() as i64)
-        .bind(issue.first_seen())
-        .bind(issue.last_seen())
-        .bind(new_version.as_u64() as i64)
-        .bind(now)
-        .bind(issue.id().as_uuid())
-        .bind(issue.version().as_u64() as i64)
-        .execute(&self.pool)
-        .await
-        .map_err(map_sqlx_error)?;
-
-        if result.rows_affected() == 0 {
-            return Err(ApplicationError::Conflict);
+    async fn find(&self, identifier: &IssueIdentifier) -> Result<Issue, ApplicationError> {
+        // Check pending entries first — an issue may already be buffered from an earlier
+        // find+save in the same UoW (e.g. ingest handler saves, then domain event handler
+        // needs the same issue).
+        if let Some(issue) = self.find_in_buffer(identifier) {
+            self.tracker.track(issue.id().clone(), issue.clone());
+            return Ok(issue);
         }
 
-        Ok(())
+        let row = match identifier {
+            IssueIdentifier::Id(id) => {
+                sqlx::query_as::<_, IssueRow>(
+                    &format!("SELECT {SELECT_COLUMNS} FROM issues WHERE id = $1"),
+                )
+                .bind(id.as_uuid())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(map_sqlx_error)?
+            }
+            IssueIdentifier::Fingerprint(project_id, fingerprint_hash) => {
+                sqlx::query_as::<_, IssueRow>(
+                    &format!("SELECT {SELECT_COLUMNS} FROM issues WHERE project_id = $1 AND fingerprint_hash = $2"),
+                )
+                .bind(project_id.as_uuid())
+                .bind(fingerprint_hash.as_str())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(map_sqlx_error)?
+            }
+        }
+        .ok_or(ApplicationError::NotFound)?;
+
+        let issue = row.into_issue();
+        self.tracker.track(issue.id().clone(), issue.clone());
+        Ok(issue)
+    }
+
+    fn add(&self, issue: Issue) {
+        self.tracker.push(IssueEntry::Added(issue));
+    }
+
+    fn save(&self, issue: Issue) {
+        self.tracker.save(issue.id().clone(), issue);
     }
 }

@@ -11,7 +11,9 @@ pub struct GenerateProjectKeyOnProjectCreated;
 #[async_trait]
 impl DomainEventHandler for GenerateProjectKeyOnProjectCreated {
     async fn handle(&self, event: &DomainEvent, ctx: &RequestContext) -> Result<(), ApplicationError> {
-        let DomainEvent::ProjectCreated { project_id } = event;
+        let DomainEvent::ProjectCreated { project_id } = event else {
+            return Ok(());
+        };
 
         let key = ProjectKey::generate(project_id.clone(), "Default".into())?;
         ctx.uow().await.project_keys().add(key);

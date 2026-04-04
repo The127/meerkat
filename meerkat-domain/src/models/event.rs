@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
-use crate::models::issue::IssueId;
+use crate::models::issue::{FingerprintHash, IssueId};
 use crate::models::project::ProjectId;
 
 uuid_id!(EventId);
@@ -45,7 +45,7 @@ pub struct Event {
     id: EventId,
     project_id: ProjectId,
     issue_id: IssueId,
-    fingerprint_hash: String,
+    fingerprint_hash: FingerprintHash,
     message: String,
     level: EventLevel,
     platform: String,
@@ -64,7 +64,7 @@ impl Event {
     pub fn new(
         project_id: ProjectId,
         issue_id: IssueId,
-        fingerprint_hash: String,
+        fingerprint_hash: FingerprintHash,
         message: String,
         level: EventLevel,
         platform: String,
@@ -86,8 +86,6 @@ impl Event {
         if platform.is_empty() {
             return Err(EventError::EmptyPlatform);
         }
-
-        let fingerprint_hash = fingerprint_hash.trim().to_string();
 
         Ok(Self {
             id: EventId::new(),
@@ -111,7 +109,7 @@ impl Event {
     pub fn id(&self) -> &EventId { &self.id }
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
     pub fn issue_id(&self) -> &IssueId { &self.issue_id }
-    pub fn fingerprint_hash(&self) -> &str { &self.fingerprint_hash }
+    pub fn fingerprint_hash(&self) -> &FingerprintHash { &self.fingerprint_hash }
     pub fn message(&self) -> &str { &self.message }
     pub fn level(&self) -> &EventLevel { &self.level }
     pub fn platform(&self) -> &str { &self.platform }
@@ -128,7 +126,7 @@ impl Event {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::issue::IssueId;
+    use crate::models::issue::{FingerprintHash, IssueId};
     use crate::testing::test_event;
 
     #[test]
@@ -140,7 +138,7 @@ mod tests {
         let event = Event::new(
             project_id.clone(),
             IssueId::new(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             "Something broke".into(),
             EventLevel::Error,
             "javascript".into(),
@@ -171,7 +169,7 @@ mod tests {
         let result = Event::new(
             ProjectId::new(),
             IssueId::new(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             "  ".into(),
             EventLevel::Error,
             "python".into(),
@@ -198,7 +196,7 @@ mod tests {
         let result = Event::new(
             ProjectId::new(),
             IssueId::new(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             "Something broke".into(),
             EventLevel::Error,
             "  ".into(),
@@ -225,7 +223,7 @@ mod tests {
         let event = Event::new(
             ProjectId::new(),
             IssueId::new(),
-            "abc123".into(),
+            FingerprintHash::new("abc123").unwrap(),
             "  Something broke  ".into(),
             EventLevel::Error,
             "python".into(),

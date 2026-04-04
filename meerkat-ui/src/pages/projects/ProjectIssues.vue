@@ -5,6 +5,9 @@ import { MkCard, MkButton, MkSpinner, MkBadge } from '@/components/meerkat'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useProjectKeys } from '@/composables/useProjectKeys'
 import { useIssues } from '@/composables/useIssues'
+import { useResolveIssue } from '@/composables/useResolveIssue'
+import { useReopenIssue } from '@/composables/useReopenIssue'
+import { useIgnoreIssue } from '@/composables/useIgnoreIssue'
 import { useToast } from '@/composables/useToast'
 import { useQueryClient } from '@tanstack/vue-query'
 import type { Issue } from '@/lib/types'
@@ -20,6 +23,7 @@ const queryClient = useQueryClient()
 const { hasProjectPermission } = useCurrentUser()
 
 const canManageKeys = computed(() => slug.value ? hasProjectPermission(slug.value, 'project_manage_keys') : false)
+const canWrite = computed(() => slug.value ? hasProjectPermission(slug.value, 'project_write') : false)
 
 // --- Keys (for demo button) ---
 const { data: keysData } = useProjectKeys(slug, { status: computed(() => 'active') })
@@ -27,10 +31,45 @@ const activeKeys = computed(() => keysData.value?.items ?? [])
 const canSendDemo = computed(() => canManageKeys.value && activeKeys.value.length > 0)
 
 // --- Issues ---
-const issueStatusFilter = ref<string | undefined>(undefined)
+const issueStatusFilter = ref<string | undefined>('unresolved')
 const { data: issuesData, isLoading: isLoadingIssues } = useIssues(slug, {
   status: computed(() => issueStatusFilter.value),
 })
+
+// --- Issue actions ---
+const { mutateAsync: resolveIssue } = useResolveIssue()
+const { mutateAsync: reopenIssue } = useReopenIssue()
+const { mutateAsync: ignoreIssue } = useIgnoreIssue()
+
+async function handleResolve(issue: Issue) {
+  if (!slug.value) return
+  try {
+    await resolveIssue({ slug: slug.value, issueId: issue.id })
+    toast.success('Issue resolved')
+  } catch {
+    toast.error('Failed to resolve issue')
+  }
+}
+
+async function handleReopen(issue: Issue) {
+  if (!slug.value) return
+  try {
+    await reopenIssue({ slug: slug.value, issueId: issue.id })
+    toast.success('Issue reopened')
+  } catch {
+    toast.error('Failed to reopen issue')
+  }
+}
+
+async function handleIgnore(issue: Issue) {
+  if (!slug.value) return
+  try {
+    await ignoreIssue({ slug: slug.value, issueId: issue.id })
+    toast.success('Issue ignored')
+  } catch {
+    toast.error('Failed to ignore issue')
+  }
+}
 
 // --- Demo event ---
 const isSendingDemo = ref(false)
@@ -129,10 +168,10 @@ function formatRelativeTime(iso: string): string {
         <div class="flex gap-1">
           <MkButton
             v-for="tab in [
-              { label: 'All', value: undefined },
               { label: 'Unresolved', value: 'unresolved' },
               { label: 'Resolved', value: 'resolved' },
               { label: 'Ignored', value: 'ignored' },
+              { label: 'All', value: undefined },
             ]"
             :key="tab.label"
             size="sm"
@@ -182,11 +221,28 @@ function formatRelativeTime(iso: string): string {
               </MkBadge>
             </div>
           </div>
-          <div class="flex items-center gap-3 text-xs text-muted-foreground">
-            <span :class="issue.event_count > 10 ? 'font-semibold text-foreground' : ''">
-              {{ issue.event_count }} {{ issue.event_count === 1 ? 'event' : 'events' }}
-            </span>
-            <span>Last seen {{ formatRelativeTime(issue.last_seen) }}</span>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3 text-xs text-muted-foreground">
+              <span :class="issue.event_count > 10 ? 'font-semibold text-foreground' : ''">
+                {{ issue.event_count }} {{ issue.event_count === 1 ? 'event' : 'events' }}
+              </span>
+              <span>Last seen {{ formatRelativeTime(issue.last_seen) }}</span>
+            </div>
+            <div v-if="canWrite" class="flex items-center gap-1">
+              <template v-if="issue.status === 'unresolved'">
+                <MkButton size="sm" variant="ghost" @click="handleResolve(issue)">
+                  Resolve
+                </MkButton>
+                <MkButton size="sm" variant="ghost" @click="handleIgnore(issue)">
+                  Ignore
+                </MkButton>
+              </template>
+              <template v-else>
+                <MkButton size="sm" variant="ghost" @click="handleReopen(issue)">
+                  Reopen
+                </MkButton>
+              </template>
+            </div>
           </div>
         </div>
       </div>

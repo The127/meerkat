@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use meerkat_domain::models::issue::IssueId;
 use meerkat_domain::models::project::ProjectId;
 
 use crate::context::RequestContext;
@@ -12,6 +13,7 @@ use crate::error::ApplicationError;
 #[derive(Debug, Clone)]
 pub enum DomainEvent {
     ProjectCreated { project_id: ProjectId },
+    EventRecorded { issue_id: IssueId },
 }
 
 #[async_trait]

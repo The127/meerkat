@@ -1,10 +1,11 @@
 use meerkat_application::ports::fingerprint_service::FingerprintService;
+use meerkat_domain::models::issue::FingerprintHash;
 use sha2::{Digest, Sha256};
 
 pub struct Sha256FingerprintService;
 
 impl FingerprintService for Sha256FingerprintService {
-    fn compute(&self, exception_type: Option<String>, exception_value: Option<String>, message: String) -> String {
+    fn compute(&self, exception_type: Option<String>, exception_value: Option<String>, message: String) -> FingerprintHash {
         let input = match (exception_type.as_deref(), exception_value.as_deref()) {
             (Some(t), Some(v)) => format!("{t}:{v}"),
             (Some(t), None) => format!("{t}:"),
@@ -12,7 +13,7 @@ impl FingerprintService for Sha256FingerprintService {
         };
 
         let hash = Sha256::digest(input.as_bytes());
-        hex::encode(hash)
+        FingerprintHash::new(hex::encode(hash)).expect("SHA-256 hash is never empty")
     }
 }
 
@@ -70,7 +71,7 @@ mod tests {
         let hash = svc().compute(Some("TypeError".into()), Some("x".into()), "msg".into());
 
         // assert
-        assert_eq!(hash.len(), 64);
-        assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_eq!(hash.as_str().len(), 64);
+        assert!(hash.as_str().chars().all(|c| c.is_ascii_hexdigit()));
     }
 }
