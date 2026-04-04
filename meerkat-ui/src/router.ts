@@ -38,6 +38,11 @@ const router = createRouter({
           component: () => import('@/pages/projects/ProjectIssues.vue'),
         },
         {
+          path: 'projects/:slug/keys',
+          name: 'project-keys',
+          component: () => import('@/pages/projects/ProjectKeys.vue'),
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('@/pages/Profile.vue'),
