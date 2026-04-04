@@ -52,12 +52,17 @@ impl From<&ClaimMapping> for ClaimMappingResponseDto {
 
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct OidcConfigDto {
+    #[serde(rename = "name")]
     pub name: String,
+    #[serde(rename = "client_id")]
     pub client_id: String,
+    #[serde(rename = "issuer_url")]
     pub issuer_url: String,
+    #[serde(rename = "audience")]
     pub audience: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "discovery_url", skip_serializing_if = "Option::is_none")]
     pub discovery_url: Option<String>,
+    #[serde(rename = "claim_mapping")]
     pub claim_mapping: ClaimMappingResponseDto,
 }
 
