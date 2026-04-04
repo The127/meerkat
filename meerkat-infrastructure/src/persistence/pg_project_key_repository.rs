@@ -9,36 +9,15 @@ use meerkat_domain::models::project_key::{
 };
 use meerkat_domain::shared::version::Version;
 
-use super::change_buffer::{BufferEntry, ChangeTracker};
+use super::change_buffer::{ChangeTracker, Entry, Identifiable};
 use super::error::map_sqlx_error;
 
-pub(crate) enum ProjectKeyEntry {
-    Added(ProjectKey),
-    Modified {
-        entity: ProjectKey,
-        snapshot: ProjectKey,
-    },
+impl Identifiable for ProjectKey {
+    type Id = ProjectKeyId;
+    fn id(&self) -> &ProjectKeyId { ProjectKey::id(self) }
 }
 
-impl BufferEntry<ProjectKeyId, ProjectKey> for ProjectKeyEntry {
-    fn id(&self) -> &ProjectKeyId {
-        match self {
-            ProjectKeyEntry::Added(k) => k.id(),
-            ProjectKeyEntry::Modified { entity, .. } => entity.id(),
-        }
-    }
-
-    fn update_entity(&mut self, key: ProjectKey) {
-        match self {
-            ProjectKeyEntry::Added(k) => *k = key,
-            ProjectKeyEntry::Modified { entity, .. } => *entity = key,
-        }
-    }
-
-    fn make_modified(entity: ProjectKey, snapshot: ProjectKey) -> Self {
-        ProjectKeyEntry::Modified { entity, snapshot }
-    }
-}
+pub(crate) type ProjectKeyEntry = Entry<ProjectKey>;
 
 pub struct PgProjectKeyRepository {
     pool: PgPool,
@@ -59,9 +38,7 @@ impl PgProjectKeyRepository {
 
     fn find_in_buffer(&self, id: &ProjectKeyId) -> Option<ProjectKey> {
         self.tracker.find_entry(|entry| {
-            let key = match entry {
-                ProjectKeyEntry::Added(k) | ProjectKeyEntry::Modified { entity: k, .. } => k,
-            };
+            let key = entry.entity();
             if key.id() == id { Some(key.clone()) } else { None }
         })
     }
@@ -70,7 +47,7 @@ impl PgProjectKeyRepository {
 #[async_trait]
 impl ProjectKeyRepository for PgProjectKeyRepository {
     fn add(&self, key: ProjectKey) {
-        self.tracker.push(ProjectKeyEntry::Added(key));
+        self.tracker.push(Entry::Added(key));
     }
 
     fn save(&self, key: ProjectKey) {

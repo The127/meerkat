@@ -8,36 +8,15 @@ use meerkat_domain::models::issue::{FingerprintHash, Issue, IssueId, IssueIdenti
 use meerkat_domain::models::project::ProjectId;
 use meerkat_domain::shared::version::Version;
 
-use super::change_buffer::{BufferEntry, ChangeTracker};
+use super::change_buffer::{ChangeTracker, Entry, Identifiable};
 use super::error::map_sqlx_error;
 
-pub(crate) enum IssueEntry {
-    Added(Issue),
-    Modified {
-        entity: Issue,
-        snapshot: Issue,
-    },
+impl Identifiable for Issue {
+    type Id = IssueId;
+    fn id(&self) -> &IssueId { Issue::id(self) }
 }
 
-impl BufferEntry<IssueId, Issue> for IssueEntry {
-    fn id(&self) -> &IssueId {
-        match self {
-            IssueEntry::Added(i) => i.id(),
-            IssueEntry::Modified { entity, .. } => entity.id(),
-        }
-    }
-
-    fn update_entity(&mut self, issue: Issue) {
-        match self {
-            IssueEntry::Added(i) => *i = issue,
-            IssueEntry::Modified { entity, .. } => *entity = issue,
-        }
-    }
-
-    fn make_modified(entity: Issue, snapshot: Issue) -> Self {
-        IssueEntry::Modified { entity, snapshot }
-    }
-}
+pub(crate) type IssueEntry = Entry<Issue>;
 
 pub struct PgIssueRepository {
     pool: PgPool,
@@ -58,9 +37,7 @@ impl PgIssueRepository {
 
     fn find_in_buffer(&self, identifier: &IssueIdentifier) -> Option<Issue> {
         self.tracker.find_entry(|entry| {
-            let issue = match entry {
-                IssueEntry::Added(i) | IssueEntry::Modified { entity: i, .. } => i,
-            };
+            let issue = entry.entity();
             let matches = match identifier {
                 IssueIdentifier::Id(id) => issue.id() == id,
                 IssueIdentifier::Fingerprint(project_id, hash) => {
@@ -146,7 +123,7 @@ impl IssueRepository for PgIssueRepository {
     }
 
     fn add(&self, issue: Issue) {
-        self.tracker.push(IssueEntry::Added(issue));
+        self.tracker.push(Entry::Added(issue));
     }
 
     fn save(&self, issue: Issue) {

@@ -54,10 +54,85 @@ impl<E> Default for ChangeBuffer<E> {
     }
 }
 
+pub(crate) trait Identifiable {
+    type Id: Eq + Hash + Clone;
+    fn id(&self) -> &Self::Id;
+}
+
 pub(crate) trait BufferEntry<Id, T> {
     fn id(&self) -> &Id;
     fn update_entity(&mut self, entity: T);
     fn make_modified(entity: T, snapshot: T) -> Self;
+}
+
+pub(crate) enum Entry<T: Identifiable> {
+    Added(T),
+    Modified { entity: T, snapshot: T },
+}
+
+impl<T: Identifiable> Entry<T> {
+    pub fn entity(&self) -> &T {
+        match self {
+            Entry::Added(e) | Entry::Modified { entity: e, .. } => e,
+        }
+    }
+}
+
+impl<T: Identifiable> BufferEntry<T::Id, T> for Entry<T> {
+    fn id(&self) -> &T::Id {
+        match self {
+            Entry::Added(e) => e.id(),
+            Entry::Modified { entity, .. } => entity.id(),
+        }
+    }
+
+    fn update_entity(&mut self, new: T) {
+        match self {
+            Entry::Added(e) => *e = new,
+            Entry::Modified { entity, .. } => *entity = new,
+        }
+    }
+
+    fn make_modified(entity: T, snapshot: T) -> Self {
+        Entry::Modified { entity, snapshot }
+    }
+}
+
+pub(crate) enum DeletableEntry<T: Identifiable> {
+    Added(T),
+    Modified { entity: T, snapshot: T },
+    Deleted(T::Id),
+}
+
+impl<T: Identifiable> DeletableEntry<T> {
+    pub fn entity(&self) -> Option<&T> {
+        match self {
+            DeletableEntry::Added(e) | DeletableEntry::Modified { entity: e, .. } => Some(e),
+            DeletableEntry::Deleted(_) => None,
+        }
+    }
+}
+
+impl<T: Identifiable> BufferEntry<T::Id, T> for DeletableEntry<T> {
+    fn id(&self) -> &T::Id {
+        match self {
+            DeletableEntry::Added(e) => e.id(),
+            DeletableEntry::Modified { entity, .. } => entity.id(),
+            DeletableEntry::Deleted(id) => id,
+        }
+    }
+
+    fn update_entity(&mut self, new: T) {
+        match self {
+            DeletableEntry::Added(e) => *e = new,
+            DeletableEntry::Modified { entity, .. } => *entity = new,
+            DeletableEntry::Deleted(_) => panic!("cannot update a deleted entity"),
+        }
+    }
+
+    fn make_modified(entity: T, snapshot: T) -> Self {
+        DeletableEntry::Modified { entity, snapshot }
+    }
 }
 
 pub(crate) struct ChangeTracker<Id, T, E> {
@@ -277,33 +352,14 @@ mod tests {
         value: String,
     }
 
-    #[derive(Debug)]
-    enum TestEntry {
-        Added(TestEntity),
-        Modified { entity: TestEntity, snapshot: TestEntity },
-    }
-
-    impl BufferEntry<u32, TestEntity> for TestEntry {
+    impl Identifiable for TestEntity {
+        type Id = u32;
         fn id(&self) -> &u32 {
-            match self {
-                TestEntry::Added(e) => &e.id,
-                TestEntry::Modified { entity, .. } => &entity.id,
-            }
-        }
-
-        fn update_entity(&mut self, new: TestEntity) {
-            match self {
-                TestEntry::Added(e) => *e = new,
-                TestEntry::Modified { entity, .. } => *entity = new,
-            }
-        }
-
-        fn make_modified(entity: TestEntity, snapshot: TestEntity) -> Self {
-            TestEntry::Modified { entity, snapshot }
+            &self.id
         }
     }
 
-    fn test_tracker() -> ChangeTracker<u32, TestEntity, TestEntry> {
+    fn test_tracker() -> ChangeTracker<u32, TestEntity, Entry<TestEntity>> {
         ChangeTracker::new()
     }
 
@@ -326,7 +382,7 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 1);
         match &entries[0] {
-            TestEntry::Modified { entity, snapshot } => {
+            Entry::Modified { entity, snapshot } => {
                 assert_eq!(entity.value, "updated");
                 assert_eq!(snapshot.value, "original");
             }
@@ -352,7 +408,7 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 1);
         match &entries[0] {
-            TestEntry::Modified { entity, snapshot } => {
+            Entry::Modified { entity, snapshot } => {
                 assert_eq!(entity.value, "v3");
                 assert_eq!(snapshot.value, "v1");
             }
@@ -364,7 +420,7 @@ mod tests {
     fn given_existing_added_entry_then_save_updates_added_entity() {
         // arrange
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "v1")));
+        tracker.push(Entry::Added(entity(1, "v1")));
         tracker.track(1, entity(1, "v1"));
 
         // act
@@ -374,7 +430,7 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 1);
         match &entries[0] {
-            TestEntry::Added(e) => assert_eq!(e.value, "v2"),
+            Entry::Added(e) => assert_eq!(e.value, "v2"),
             _ => panic!("expected Added with updated value"),
         }
     }
@@ -383,7 +439,7 @@ mod tests {
     fn given_different_ids_then_save_does_not_merge() {
         // arrange
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "first")));
+        tracker.push(Entry::Added(entity(1, "first")));
         tracker.track(2, entity(2, "second"));
 
         // act
@@ -398,13 +454,11 @@ mod tests {
     fn given_entry_in_buffer_then_find_entry_returns_it() {
         // arrange
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "hello")));
+        tracker.push(Entry::Added(entity(1, "hello")));
 
         // act
         let found = tracker.find_entry(|entry| {
-            let e = match entry {
-                TestEntry::Added(e) | TestEntry::Modified { entity: e, .. } => e,
-            };
+            let e = entry.entity();
             if e.id == 1 { Some(e.clone()) } else { None }
         });
 
@@ -416,13 +470,11 @@ mod tests {
     fn given_no_matching_entry_then_find_entry_returns_none() {
         // arrange
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "hello")));
+        tracker.push(Entry::Added(entity(1, "hello")));
 
         // act
         let found = tracker.find_entry(|entry| {
-            let e = match entry {
-                TestEntry::Added(e) | TestEntry::Modified { entity: e, .. } => e,
-            };
+            let e = entry.entity();
             if e.id == 99 { Some(e.clone()) } else { None }
         });
 
@@ -447,7 +499,7 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 1);
         match &entries[0] {
-            TestEntry::Modified { entity, snapshot } => {
+            Entry::Modified { entity, snapshot } => {
                 assert_eq!(entity.value, "v3");
                 assert_eq!(snapshot.value, "from_db");
             }
@@ -459,7 +511,7 @@ mod tests {
     fn given_add_then_save_then_one_added_with_latest_entity() {
         // arrange — simulates: create entity, then mutate it in same UoW
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "created")));
+        tracker.push(Entry::Added(entity(1, "created")));
         tracker.track(1, entity(1, "created"));
 
         // act
@@ -469,7 +521,7 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 1);
         match &entries[0] {
-            TestEntry::Added(e) => assert_eq!(e.value, "mutated"),
+            Entry::Added(e) => assert_eq!(e.value, "mutated"),
             _ => panic!("expected Added with updated value"),
         }
     }
@@ -478,7 +530,7 @@ mod tests {
     fn given_add_then_save_twice_then_one_added_with_latest_entity() {
         // arrange
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "created")));
+        tracker.push(Entry::Added(entity(1, "created")));
         tracker.track(1, entity(1, "created"));
         tracker.save(1, entity(1, "v2"));
         tracker.track(1, entity(1, "v2"));
@@ -490,7 +542,7 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 1);
         match &entries[0] {
-            TestEntry::Added(e) => assert_eq!(e.value, "v3"),
+            Entry::Added(e) => assert_eq!(e.value, "v3"),
             _ => panic!("expected Added"),
         }
     }
@@ -499,8 +551,8 @@ mod tests {
     fn given_multiple_entities_then_save_only_merges_matching_id() {
         // arrange
         let tracker = test_tracker();
-        tracker.push(TestEntry::Added(entity(1, "first")));
-        tracker.push(TestEntry::Added(entity(2, "second")));
+        tracker.push(Entry::Added(entity(1, "first")));
+        tracker.push(Entry::Added(entity(2, "second")));
         tracker.track(1, entity(1, "first"));
 
         // act
@@ -510,11 +562,11 @@ mod tests {
         let entries = tracker.take_entries();
         assert_eq!(entries.len(), 2);
         match &entries[0] {
-            TestEntry::Added(e) => assert_eq!(e.value, "updated"),
+            Entry::Added(e) => assert_eq!(e.value, "updated"),
             _ => panic!("expected Added"),
         }
         match &entries[1] {
-            TestEntry::Added(e) => assert_eq!(e.value, "second"),
+            Entry::Added(e) => assert_eq!(e.value, "second"),
             _ => panic!("expected Added"),
         }
     }
@@ -528,9 +580,7 @@ mod tests {
 
         // act
         let found = tracker.find_entry(|entry| {
-            let e = match entry {
-                TestEntry::Added(e) | TestEntry::Modified { entity: e, .. } => e,
-            };
+            let e = entry.entity();
             if e.id == 1 { Some(e.clone()) } else { None }
         });
 
@@ -540,40 +590,11 @@ mod tests {
 
     // --- Deleted entry tests ---
 
-    #[derive(Debug)]
-    enum DeletableTestEntry {
-        Added(TestEntity),
-        Modified { entity: TestEntity, snapshot: TestEntity },
-        Deleted(u32),
-    }
-
-    impl BufferEntry<u32, TestEntity> for DeletableTestEntry {
-        fn id(&self) -> &u32 {
-            match self {
-                DeletableTestEntry::Added(e) => &e.id,
-                DeletableTestEntry::Modified { entity, .. } => &entity.id,
-                DeletableTestEntry::Deleted(id) => id,
-            }
-        }
-
-        fn update_entity(&mut self, new: TestEntity) {
-            match self {
-                DeletableTestEntry::Added(e) => *e = new,
-                DeletableTestEntry::Modified { entity, .. } => *entity = new,
-                DeletableTestEntry::Deleted(_) => panic!("cannot update a deleted entity"),
-            }
-        }
-
-        fn make_modified(entity: TestEntity, snapshot: TestEntity) -> Self {
-            DeletableTestEntry::Modified { entity, snapshot }
-        }
-    }
-
     #[test]
     #[should_panic(expected = "cannot update a deleted entity")]
     fn given_deleted_entry_then_update_entity_panics() {
         // arrange
-        let mut entry = DeletableTestEntry::Deleted(1);
+        let mut entry: DeletableEntry<TestEntity> = DeletableEntry::Deleted(1);
 
         // act
         entry.update_entity(entity(1, "new"));

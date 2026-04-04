@@ -20,6 +20,7 @@ use crate::persistence::event_persistence::EventPersistence;
 use crate::persistence::issue_persistence::IssuePersistence;
 use crate::persistence::organization_persistence::OrganizationPersistence;
 use crate::persistence::pg_event_repository::{EventEntry, PgEventRepository};
+use crate::persistence::change_buffer::{Entry, DeletableEntry};
 use crate::persistence::pg_issue_repository::{IssueEntry, PgIssueRepository};
 use crate::persistence::pg_organization_repository::{OrgEntry, PgOrganizationRepository};
 use crate::persistence::pg_project_key_repository::{PgProjectKeyRepository, ProjectKeyEntry};
@@ -65,13 +66,13 @@ impl PgUnitOfWork {
     ) -> Result<(), ApplicationError> {
         for entry in entries {
             match entry {
-                OrgEntry::Added(org) => {
+                DeletableEntry::Added(org) => {
                     OrganizationPersistence::insert(tx, org, now).await?;
                 }
-                OrgEntry::Modified { entity, snapshot } => {
+                DeletableEntry::Modified { entity, snapshot } => {
                     OrganizationPersistence::update(tx, entity, snapshot, now).await?;
                 }
-                OrgEntry::Deleted(id) => {
+                DeletableEntry::Deleted(id) => {
                     OrganizationPersistence::delete(tx, id).await?;
                 }
             }
@@ -86,13 +87,13 @@ impl PgUnitOfWork {
     ) -> Result<(), ApplicationError> {
         for entry in entries {
             match entry {
-                ProjectEntry::Added(project) => {
+                DeletableEntry::Added(project) => {
                     ProjectPersistence::insert(tx, project, now).await?;
                 }
-                ProjectEntry::Modified { entity, snapshot } => {
+                DeletableEntry::Modified { entity, snapshot } => {
                     ProjectPersistence::update(tx, entity, snapshot, now).await?;
                 }
-                ProjectEntry::Deleted(id) => {
+                DeletableEntry::Deleted(id) => {
                     ProjectPersistence::delete(tx, id).await?;
                 }
             }
@@ -107,10 +108,10 @@ impl PgUnitOfWork {
     ) -> Result<(), ApplicationError> {
         for entry in entries {
             match entry {
-                ProjectKeyEntry::Added(key) => {
+                Entry::Added(key) => {
                     ProjectKeyPersistence::insert(tx, key, now).await?;
                 }
-                ProjectKeyEntry::Modified { entity, snapshot } => {
+                Entry::Modified { entity, snapshot } => {
                     ProjectKeyPersistence::update(tx, entity, snapshot, now).await?;
                 }
             }
@@ -158,10 +159,10 @@ impl PgUnitOfWork {
     ) -> Result<(), ApplicationError> {
         for entry in entries {
             match entry {
-                IssueEntry::Added(issue) => {
+                Entry::Added(issue) => {
                     IssuePersistence::insert(tx, issue, now).await?;
                 }
-                IssueEntry::Modified { entity, snapshot } => {
+                Entry::Modified { entity, snapshot } => {
                     IssuePersistence::update(tx, entity, snapshot, now).await?;
                 }
             }
