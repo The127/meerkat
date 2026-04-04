@@ -5,6 +5,7 @@ use axum::response::{IntoResponse, Response};
 use axum::Json;
 
 use meerkat_domain::models::project::ProjectId;
+use meerkat_domain::models::project_key::KeyToken;
 
 use crate::error::ErrorDto;
 use crate::state::AppState;
@@ -12,6 +13,7 @@ use crate::state::AppState;
 #[derive(Debug, Clone)]
 pub(crate) struct ProjectContext {
     pub project_id: ProjectId,
+    pub key_token: KeyToken,
 }
 
 impl FromRequestParts<AppState> for ProjectContext {
@@ -36,6 +38,7 @@ impl FromRequestParts<AppState> for ProjectContext {
 
         Ok(ProjectContext {
             project_id: key.project_id,
+            key_token: KeyToken::new(token).map_err(|_| unauthorized("invalid project key"))?,
         })
     }
 }

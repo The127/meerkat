@@ -6,9 +6,12 @@ use chrono::{DateTime, Utc};
 use meerkat_domain::models::event::{Event, EventId, EventLevel};
 use meerkat_domain::models::issue::Issue;
 use meerkat_domain::models::project::ProjectId;
+use meerkat_domain::models::project_key::KeyToken;
 
+use crate::behaviors::rate_limit::RateLimitKey;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
+use crate::extensions::Extensions;
 use crate::mediator::{Request, Handler};
 use crate::ports::event_repository::EventRepository;
 use crate::ports::fingerprint_service::FingerprintService;
@@ -16,6 +19,7 @@ use crate::ports::issue_repository::IssueRepository;
 
 pub struct IngestEvent {
     pub project_id: ProjectId,
+    pub key_token: KeyToken,
     pub message: String,
     pub level: EventLevel,
     pub platform: String,
@@ -31,6 +35,12 @@ pub struct IngestEvent {
 
 impl Request for IngestEvent {
     type Output = EventId;
+
+    fn extensions(&self) -> Extensions {
+        let mut ext = Extensions::new();
+        ext.insert(RateLimitKey(self.key_token.as_str().to_string()));
+        ext
+    }
 }
 
 pub struct IngestEventHandler {
@@ -131,6 +141,7 @@ mod tests {
     fn test_command() -> IngestEvent {
         IngestEvent {
             project_id: ProjectId::new(),
+            key_token: KeyToken::new("test-key-token").unwrap(),
             message: "Something broke".into(),
             level: EventLevel::Error,
             platform: "python".into(),

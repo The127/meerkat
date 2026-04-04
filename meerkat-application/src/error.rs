@@ -17,6 +17,8 @@ pub enum ApplicationError {
     Unauthorized,
     #[error("forbidden")]
     Forbidden,
+    #[error("rate limited: retry after {retry_after_secs}s")]
+    RateLimited { retry_after_secs: u64 },
     #[error("internal error: {0}")]
     Internal(String),
 }

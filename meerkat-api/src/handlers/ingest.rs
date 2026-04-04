@@ -66,6 +66,7 @@ pub(crate) async fn ingest_event(
 
     let cmd = IngestEvent {
         project_id: project_ctx.project_id,
+        key_token: project_ctx.key_token,
         message: body.message,
         level,
         platform: body.platform,

@@ -12,6 +12,7 @@ use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::behaviors::authorization::AuthorizationBehavior;
+use meerkat_application::behaviors::rate_limit::RateLimitBehavior;
 use meerkat_application::ports::audit::AuditPipeline;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::events::EventDispatcher;
@@ -160,6 +161,7 @@ struct MediatorDeps {
 
 fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
     let mut mediator = Mediator::new();
+    mediator.add_behavior(Arc::new(RateLimitBehavior::new()));
     mediator.add_behavior(Arc::new(AuthorizationBehavior::new(deps.audit_logger, deps.project_permission_store.clone(), deps.project_read_store.clone())));
 
     let mut event_dispatcher = EventDispatcher::new();

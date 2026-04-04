@@ -36,6 +36,18 @@ impl From<MediatorError<ApplicationError>> for ApiError {
 }
 
 impl ApiError {
+    fn retry_after_secs(&self) -> Option<u64> {
+        match &self.0 {
+            ApiErrorKind::Application(ApplicationError::RateLimited { retry_after_secs }) => {
+                Some(*retry_after_secs)
+            }
+            ApiErrorKind::Mediator(MediatorError::HandlerError(ApplicationError::RateLimited {
+                retry_after_secs,
+            })) => Some(*retry_after_secs),
+            _ => None,
+        }
+    }
+
     fn into_parts(self) -> (StatusCode, &'static str, String, String, ErrorSeverity) {
         match self.0 {
             ApiErrorKind::Application(ref err) => Self::application_error_parts(err),
@@ -54,6 +66,13 @@ impl ApiError {
 
     fn application_error_parts(err: &ApplicationError) -> (StatusCode, &'static str, String, String, ErrorSeverity) {
         match err {
+            ApplicationError::RateLimited { retry_after_secs } => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "rate_limited",
+                format!("rate limited: retry after {}s", retry_after_secs),
+                format!("too many requests, retry after {}s", retry_after_secs),
+                ErrorSeverity::Warning,
+            ),
             ApplicationError::Validation(msg) => (
                 StatusCode::BAD_REQUEST,
                 "validation_error",
@@ -102,6 +121,7 @@ impl ApiError {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> axum::response::Response {
+        let retry_after = self.retry_after_secs();
         let (status, code, internal_message, client_message, severity) = self.into_parts();
 
         let report = ErrorReport {
@@ -114,6 +134,13 @@ impl IntoResponse for ApiError {
             code: code.to_string(),
             message: client_message,
         })).into_response();
+
+        if let Some(secs) = retry_after {
+            response.headers_mut().insert(
+                axum::http::header::RETRY_AFTER,
+                axum::http::HeaderValue::from(secs),
+            );
+        }
 
         response.extensions_mut().insert(report);
         response
