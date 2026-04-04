@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -10,6 +7,7 @@ use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::project::{Project, ProjectId, ProjectIdentifier, ProjectSlug, ProjectState};
 use meerkat_domain::shared::version::Version;
 
+use super::change_buffer::ChangeTracker;
 use super::error::map_sqlx_error;
 
 pub(crate) enum ProjectEntry {
@@ -23,47 +21,36 @@ pub(crate) enum ProjectEntry {
 
 pub struct PgProjectRepository {
     pool: PgPool,
-    snapshots: Mutex<HashMap<ProjectId, Project>>,
-    buffer: Mutex<Vec<ProjectEntry>>,
+    tracker: ChangeTracker<ProjectId, Project, ProjectEntry>,
 }
 
 impl PgProjectRepository {
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
-            snapshots: Mutex::new(HashMap::new()),
-            buffer: Mutex::new(Vec::new()),
+            tracker: ChangeTracker::new(),
         }
     }
 
     pub(crate) fn take_entries(&self) -> Vec<ProjectEntry> {
-        std::mem::take(&mut *self.buffer.lock().unwrap())
+        self.tracker.take_entries()
     }
 }
 
 #[async_trait]
 impl ProjectRepository for PgProjectRepository {
     fn add(&self, project: Project) {
-        self.buffer.lock().unwrap().push(ProjectEntry::Added(project));
+        self.tracker.push(ProjectEntry::Added(project));
     }
 
     fn save(&self, project: Project) {
-        let snapshot = self
-            .snapshots
-            .lock()
-            .unwrap()
-            .remove(project.id())
-            .expect("save called without prior find");
-
-        self.buffer
-            .lock()
-            .unwrap()
-            .push(ProjectEntry::Modified { entity: project, snapshot });
+        let snapshot = self.tracker.take_snapshot(project.id());
+        self.tracker.push(ProjectEntry::Modified { entity: project, snapshot });
     }
 
     fn delete(&self, id: ProjectId) {
-        self.snapshots.lock().unwrap().remove(&id);
-        self.buffer.lock().unwrap().push(ProjectEntry::Deleted(id));
+        self.tracker.remove_snapshot(&id);
+        self.tracker.push(ProjectEntry::Deleted(id));
     }
 
     async fn find(&self, identifier: &ProjectIdentifier) -> Result<Project, ApplicationError> {
@@ -99,10 +86,7 @@ impl ProjectRepository for PgProjectRepository {
             version: Version::new(row.version as u64),
         });
 
-        self.snapshots
-            .lock()
-            .unwrap()
-            .insert(project.id().clone(), project.clone());
+        self.tracker.track(project.id().clone(), project.clone());
 
         Ok(project)
     }

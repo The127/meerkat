@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -15,6 +12,7 @@ use meerkat_domain::models::organization::{
 };
 use meerkat_domain::shared::version::Version;
 
+use super::change_buffer::ChangeTracker;
 use super::error::map_sqlx_error;
 
 pub(crate) enum OrgEntry {
@@ -28,47 +26,36 @@ pub(crate) enum OrgEntry {
 
 pub struct PgOrganizationRepository {
     pool: PgPool,
-    snapshots: Mutex<HashMap<OrganizationId, Organization>>,
-    buffer: Mutex<Vec<OrgEntry>>,
+    tracker: ChangeTracker<OrganizationId, Organization, OrgEntry>,
 }
 
 impl PgOrganizationRepository {
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
-            snapshots: Mutex::new(HashMap::new()),
-            buffer: Mutex::new(Vec::new()),
+            tracker: ChangeTracker::new(),
         }
     }
 
     pub(crate) fn take_entries(&self) -> Vec<OrgEntry> {
-        std::mem::take(&mut *self.buffer.lock().unwrap())
+        self.tracker.take_entries()
     }
 }
 
 #[async_trait]
 impl OrganizationRepository for PgOrganizationRepository {
     fn add(&self, org: Organization) {
-        self.buffer.lock().unwrap().push(OrgEntry::Added(org));
+        self.tracker.push(OrgEntry::Added(org));
     }
 
     fn save(&self, org: Organization) {
-        let snapshot = self
-            .snapshots
-            .lock()
-            .unwrap()
-            .remove(org.id())
-            .expect("save called without prior find");
-
-        self.buffer
-            .lock()
-            .unwrap()
-            .push(OrgEntry::Modified { entity: org, snapshot });
+        let snapshot = self.tracker.take_snapshot(org.id());
+        self.tracker.push(OrgEntry::Modified { entity: org, snapshot });
     }
 
     fn delete(&self, id: OrganizationId) {
-        self.snapshots.lock().unwrap().remove(&id);
-        self.buffer.lock().unwrap().push(OrgEntry::Deleted(id));
+        self.tracker.remove_snapshot(&id);
+        self.tracker.push(OrgEntry::Deleted(id));
     }
 
     async fn find(&self, identifier: &OrganizationIdentifier) -> Result<Organization, ApplicationError> {
@@ -141,10 +128,7 @@ impl OrganizationRepository for PgOrganizationRepository {
             version: Version::new(row.version as u64),
         });
 
-        self.snapshots
-            .lock()
-            .unwrap()
-            .insert(org.id().clone(), org.clone());
+        self.tracker.track(org.id().clone(), org.clone());
 
         Ok(org)
     }

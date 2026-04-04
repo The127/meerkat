@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -12,6 +9,7 @@ use meerkat_domain::models::project_key::{
 };
 use meerkat_domain::shared::version::Version;
 
+use super::change_buffer::ChangeTracker;
 use super::error::map_sqlx_error;
 
 pub(crate) enum ProjectKeyEntry {
@@ -24,42 +22,31 @@ pub(crate) enum ProjectKeyEntry {
 
 pub struct PgProjectKeyRepository {
     pool: PgPool,
-    snapshots: Mutex<HashMap<ProjectKeyId, ProjectKey>>,
-    buffer: Mutex<Vec<ProjectKeyEntry>>,
+    tracker: ChangeTracker<ProjectKeyId, ProjectKey, ProjectKeyEntry>,
 }
 
 impl PgProjectKeyRepository {
     pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
-            snapshots: Mutex::new(HashMap::new()),
-            buffer: Mutex::new(Vec::new()),
+            tracker: ChangeTracker::new(),
         }
     }
 
     pub(crate) fn take_entries(&self) -> Vec<ProjectKeyEntry> {
-        std::mem::take(&mut *self.buffer.lock().unwrap())
+        self.tracker.take_entries()
     }
 }
 
 #[async_trait]
 impl ProjectKeyRepository for PgProjectKeyRepository {
     fn add(&self, key: ProjectKey) {
-        self.buffer.lock().unwrap().push(ProjectKeyEntry::Added(key));
+        self.tracker.push(ProjectKeyEntry::Added(key));
     }
 
     fn save(&self, key: ProjectKey) {
-        let snapshot = self
-            .snapshots
-            .lock()
-            .unwrap()
-            .remove(key.id())
-            .expect("save called without prior find");
-
-        self.buffer
-            .lock()
-            .unwrap()
-            .push(ProjectKeyEntry::Modified { entity: key, snapshot });
+        let snapshot = self.tracker.take_snapshot(key.id());
+        self.tracker.push(ProjectKeyEntry::Modified { entity: key, snapshot });
     }
 
     async fn find(&self, id: &ProjectKeyId) -> Result<ProjectKey, ApplicationError> {
@@ -82,10 +69,7 @@ impl ProjectKeyRepository for PgProjectKeyRepository {
             version: Version::new(row.version as u64),
         });
 
-        self.snapshots
-            .lock()
-            .unwrap()
-            .insert(key.id().clone(), key.clone());
+        self.tracker.track(key.id().clone(), key.clone());
 
         Ok(key)
     }

@@ -1,3 +1,4 @@
+pub(crate) mod change_buffer;
 pub(crate) mod error;
 pub mod pg_member_read_store;
 pub mod pg_member_repository;
