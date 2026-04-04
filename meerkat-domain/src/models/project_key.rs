@@ -12,6 +12,22 @@ pub enum ProjectKeyStatus {
     Revoked,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimit(u64);
+
+impl RateLimit {
+    pub fn new(value: u64) -> Result<Self, ProjectKeyError> {
+        if value == 0 {
+            return Err(ProjectKeyError::ZeroRateLimit);
+        }
+        Ok(Self(value))
+    }
+
+    pub fn value(&self) -> u64 {
+        self.0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(transparent)]
 pub struct KeyToken(String);
@@ -43,6 +59,7 @@ pub struct ProjectKey {
     key_token: KeyToken,
     label: String,
     status: ProjectKeyStatus,
+    rate_limit: Option<RateLimit>,
     version: Version,
 }
 
@@ -54,6 +71,8 @@ pub enum ProjectKeyError {
     EmptyKeyToken,
     #[error("project key is already revoked")]
     AlreadyRevoked,
+    #[error("rate limit must be greater than zero")]
+    ZeroRateLimit,
 }
 
 impl ProjectKey {
@@ -75,6 +94,7 @@ impl ProjectKey {
             key_token,
             label,
             status: ProjectKeyStatus::Active,
+            rate_limit: None,
             version: Version::initial(),
         })
     }
@@ -88,11 +108,16 @@ impl ProjectKey {
         Ok(())
     }
 
+    pub fn set_rate_limit(&mut self, limit: Option<RateLimit>) {
+        self.rate_limit = limit;
+    }
+
     pub fn id(&self) -> &ProjectKeyId { &self.id }
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
     pub fn key_token(&self) -> &KeyToken { &self.key_token }
     pub fn label(&self) -> &str { &self.label }
     pub fn status(&self) -> &ProjectKeyStatus { &self.status }
+    pub fn rate_limit(&self) -> Option<RateLimit> { self.rate_limit }
     pub fn version(&self) -> &Version { &self.version }
 }
 
@@ -168,6 +193,31 @@ mod tests {
 
         // assert
         assert_ne!(key1.key_token().as_str(), key2.key_token().as_str());
+    }
+
+    #[test]
+    fn given_zero_rate_limit_then_creation_fails() {
+        // act
+        let result = RateLimit::new(0);
+
+        // assert
+        match result {
+            Err(ProjectKeyError::ZeroRateLimit) => (),
+            other => panic!("Expected ZeroRateLimit error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn given_valid_rate_limit_then_set_succeeds() {
+        // arrange
+        let mut key = test_project_key();
+        let limit = RateLimit::new(500).unwrap();
+
+        // act
+        key.set_rate_limit(Some(limit));
+
+        // assert
+        assert_eq!(key.rate_limit().unwrap().value(), 500);
     }
 
     #[test]

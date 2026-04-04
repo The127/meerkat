@@ -4,6 +4,7 @@ use axum::Json;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use meerkat_application::behaviors::rate_limit::RateLimitKey;
 use meerkat_application::context::RequestContext;
 use meerkat_application::events::ingest::IngestEvent;
 use meerkat_domain::models::event::{EventId, EventLevel};
@@ -66,7 +67,10 @@ pub(crate) async fn ingest_event(
 
     let cmd = IngestEvent {
         project_id: project_ctx.project_id,
-        key_token: project_ctx.key_token,
+        rate_limit_key: RateLimitKey {
+            key_token: project_ctx.key_token.as_str().to_string(),
+            max_per_window: project_ctx.rate_limit,
+        },
         message: body.message,
         level,
         platform: body.platform,

@@ -14,6 +14,7 @@ use crate::state::AppState;
 pub(crate) struct ProjectContext {
     pub project_id: ProjectId,
     pub key_token: KeyToken,
+    pub rate_limit: Option<u64>,
 }
 
 impl FromRequestParts<AppState> for ProjectContext {
@@ -39,6 +40,7 @@ impl FromRequestParts<AppState> for ProjectContext {
         Ok(ProjectContext {
             project_id: key.project_id,
             key_token: KeyToken::new(token).map_err(|_| unauthorized("invalid project key"))?,
+            rate_limit: key.rate_limit,
         })
     }
 }

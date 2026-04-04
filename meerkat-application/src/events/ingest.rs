@@ -6,8 +6,6 @@ use chrono::{DateTime, Utc};
 use meerkat_domain::models::event::{Event, EventId, EventLevel};
 use meerkat_domain::models::issue::Issue;
 use meerkat_domain::models::project::ProjectId;
-use meerkat_domain::models::project_key::KeyToken;
-
 use crate::behaviors::rate_limit::RateLimitKey;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
@@ -19,7 +17,7 @@ use crate::ports::issue_repository::IssueRepository;
 
 pub struct IngestEvent {
     pub project_id: ProjectId,
-    pub key_token: KeyToken,
+    pub rate_limit_key: RateLimitKey,
     pub message: String,
     pub level: EventLevel,
     pub platform: String,
@@ -38,7 +36,10 @@ impl Request for IngestEvent {
 
     fn extensions(&self) -> Extensions {
         let mut ext = Extensions::new();
-        ext.insert(RateLimitKey(self.key_token.as_str().to_string()));
+        ext.insert(RateLimitKey {
+            key_token: self.rate_limit_key.key_token.clone(),
+            max_per_window: self.rate_limit_key.max_per_window,
+        });
         ext
     }
 }
@@ -141,7 +142,10 @@ mod tests {
     fn test_command() -> IngestEvent {
         IngestEvent {
             project_id: ProjectId::new(),
-            key_token: KeyToken::new("test-key-token").unwrap(),
+            rate_limit_key: RateLimitKey {
+                key_token: "test-key-token".to_string(),
+                max_per_window: None,
+            },
             message: "Something broke".into(),
             level: EventLevel::Error,
             platform: "python".into(),

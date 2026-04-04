@@ -27,18 +27,29 @@ struct ProjectKeyRow {
     key_token: String,
     label: String,
     status: String,
+    rate_limit: Option<i64>,
     created_at: chrono::DateTime<chrono::Utc>,
     total: i64,
 }
 
-#[derive(sqlx::FromRow)]
-struct ProjectKeyByTokenRow {
+fn map_row(
     id: sqlx::types::Uuid,
     project_id: sqlx::types::Uuid,
     key_token: String,
     label: String,
     status: String,
+    rate_limit: Option<i64>,
     created_at: chrono::DateTime<chrono::Utc>,
+) -> ProjectKeyReadModel {
+    ProjectKeyReadModel {
+        id: ProjectKeyId::from_uuid(id),
+        project_id: ProjectId::from_uuid(project_id),
+        key_token,
+        label,
+        status: status.parse::<ProjectKeyStatus>().expect("invalid status in database"),
+        rate_limit: rate_limit.map(|v| v as u64),
+        created_at,
+    }
 }
 
 #[async_trait]
@@ -47,8 +58,9 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
         &self,
         token: &str,
     ) -> Result<Option<ProjectKeyReadModel>, ApplicationError> {
-        let row = sqlx::query_as::<_, ProjectKeyByTokenRow>(
-            "SELECT id, project_id, key_token, label, status, created_at \
+        let row = sqlx::query_as::<_, ProjectKeyRow>(
+            "SELECT id, project_id, key_token, label, status, rate_limit, created_at, \
+                    0::bigint AS total \
              FROM project_keys \
              WHERE key_token = $1 AND status = 'active'",
         )
@@ -57,14 +69,7 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
         .await
         .map_err(map_sqlx_error)?;
 
-        Ok(row.map(|r| ProjectKeyReadModel {
-            id: ProjectKeyId::from_uuid(r.id),
-            project_id: ProjectId::from_uuid(r.project_id),
-            key_token: r.key_token,
-            label: r.label,
-            status: r.status.parse::<ProjectKeyStatus>().expect("invalid status in database"),
-            created_at: r.created_at,
-        }))
+        Ok(row.map(|r| map_row(r.id, r.project_id, r.key_token, r.label, r.status, r.rate_limit, r.created_at)))
     }
 
     async fn list_by_project(
@@ -78,7 +83,7 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
         let pattern = search.map(|s| s.contains_pattern());
 
         let rows = sqlx::query_as::<_, ProjectKeyRow>(
-            "SELECT id, project_id, key_token, label, status, created_at, \
+            "SELECT id, project_id, key_token, label, status, rate_limit, created_at, \
                     COUNT(*) OVER() AS total \
              FROM project_keys \
              WHERE project_id = $1 \
@@ -100,14 +105,7 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
 
         let items = rows
             .into_iter()
-            .map(|row| ProjectKeyReadModel {
-                id: ProjectKeyId::from_uuid(row.id),
-                project_id: ProjectId::from_uuid(row.project_id),
-                key_token: row.key_token,
-                label: row.label,
-                status: row.status.parse::<ProjectKeyStatus>().expect("invalid status in database"),
-                created_at: row.created_at,
-            })
+            .map(|row| map_row(row.id, row.project_id, row.key_token, row.label, row.status, row.rate_limit, row.created_at))
             .collect();
 
         Ok(PagedResult { items, total })

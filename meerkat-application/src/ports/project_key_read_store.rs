@@ -14,6 +14,7 @@ pub struct ProjectKeyReadModel {
     pub key_token: String,
     pub label: String,
     pub status: ProjectKeyStatus,
+    pub rate_limit: Option<u64>,
     pub created_at: DateTime<Utc>,
 }
 

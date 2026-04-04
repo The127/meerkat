@@ -9,7 +9,10 @@ use crate::error::ApplicationError;
 use crate::extensions::Extensions;
 use crate::mediator::{PipelineBehavior, PipelineNext};
 
-pub struct RateLimitKey(pub String);
+pub struct RateLimitKey {
+    pub key_token: String,
+    pub max_per_window: Option<u64>,
+}
 
 struct WindowState {
     count: u64,
@@ -56,16 +59,17 @@ impl PipelineBehavior<RequestContext, ApplicationError> for RateLimitBehavior {
         _ctx: &RequestContext,
         next: PipelineNext<'_, ApplicationError>,
     ) -> Result<Box<dyn Any + Send + Sync>, ApplicationError> {
-        let Some(RateLimitKey(key)) = extensions.get::<RateLimitKey>() else {
+        let Some(key) = extensions.get::<RateLimitKey>() else {
             return next.run().await;
         };
 
+        let effective_limit = key.max_per_window.unwrap_or(self.max_per_window);
         let now = Instant::now();
 
         {
             let mut entry = self
                 .counters
-                .entry(key.clone())
+                .entry(key.key_token.clone())
                 .or_insert_with(|| WindowState {
                     count: 0,
                     window_start: now,
@@ -81,7 +85,7 @@ impl PipelineBehavior<RequestContext, ApplicationError> for RateLimitBehavior {
 
             state.count += 1;
 
-            if state.count > self.max_per_window {
+            if state.count > effective_limit {
                 let retry_after = self.window_duration.saturating_sub(elapsed);
                 return Err(ApplicationError::RateLimited {
                     retry_after_secs: retry_after.as_secs().max(1),
@@ -113,12 +117,16 @@ mod tests {
 
     struct RateLimitedCommand {
         key: String,
+        max_per_window: Option<u64>,
     }
     impl Request for RateLimitedCommand {
         type Output = String;
         fn extensions(&self) -> Extensions {
             let mut ext = Extensions::new();
-            ext.insert(RateLimitKey(self.key.clone()));
+            ext.insert(RateLimitKey {
+                key_token: self.key.clone(),
+                max_per_window: self.max_per_window,
+            });
             ext
         }
     }
@@ -169,7 +177,7 @@ mod tests {
         // act & assert
         for _ in 0..5 {
             let result = mediator
-                .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+                .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
                 .await;
             assert_eq!(result.unwrap(), "ok");
         }
@@ -183,14 +191,14 @@ mod tests {
 
         for _ in 0..3 {
             mediator
-                .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+                .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
                 .await
                 .unwrap();
         }
 
         // act
         let result = mediator
-            .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+            .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
             .await;
 
         // assert
@@ -210,14 +218,14 @@ mod tests {
 
         for _ in 0..2 {
             mediator
-                .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+                .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
                 .await
                 .unwrap();
         }
 
         // act — key-b should still be within limits
         let result = mediator
-            .dispatch(RateLimitedCommand { key: "key-b".into() }, &ctx)
+            .dispatch(RateLimitedCommand { key: "key-b".into(), max_per_window: None }, &ctx)
             .await;
 
         // assert
@@ -225,13 +233,38 @@ mod tests {
 
         // act — key-a should be rate limited
         let result = mediator
-            .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+            .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
             .await;
 
         // assert
         match result {
             Err(crate::mediator::MediatorError::HandlerError(ApplicationError::RateLimited { .. })) => (),
             other => panic!("Expected RateLimited for key-a, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn given_key_with_custom_limit_then_uses_per_key_limit() {
+        // arrange — global default is 1000, but per-key limit is 2
+        let mediator = build_mediator(RateLimitBehavior::new().with_max_per_window(1000));
+        let ctx = RequestContext::test();
+
+        for _ in 0..2 {
+            mediator
+                .dispatch(RateLimitedCommand { key: "key-custom".into(), max_per_window: Some(2) }, &ctx)
+                .await
+                .unwrap();
+        }
+
+        // act — third event should be rejected at per-key limit of 2
+        let result = mediator
+            .dispatch(RateLimitedCommand { key: "key-custom".into(), max_per_window: Some(2) }, &ctx)
+            .await;
+
+        // assert
+        match result {
+            Err(crate::mediator::MediatorError::HandlerError(ApplicationError::RateLimited { .. })) => (),
+            other => panic!("Expected RateLimited, got {:?}", other),
         }
     }
 
@@ -247,7 +280,7 @@ mod tests {
 
         for _ in 0..2 {
             mediator
-                .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+                .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
                 .await
                 .unwrap();
         }
@@ -256,7 +289,7 @@ mod tests {
         tokio::time::sleep(Duration::from_millis(60)).await;
 
         let result = mediator
-            .dispatch(RateLimitedCommand { key: "key-a".into() }, &ctx)
+            .dispatch(RateLimitedCommand { key: "key-a".into(), max_per_window: None }, &ctx)
             .await;
 
         // assert

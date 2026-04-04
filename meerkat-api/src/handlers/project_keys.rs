@@ -39,6 +39,8 @@ pub(crate) struct ProjectKeyListItemDto {
     pub label: String,
     #[serde(rename = "status")]
     pub status: String,
+    #[serde(rename = "rate_limit")]
+    pub rate_limit: Option<u64>,
     #[serde(rename = "dsn")]
     pub dsn: String,
     #[serde(rename = "created_at")]
@@ -91,6 +93,7 @@ pub(crate) async fn list_project_keys(
                 key_token: k.key_token,
                 label: k.label,
                 status: k.status.to_string(),
+                rate_limit: k.rate_limit,
                 dsn,
                 created_at: k.created_at,
             }

@@ -5,7 +5,7 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::project_key_repository::ProjectKeyRepository;
 use meerkat_domain::models::project::ProjectId;
 use meerkat_domain::models::project_key::{
-    KeyToken, ProjectKey, ProjectKeyId, ProjectKeyState, ProjectKeyStatus,
+    KeyToken, ProjectKey, ProjectKeyId, ProjectKeyState, ProjectKeyStatus, RateLimit,
 };
 use meerkat_domain::shared::version::Version;
 
@@ -51,7 +51,7 @@ impl ProjectKeyRepository for PgProjectKeyRepository {
 
     async fn find(&self, id: &ProjectKeyId) -> Result<ProjectKey, ApplicationError> {
         let row = sqlx::query_as::<_, ProjectKeyRow>(
-            "SELECT id, project_id, key_token, label, status, version \
+            "SELECT id, project_id, key_token, label, status, rate_limit, version \
              FROM project_keys WHERE id = $1",
         )
         .bind(id.as_uuid())
@@ -66,6 +66,7 @@ impl ProjectKeyRepository for PgProjectKeyRepository {
             key_token: KeyToken::new(row.key_token).expect("invalid key_token in database"),
             label: row.label,
             status: row.status.parse::<ProjectKeyStatus>().expect("invalid status in database"),
+            rate_limit: row.rate_limit.map(|v| RateLimit::new(v as u64).expect("invalid rate_limit in database")),
             version: Version::new(row.version as u64),
         });
 
@@ -82,5 +83,6 @@ struct ProjectKeyRow {
     key_token: String,
     label: String,
     status: String,
+    rate_limit: Option<i64>,
     version: i64,
 }

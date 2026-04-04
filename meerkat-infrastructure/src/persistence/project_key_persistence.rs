@@ -14,14 +14,15 @@ impl ProjectKeyPersistence {
         now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
-            "INSERT INTO project_keys (id, project_id, key_token, label, status, created_at, updated_at, version) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            "INSERT INTO project_keys (id, project_id, key_token, label, status, rate_limit, created_at, updated_at, version) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(key.id().as_uuid())
         .bind(key.project_id().as_uuid())
         .bind(key.key_token().as_str())
         .bind(key.label())
         .bind(key.status().as_ref())
+        .bind(key.rate_limit().map(|v| v.value() as i64))
         .bind(now)
         .bind(now)
         .bind(key.version().as_u64() as i64)
@@ -39,7 +40,8 @@ impl ProjectKeyPersistence {
         now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         let changed = key.status() != snapshot.status()
-            || key.label() != snapshot.label();
+            || key.label() != snapshot.label()
+            || key.rate_limit() != snapshot.rate_limit();
 
         if !changed {
             return Ok(());
@@ -48,11 +50,12 @@ impl ProjectKeyPersistence {
         let new_version = snapshot.version().increment();
 
         let result = sqlx::query(
-            "UPDATE project_keys SET status = $1, label = $2, updated_at = $3, version = $4 \
-             WHERE id = $5 AND version = $6",
+            "UPDATE project_keys SET status = $1, label = $2, rate_limit = $3, updated_at = $4, version = $5 \
+             WHERE id = $6 AND version = $7",
         )
         .bind(key.status().as_ref())
         .bind(key.label())
+        .bind(key.rate_limit().map(|v| v.value() as i64))
         .bind(now)
         .bind(new_version.as_u64() as i64)
         .bind(key.id().as_uuid())
