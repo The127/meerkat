@@ -14,15 +14,19 @@ pub(crate) struct MeerkatConfig {
     pub(crate) base_domain: String,
     pub(crate) master_org_name: String,
     pub(crate) master_org_slug: String,
-    pub(crate) master_oidc_name: String,
-    pub(crate) master_oidc_client_id: String,
-    pub(crate) master_oidc_issuer_url: String,
-    pub(crate) master_oidc_audience: String,
-    pub(crate) master_oidc_discovery_url: Option<String>,
-    pub(crate) master_oidc_sub_claim: String,
-    pub(crate) master_oidc_name_claim: String,
-    pub(crate) master_oidc_role_claim: String,
-    pub(crate) master_oidc_role_values: meerkat_domain::models::oidc_config::RoleValues,
+    pub(crate) master_oidc: MasterOidcConfig,
+}
+
+pub(crate) struct MasterOidcConfig {
+    pub(crate) name: String,
+    pub(crate) client_id: String,
+    pub(crate) issuer_url: String,
+    pub(crate) audience: String,
+    pub(crate) discovery_url: Option<String>,
+    pub(crate) sub_claim: String,
+    pub(crate) name_claim: String,
+    pub(crate) role_claim: String,
+    pub(crate) role_values: RoleValues,
 }
 
 impl MeerkatConfig {
@@ -42,43 +46,7 @@ impl MeerkatConfig {
         let master_org_slug = std::env::var("MEERKAT_MASTER_ORG_SLUG")
             .context("MEERKAT_MASTER_ORG_SLUG environment variable must be set")?;
 
-        let master_oidc_name = std::env::var("MEERKAT_MASTER_OIDC_NAME")
-            .unwrap_or_else(|_| "Default".to_string());
-
-        let master_oidc_client_id = std::env::var("MEERKAT_MASTER_OIDC_CLIENT_ID")
-            .context("MEERKAT_MASTER_OIDC_CLIENT_ID environment variable must be set")?;
-
-        let master_oidc_issuer_url = std::env::var("MEERKAT_MASTER_OIDC_ISSUER_URL")
-            .context("MEERKAT_MASTER_OIDC_ISSUER_URL environment variable must be set")?;
-
-        let master_oidc_audience = std::env::var("MEERKAT_MASTER_OIDC_AUDIENCE")
-            .context("MEERKAT_MASTER_OIDC_AUDIENCE environment variable must be set")?;
-
-        let master_oidc_discovery_url = std::env::var("MEERKAT_MASTER_OIDC_DISCOVERY_URL").ok();
-
-        let master_oidc_sub_claim = std::env::var("MEERKAT_MASTER_OIDC_SUB_CLAIM")
-            .unwrap_or_else(|_| "sub".to_string());
-
-        let master_oidc_name_claim = std::env::var("MEERKAT_MASTER_OIDC_NAME_CLAIM")
-            .unwrap_or_else(|_| "preferred_username".to_string());
-
-        let master_oidc_role_claim = std::env::var("MEERKAT_MASTER_OIDC_ROLE_CLAIM")
-            .unwrap_or_else(|_| "roles".to_string());
-
-        let master_oidc_owner_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_OWNER_VALUES"))
-            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_OWNER_VALUES must be set with at least one comma-separated value"))?;
-
-        let master_oidc_admin_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_ADMIN_VALUES"))
-            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_ADMIN_VALUES must be set with at least one comma-separated value"))?;
-
-        let master_oidc_member_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_MEMBER_VALUES"))
-            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_MEMBER_VALUES must be set with at least one comma-separated value"))?;
-
-        let master_oidc_role_values = RoleValues::new(
-            master_oidc_owner_values,
-            master_oidc_admin_values,
-            master_oidc_member_values,
-        );
+        let master_oidc = MasterOidcConfig::from_env()?;
 
         Ok(Self {
             database_url,
@@ -86,15 +54,61 @@ impl MeerkatConfig {
             base_domain,
             master_org_name,
             master_org_slug,
-            master_oidc_name,
-            master_oidc_client_id,
-            master_oidc_issuer_url,
-            master_oidc_audience,
-            master_oidc_discovery_url,
-            master_oidc_sub_claim,
-            master_oidc_name_claim,
-            master_oidc_role_claim,
-            master_oidc_role_values,
+            master_oidc,
+        })
+    }
+}
+
+impl MasterOidcConfig {
+    fn from_env() -> anyhow::Result<Self> {
+        let name = std::env::var("MEERKAT_MASTER_OIDC_NAME")
+            .unwrap_or_else(|_| "Default".to_string());
+
+        let client_id = std::env::var("MEERKAT_MASTER_OIDC_CLIENT_ID")
+            .context("MEERKAT_MASTER_OIDC_CLIENT_ID environment variable must be set")?;
+
+        let issuer_url = std::env::var("MEERKAT_MASTER_OIDC_ISSUER_URL")
+            .context("MEERKAT_MASTER_OIDC_ISSUER_URL environment variable must be set")?;
+
+        let audience = std::env::var("MEERKAT_MASTER_OIDC_AUDIENCE")
+            .context("MEERKAT_MASTER_OIDC_AUDIENCE environment variable must be set")?;
+
+        let discovery_url = std::env::var("MEERKAT_MASTER_OIDC_DISCOVERY_URL").ok();
+
+        let sub_claim = std::env::var("MEERKAT_MASTER_OIDC_SUB_CLAIM")
+            .unwrap_or_else(|_| "sub".to_string());
+
+        let name_claim = std::env::var("MEERKAT_MASTER_OIDC_NAME_CLAIM")
+            .unwrap_or_else(|_| "preferred_username".to_string());
+
+        let role_claim = std::env::var("MEERKAT_MASTER_OIDC_ROLE_CLAIM")
+            .unwrap_or_else(|_| "roles".to_string());
+
+        let owner_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_OWNER_VALUES"))
+            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_OWNER_VALUES must be set with at least one comma-separated value"))?;
+
+        let admin_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_ADMIN_VALUES"))
+            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_ADMIN_VALUES must be set with at least one comma-separated value"))?;
+
+        let member_values = Vec1::try_from_vec(parse_csv_env("MEERKAT_MASTER_OIDC_MEMBER_VALUES"))
+            .map_err(|_| anyhow::anyhow!("MEERKAT_MASTER_OIDC_MEMBER_VALUES must be set with at least one comma-separated value"))?;
+
+        let role_values = RoleValues::new(
+            owner_values,
+            admin_values,
+            member_values,
+        );
+
+        Ok(Self {
+            name,
+            client_id,
+            issuer_url,
+            audience,
+            discovery_url,
+            sub_claim,
+            name_claim,
+            role_claim,
+            role_values,
         })
     }
 }

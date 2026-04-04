@@ -33,32 +33,34 @@ pub(crate) async fn bootstrap_master(
     let slug = OrganizationSlug::new(&config.master_org_slug)
         .map_err(|e| anyhow::anyhow!("Invalid master organization slug: {e}"))?;
 
+    let oidc = &config.master_oidc;
+
     let issuer_url =
-        Url::new(&config.master_oidc_issuer_url).context("Invalid master OIDC issuer URL")?;
+        Url::new(&oidc.issuer_url).context("Invalid master OIDC issuer URL")?;
 
     let audience =
-        Audience::new(&config.master_oidc_audience).context("Invalid master OIDC audience")?;
+        Audience::new(&oidc.audience).context("Invalid master OIDC audience")?;
 
     let client_id =
-        ClientId::new(&config.master_oidc_client_id).context("Invalid master OIDC client ID")?;
+        ClientId::new(&oidc.client_id).context("Invalid master OIDC client ID")?;
 
-    let discovery_url = config
-        .master_oidc_discovery_url
+    let discovery_url = oidc
+        .discovery_url
         .as_deref()
         .map(Url::new)
         .transpose()
         .context("Invalid master OIDC discovery URL")?;
 
     let claim_mapping = ClaimMapping::new(
-        config.master_oidc_sub_claim.clone(),
-        config.master_oidc_name_claim.clone(),
-        config.master_oidc_role_claim.clone(),
-        config.master_oidc_role_values.clone(),
+        oidc.sub_claim.clone(),
+        oidc.name_claim.clone(),
+        oidc.role_claim.clone(),
+        oidc.role_values.clone(),
     )
     .context("Failed to create master claim mapping")?;
 
     let oidc_config = OidcConfig::new(
-        config.master_oidc_name.clone(),
+        oidc.name.clone(),
         client_id,
         issuer_url,
         audience,
