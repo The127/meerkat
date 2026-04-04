@@ -1,4 +1,7 @@
+use chrono::Utc;
 use vec1::vec1;
+use crate::models::event::{Event, EventLevel};
+use crate::models::issue::Issue;
 use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, RoleValues, Url};
 use crate::models::organization::{Organization, OrganizationSlug};
 use crate::models::project::{Project, ProjectId, ProjectSlug};
@@ -49,4 +52,34 @@ pub fn test_project() -> Project {
 pub fn test_project_key() -> ProjectKey {
     let project_id = ProjectId::new();
     ProjectKey::generate(project_id, "Default".into()).unwrap()
+}
+
+pub fn test_event() -> Event {
+    Event::new(
+        ProjectId::new(),
+        "abc123def456".into(),
+        "Test error".into(),
+        EventLevel::Error,
+        "python".into(),
+        Utc::now(),
+        None,
+        Some("production".into()),
+        None,
+        Some("RuntimeError".into()),
+        Some("something went wrong".into()),
+        vec![],
+        serde_json::Value::Null,
+    )
+    .unwrap()
+}
+
+pub fn test_issue() -> Issue {
+    Issue::new(
+        "RuntimeError: something went wrong".into(),
+        "abc123def456".into(),
+        ProjectId::new(),
+        EventLevel::Error,
+        Utc::now(),
+    )
+    .unwrap()
 }
