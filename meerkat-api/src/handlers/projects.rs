@@ -200,8 +200,7 @@ pub(crate) async fn get_project(
     Path(slug): Path<ProjectSlug>,
 ) -> Result<Json<ProjectDto>, ApiError> {
     let query = GetProject {
-        org_id: resolved_org.id,
-        slug,
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
     };
 
     let p = state.mediator.dispatch(query, &req_ctx).await?;

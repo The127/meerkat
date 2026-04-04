@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
+use meerkat_domain::models::project::ProjectIdentifier;
 
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
@@ -12,8 +11,7 @@ use crate::mediator::{Request, Handler};
 use crate::ports::project_read_store::{ProjectReadModel, ProjectReadStore};
 
 pub struct GetProject {
-    pub org_id: OrganizationId,
-    pub slug: ProjectSlug,
+    pub project: ProjectIdentifier,
 }
 
 impl Request for GetProject {
@@ -23,7 +21,7 @@ impl Request for GetProject {
         project_extensions(
             "GetProject",
             vec![ProjectPermission::ProjectRead.into()],
-            ProjectIdentifier::Slug(self.org_id.clone(), self.slug.clone()),
+            self.project.clone(),
         )
     }
 }
@@ -45,8 +43,11 @@ impl Handler<GetProject, ApplicationError, RequestContext> for GetProjectHandler
         cmd: GetProject,
         _ctx: &RequestContext,
     ) -> Result<ProjectReadModel, ApplicationError> {
+        let ProjectIdentifier::Slug(ref org_id, ref slug) = cmd.project else {
+            return Err(ApplicationError::NotFound);
+        };
         self.project_read_store
-            .find_by_slug(&cmd.org_id, &cmd.slug)
+            .find_by_slug(org_id, slug)
             .await?
             .ok_or(ApplicationError::NotFound)
     }

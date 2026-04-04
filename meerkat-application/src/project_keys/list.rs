@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
+use meerkat_domain::models::project::ProjectIdentifier;
 
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
@@ -16,8 +15,7 @@ use crate::ports::project_read_store::{PagedResult, ProjectReadStore};
 use crate::search::SearchFilter;
 
 pub struct ListProjectKeys {
-    pub org_id: OrganizationId,
-    pub slug: ProjectSlug,
+    pub project: ProjectIdentifier,
     pub search: Option<SearchFilter>,
     pub limit: i64,
     pub offset: i64,
@@ -30,7 +28,7 @@ impl Request for ListProjectKeys {
         project_extensions(
             "ListProjectKeys",
             vec![ProjectPermission::ProjectRead.into()],
-            ProjectIdentifier::Slug(self.org_id.clone(), self.slug.clone()),
+            self.project.clone(),
         )
     }
 }
@@ -56,8 +54,11 @@ impl Handler<ListProjectKeys, ApplicationError, RequestContext> for ListProjectK
         cmd: ListProjectKeys,
         _ctx: &RequestContext,
     ) -> Result<PagedResult<ProjectKeyReadModel>, ApplicationError> {
+        let ProjectIdentifier::Slug(ref org_id, ref slug) = cmd.project else {
+            return Err(ApplicationError::NotFound);
+        };
         let project = self.project_read_store
-            .find_by_slug(&cmd.org_id, &cmd.slug)
+            .find_by_slug(org_id, slug)
             .await?
             .ok_or(ApplicationError::NotFound)?;
 

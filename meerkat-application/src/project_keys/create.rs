@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
+use meerkat_domain::models::project::ProjectIdentifier;
 use meerkat_domain::models::project_key::{ProjectKey, ProjectKeyId};
 
 use crate::behaviors::authorization::project_extensions;
@@ -12,8 +11,7 @@ use crate::extensions::Extensions;
 use crate::mediator::{Request, Handler};
 
 pub struct CreateProjectKey {
-    pub org_id: OrganizationId,
-    pub project_slug: ProjectSlug,
+    pub project: ProjectIdentifier,
     pub label: String,
 }
 
@@ -24,7 +22,7 @@ impl Request for CreateProjectKey {
         project_extensions(
             "CreateProjectKey",
             vec![ProjectPermission::ProjectManageKeys.into()],
-            ProjectIdentifier::Slug(self.org_id.clone(), self.project_slug.clone()),
+            self.project.clone(),
         )
     }
 }
@@ -41,7 +39,7 @@ impl Handler<CreateProjectKey, ApplicationError, RequestContext> for CreateProje
         let uow = ctx.uow().await;
 
         let project = uow.projects()
-            .find(&ProjectIdentifier::Slug(cmd.org_id, cmd.project_slug))
+            .find(&cmd.project)
             .await?;
 
         let key = ProjectKey::generate(project.id().clone(), cmd.label)?;
@@ -55,7 +53,7 @@ impl Handler<CreateProjectKey, ApplicationError, RequestContext> for CreateProje
 #[cfg(test)]
 mod tests {
     use meerkat_domain::models::organization::OrganizationId;
-    use meerkat_domain::models::project::ProjectSlug;
+    use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
     use meerkat_domain::testing::test_project;
 
     use crate::context::RequestContext;
@@ -96,8 +94,7 @@ mod tests {
 
         let handler = CreateProjectKeyHandler;
         let cmd = CreateProjectKey {
-            org_id: OrganizationId::new(),
-            project_slug: ProjectSlug::new("test-project").unwrap(),
+            project: ProjectIdentifier::Slug(OrganizationId::new(), ProjectSlug::new("test-project").unwrap()),
             label: "Production".to_string(),
         };
 

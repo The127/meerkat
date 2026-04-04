@@ -12,7 +12,7 @@ use meerkat_application::project_keys::create::CreateProjectKey;
 use meerkat_application::project_keys::list::ListProjectKeys;
 use meerkat_application::project_keys::revoke::RevokeProjectKey;
 use meerkat_application::search::SearchFilter;
-use meerkat_domain::models::project::ProjectSlug;
+use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 use meerkat_domain::models::project_key::ProjectKeyId;
 
 use crate::error::ApiError;
@@ -65,8 +65,7 @@ pub(crate) async fn list_project_keys(
     Query(search): Query<SearchQueryDto>,
 ) -> Result<Json<ListProjectKeysResponseDto>, ApiError> {
     let query = ListProjectKeys {
-        org_id: resolved_org.id,
-        slug: slug.clone(),
+        project: ProjectIdentifier::Slug(resolved_org.id, slug.clone()),
         search: search.search.as_deref().and_then(SearchFilter::new),
         limit: pagination.limit(),
         offset: pagination.offset(),
@@ -128,8 +127,7 @@ pub(crate) async fn create_project_key(
     Json(body): Json<CreateProjectKeyRequestDto>,
 ) -> Result<(StatusCode, Json<CreateProjectKeyResponseDto>), ApiError> {
     let cmd = CreateProjectKey {
-        org_id: resolved_org.id,
-        project_slug: slug,
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
         label: body.label,
     };
 
@@ -155,8 +153,7 @@ pub(crate) async fn revoke_project_key(
     Path((slug, key_id)): Path<(ProjectSlug, ProjectKeyId)>,
 ) -> Result<StatusCode, ApiError> {
     let cmd = RevokeProjectKey {
-        org_id: resolved_org.id,
-        project_slug: slug,
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
         key_id,
     };
 

@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
-use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
+use meerkat_domain::models::project::ProjectIdentifier;
 use meerkat_domain::models::project_key::ProjectKeyId;
 
 use crate::behaviors::authorization::project_extensions;
@@ -12,8 +11,7 @@ use crate::extensions::Extensions;
 use crate::mediator::{Request, Handler};
 
 pub struct RevokeProjectKey {
-    pub org_id: OrganizationId,
-    pub project_slug: ProjectSlug,
+    pub project: ProjectIdentifier,
     pub key_id: ProjectKeyId,
 }
 
@@ -24,7 +22,7 @@ impl Request for RevokeProjectKey {
         project_extensions(
             "RevokeProjectKey",
             vec![ProjectPermission::ProjectManageKeys.into()],
-            ProjectIdentifier::Slug(self.org_id.clone(), self.project_slug.clone()),
+            self.project.clone(),
         )
     }
 }
@@ -51,7 +49,7 @@ impl Handler<RevokeProjectKey, ApplicationError, RequestContext> for RevokeProje
 #[cfg(test)]
 mod tests {
     use meerkat_domain::models::organization::OrganizationId;
-    use meerkat_domain::models::project::ProjectSlug;
+    use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
     use meerkat_domain::models::project_key::ProjectKeyStatus;
     use meerkat_domain::testing::test_project_key;
 
@@ -85,8 +83,7 @@ mod tests {
 
         let handler = RevokeProjectKeyHandler;
         let cmd = RevokeProjectKey {
-            org_id: OrganizationId::new(),
-            project_slug: ProjectSlug::new("test-project").unwrap(),
+            project: ProjectIdentifier::Slug(OrganizationId::new(), ProjectSlug::new("test-project").unwrap()),
             key_id: expected_key_id,
         };
 

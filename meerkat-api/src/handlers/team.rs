@@ -12,7 +12,7 @@ use meerkat_application::members::list_members::ListMembers;
 use meerkat_application::projects::list_members::ListProjectMembers;
 use meerkat_application::projects::list_roles::ListProjectRoles;
 use meerkat_domain::models::member::MemberId;
-use meerkat_domain::models::project::ProjectSlug;
+use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 use meerkat_domain::models::project_role::ProjectRoleId;
 
 use crate::error::ApiError;
@@ -96,7 +96,7 @@ pub(crate) async fn list_project_roles(
 ) -> Result<Json<Vec<ProjectRoleDto>>, ApiError> {
     let roles = state
         .mediator
-        .dispatch(ListProjectRoles { org_id: resolved_org.id, slug }, &req_ctx)
+        .dispatch(ListProjectRoles { project: ProjectIdentifier::Slug(resolved_org.id, slug) }, &req_ctx)
         .await?;
 
     let items = roles
@@ -147,7 +147,7 @@ pub(crate) async fn list_project_members(
 ) -> Result<Json<Vec<ProjectMemberDto>>, ApiError> {
     let members = state
         .mediator
-        .dispatch(ListProjectMembers { org_id: resolved_org.id, slug }, &req_ctx)
+        .dispatch(ListProjectMembers { project: ProjectIdentifier::Slug(resolved_org.id, slug) }, &req_ctx)
         .await?;
 
     let items = members
