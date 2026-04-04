@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
@@ -16,9 +17,9 @@ use crate::persistence::error::map_sqlx_error;
 use crate::persistence::organization_persistence::OrganizationPersistence;
 use crate::persistence::pg_organization_repository::{OrgEntry, PgOrganizationRepository};
 use crate::persistence::pg_project_key_repository::{PgProjectKeyRepository, ProjectKeyEntry};
-use crate::persistence::pg_project_member_repository::PgProjectMemberRepository;
+use crate::persistence::pg_project_member_repository::{PgProjectMemberRepository, ProjectMemberEntry};
 use crate::persistence::pg_project_repository::{PgProjectRepository, ProjectEntry};
-use crate::persistence::pg_project_role_repository::PgProjectRoleRepository;
+use crate::persistence::pg_project_role_repository::{PgProjectRoleRepository, ProjectRoleEntry};
 use crate::persistence::project_key_persistence::ProjectKeyPersistence;
 use crate::persistence::project_member_persistence::ProjectMemberPersistence;
 use crate::persistence::project_persistence::ProjectPersistence;
@@ -45,6 +46,88 @@ impl PgUnitOfWork {
             pool,
             clock,
         }
+    }
+
+    async fn save_organization_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[OrgEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            match entry {
+                OrgEntry::Added(org) => {
+                    OrganizationPersistence::insert(tx, org, now).await?;
+                }
+                OrgEntry::Modified { entity, snapshot } => {
+                    OrganizationPersistence::update(tx, entity, snapshot, now).await?;
+                }
+                OrgEntry::Deleted(id) => {
+                    OrganizationPersistence::delete(tx, id).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn save_project_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[ProjectEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            match entry {
+                ProjectEntry::Added(project) => {
+                    ProjectPersistence::insert(tx, project, now).await?;
+                }
+                ProjectEntry::Modified { entity, snapshot } => {
+                    ProjectPersistence::update(tx, entity, snapshot, now).await?;
+                }
+                ProjectEntry::Deleted(id) => {
+                    ProjectPersistence::delete(tx, id).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn save_project_key_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[ProjectKeyEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            match entry {
+                ProjectKeyEntry::Added(key) => {
+                    ProjectKeyPersistence::insert(tx, key, now).await?;
+                }
+                ProjectKeyEntry::Modified { entity, snapshot } => {
+                    ProjectKeyPersistence::update(tx, entity, snapshot, now).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn save_project_role_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[ProjectRoleEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            ProjectRolePersistence::insert(tx, &entry.0, now).await?;
+        }
+        Ok(())
+    }
+
+    async fn save_project_member_entries(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        entries: &[ProjectMemberEntry],
+        now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        for entry in entries {
+            ProjectMemberPersistence::insert(tx, &entry.0, now).await?;
+        }
+        Ok(())
     }
 }
 
@@ -87,52 +170,11 @@ impl UnitOfWork for PgUnitOfWork {
         let now = self.clock.now();
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
 
-        for entry in &org_entries {
-            match entry {
-                OrgEntry::Added(org) => {
-                    OrganizationPersistence::insert(&mut tx, org, now).await?;
-                }
-                OrgEntry::Modified { entity, snapshot } => {
-                    OrganizationPersistence::update(&mut tx, entity, snapshot, now).await?;
-                }
-                OrgEntry::Deleted(id) => {
-                    OrganizationPersistence::delete(&mut tx, id).await?;
-                }
-            }
-        }
-
-        for entry in &project_entries {
-            match entry {
-                ProjectEntry::Added(project) => {
-                    ProjectPersistence::insert(&mut tx, project, now).await?;
-                }
-                ProjectEntry::Modified { entity, snapshot } => {
-                    ProjectPersistence::update(&mut tx, entity, snapshot, now).await?;
-                }
-                ProjectEntry::Deleted(id) => {
-                    ProjectPersistence::delete(&mut tx, id).await?;
-                }
-            }
-        }
-
-        for entry in &key_entries {
-            match entry {
-                ProjectKeyEntry::Added(key) => {
-                    ProjectKeyPersistence::insert(&mut tx, key, now).await?;
-                }
-                ProjectKeyEntry::Modified { entity, snapshot } => {
-                    ProjectKeyPersistence::update(&mut tx, entity, snapshot, now).await?;
-                }
-            }
-        }
-
-        for entry in &role_entries {
-            ProjectRolePersistence::insert(&mut tx, &entry.0, now).await?;
-        }
-
-        for entry in &member_entries {
-            ProjectMemberPersistence::insert(&mut tx, &entry.0, now).await?;
-        }
+        Self::save_organization_entries(&mut tx, &org_entries, now).await?;
+        Self::save_project_entries(&mut tx, &project_entries, now).await?;
+        Self::save_project_key_entries(&mut tx, &key_entries, now).await?;
+        Self::save_project_role_entries(&mut tx, &role_entries, now).await?;
+        Self::save_project_member_entries(&mut tx, &member_entries, now).await?;
 
         tx.commit().await.map_err(map_sqlx_error)?;
 
