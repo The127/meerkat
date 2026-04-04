@@ -44,6 +44,16 @@ pub(crate) struct ClaimMappingDto {
     pub role_values: RoleValuesDto,
 }
 
+impl TryFrom<ClaimMappingDto> for ClaimMapping {
+    type Error = ApplicationError;
+
+    fn try_from(dto: ClaimMappingDto) -> Result<Self, Self::Error> {
+        let role_values = role_values_from_dto(dto.role_values)?;
+        ClaimMapping::new(dto.sub_claim, dto.name_claim, dto.role_claim, role_values)
+            .map_err(|e| ApplicationError::Validation(e.to_string()))
+    }
+}
+
 #[derive(Debug, Deserialize, ToSchema)]
 pub(crate) struct CreateOrganizationOidcConfigDto {
     #[serde(rename = "name")]
@@ -93,12 +103,7 @@ pub(crate) async fn create_organization(
 ) -> Result<(StatusCode, Json<CreateOrganizationResponseDto>), ApiError> {
     let oidc = body.oidc_config;
 
-    let cm = oidc.claim_mapping;
-    let role_values = role_values_from_dto(cm.role_values)?;
-    let claim_mapping = ClaimMapping::new(
-        cm.sub_claim, cm.name_claim, cm.role_claim,
-        role_values,
-    ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    let claim_mapping = ClaimMapping::try_from(oidc.claim_mapping)?;
 
     let cmd = CreateOrganization {
         name: body.name,

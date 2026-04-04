@@ -7,6 +7,7 @@ use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::organizations::get_oidc_config::GetOidcConfig;
+use meerkat_domain::models::oidc_config::ClaimMapping;
 
 use crate::error::ApiError;
 use crate::resolved_organization::ResolvedOrganization;
@@ -32,6 +33,21 @@ pub(crate) struct ClaimMappingResponseDto {
     pub role_claim: String,
     #[serde(rename = "role_values")]
     pub role_values: RoleValuesResponseDto,
+}
+
+impl From<&ClaimMapping> for ClaimMappingResponseDto {
+    fn from(cm: &ClaimMapping) -> Self {
+        Self {
+            sub_claim: cm.sub_claim().as_str().to_string(),
+            name_claim: cm.name_claim().as_str().to_string(),
+            role_claim: cm.role_claim().as_str().to_string(),
+            role_values: RoleValuesResponseDto {
+                owner: cm.role_values().owner().to_vec(),
+                admin: cm.role_values().admin().to_vec(),
+                member: cm.role_values().member().to_vec(),
+            },
+        }
+    }
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -64,22 +80,12 @@ pub(crate) async fn get_oidc_config(
 
     let config = state.mediator.dispatch(query, &req_ctx).await?;
 
-    let cm = config.claim_mapping;
     Ok(Json(OidcConfigDto {
         name: config.name,
         client_id: config.client_id.as_str().to_string(),
         issuer_url: config.issuer_url.as_str().to_string(),
         audience: config.audience.as_str().to_string(),
         discovery_url: config.discovery_url.map(|u| u.as_str().to_string()),
-        claim_mapping: ClaimMappingResponseDto {
-            sub_claim: cm.sub_claim().as_str().to_string(),
-            name_claim: cm.name_claim().as_str().to_string(),
-            role_claim: cm.role_claim().as_str().to_string(),
-            role_values: RoleValuesResponseDto {
-                owner: cm.role_values().owner().to_vec(),
-                admin: cm.role_values().admin().to_vec(),
-                member: cm.role_values().member().to_vec(),
-            },
-        },
+        claim_mapping: ClaimMappingResponseDto::from(&config.claim_mapping),
     }))
 }

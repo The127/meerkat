@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use meerkat_application::context::RequestContext;
-use meerkat_application::error::ApplicationError;
 use meerkat_application::organizations::activate_oidc_config::ActivateOidcConfig;
 use meerkat_application::organizations::add_oidc_config::AddOidcConfig;
 use meerkat_application::organizations::delete_oidc_config::DeleteOidcConfig;
@@ -17,9 +16,8 @@ use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, Oidc
 use meerkat_domain::models::organization::OrganizationIdentifier;
 use meerkat_domain::shared::url::Url;
 
-use super::role_values_from_dto;
 use crate::error::ApiError;
-use crate::handlers::oidc::{ClaimMappingResponseDto, RoleValuesResponseDto};
+use crate::handlers::oidc::ClaimMappingResponseDto;
 use crate::handlers::organizations::ClaimMappingDto;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
@@ -65,27 +63,15 @@ pub(crate) async fn list_oidc_configs(
 
     let items = configs
         .into_iter()
-        .map(|c| {
-            let cm = c.claim_mapping;
-            OidcConfigListItemDto {
-                id: c.id,
-                name: c.name,
-                client_id: c.client_id.as_str().to_string(),
-                issuer_url: c.issuer_url.as_str().to_string(),
-                audience: c.audience.as_str().to_string(),
-                discovery_url: c.discovery_url.map(|u| u.as_str().to_string()),
-                claim_mapping: ClaimMappingResponseDto {
-                    sub_claim: cm.sub_claim().as_str().to_string(),
-                    name_claim: cm.name_claim().as_str().to_string(),
-                    role_claim: cm.role_claim().as_str().to_string(),
-                    role_values: RoleValuesResponseDto {
-                        owner: cm.role_values().owner().to_vec(),
-                        admin: cm.role_values().admin().to_vec(),
-                        member: cm.role_values().member().to_vec(),
-                    },
-                },
-                status: c.status.to_string(),
-            }
+        .map(|c| OidcConfigListItemDto {
+            id: c.id,
+            name: c.name,
+            client_id: c.client_id.as_str().to_string(),
+            issuer_url: c.issuer_url.as_str().to_string(),
+            audience: c.audience.as_str().to_string(),
+            discovery_url: c.discovery_url.map(|u| u.as_str().to_string()),
+            claim_mapping: ClaimMappingResponseDto::from(&c.claim_mapping),
+            status: c.status.to_string(),
         })
         .collect();
 
@@ -131,12 +117,7 @@ pub(crate) async fn add_oidc_config(
     Extension(resolved_org): Extension<ResolvedOrganization>,
     Json(body): Json<AddOidcConfigRequestDto>,
 ) -> Result<(StatusCode, Json<AddOidcConfigResponseDto>), ApiError> {
-    let cm = body.claim_mapping;
-    let role_values = role_values_from_dto(cm.role_values)?;
-    let claim_mapping = ClaimMapping::new(
-        cm.sub_claim, cm.name_claim, cm.role_claim,
-        role_values,
-    ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    let claim_mapping = ClaimMapping::try_from(body.claim_mapping)?;
 
     let cmd = AddOidcConfig {
         identifier: OrganizationIdentifier::Id(resolved_org.id),
@@ -226,11 +207,7 @@ pub(crate) async fn update_oidc_claim_mapping(
     Path(config_id): Path<OidcConfigId>,
     Json(body): Json<ClaimMappingDto>,
 ) -> Result<StatusCode, ApiError> {
-    let role_values = role_values_from_dto(body.role_values)?;
-    let claim_mapping = ClaimMapping::new(
-        body.sub_claim, body.name_claim, body.role_claim,
-        role_values,
-    ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
+    let claim_mapping = ClaimMapping::try_from(body)?;
 
     let cmd = UpdateOidcClaimMapping {
         org_identifier: OrganizationIdentifier::Id(resolved_org.id),
