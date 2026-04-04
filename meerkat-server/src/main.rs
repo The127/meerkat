@@ -126,6 +126,17 @@ async fn create_pool(config: &MeerkatConfig) -> anyhow::Result<PgPool> {
         .context("Failed to connect to database")
 }
 
+struct ReadStores {
+    org: Arc<dyn meerkat_application::ports::organization_read_store::OrganizationReadStore>,
+    oidc_config: Arc<dyn meerkat_application::ports::oidc_config_read_store::OidcConfigReadStore>,
+    project: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore>,
+    member: Arc<dyn meerkat_application::ports::member_read_store::MemberReadStore>,
+    project_role: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore>,
+    project_member: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
+    project_permission: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore>,
+    project_key: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
+}
+
 struct MediatorDeps {
     audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger>,
     project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore>,
@@ -171,88 +182,88 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator
 }
 
-async fn run_api(
-    pool: PgPool,
-    config: &MeerkatConfig,
-    mut shutdown: watch::Receiver<bool>,
-) -> anyhow::Result<()> {
-    let health_checker = Arc::new(PgHealthChecker::new(pool.clone()));
+fn build_read_stores(pool: &PgPool) -> ReadStores {
+    ReadStores {
+        org: Arc::new(PgOrganizationReadStore::new(pool.clone())),
+        oidc_config: Arc::new(PgOidcConfigReadStore::new(pool.clone())),
+        project: Arc::new(PgProjectReadStore::new(pool.clone())),
+        member: Arc::new(meerkat_infrastructure::persistence::pg_member_read_store::PgMemberReadStore::new(pool.clone())),
+        project_role: Arc::new(meerkat_infrastructure::persistence::pg_project_role_read_store::PgProjectRoleReadStore::new(pool.clone())),
+        project_member: Arc::new(meerkat_infrastructure::persistence::pg_project_member_read_store::PgProjectMemberReadStore::new(pool.clone())),
+        project_permission: Arc::new(PgProjectPermissionReadStore::new(pool.clone())),
+        project_key: Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone())),
+    }
+}
 
+fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -> AppState {
     let uow_factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone(), Arc::new(SystemClock)));
-
-    let error_observer = Arc::new(ErrorPipeline::new(vec![
-        Arc::new(TracingErrorObserver),
-    ]));
-
     let context = Arc::new(AppContext::new(
         uow_factory,
-        error_observer,
+        Arc::new(ErrorPipeline::new(vec![Arc::new(TracingErrorObserver)])),
     ));
-
-    let org_read_store = Arc::new(PgOrganizationReadStore::new(pool.clone()));
-    let oidc_config_read_store = Arc::new(PgOidcConfigReadStore::new(pool.clone()));
-    let project_read_store = Arc::new(PgProjectReadStore::new(pool.clone()));
 
     let audit_logger: Arc<dyn meerkat_application::ports::audit::AuditLogger> = Arc::new(AuditPipeline::new(vec![
         Arc::new(TracingAuditLogger),
     ]));
-    let project_permission_store: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore> =
-        Arc::new(PgProjectPermissionReadStore::new(pool.clone()));
-    let member_read_store: Arc<dyn meerkat_application::ports::member_read_store::MemberReadStore> =
-        Arc::new(meerkat_infrastructure::persistence::pg_member_read_store::PgMemberReadStore::new(pool.clone()));
-    let project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore> =
-        Arc::new(meerkat_infrastructure::persistence::pg_project_role_read_store::PgProjectRoleReadStore::new(pool.clone()));
-    let project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore> =
-        Arc::new(meerkat_infrastructure::persistence::pg_project_member_read_store::PgProjectMemberReadStore::new(pool.clone()));
-    let project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore> =
-        Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone()));
+
     let mediator = Arc::new(build_mediator(MediatorDeps {
         audit_logger,
-        project_permission_store,
-        org_read_store: org_read_store.clone(),
-        oidc_config_read_store: oidc_config_read_store.clone(),
-        project_read_store: project_read_store.clone(),
-        member_read_store,
-        project_role_read_store,
-        project_member_read_store,
-        project_key_read_store: project_key_read_store.clone(),
+        project_permission_store: stores.project_permission.clone(),
+        org_read_store: stores.org.clone(),
+        oidc_config_read_store: stores.oidc_config.clone(),
+        project_read_store: stores.project.clone(),
+        member_read_store: stores.member.clone(),
+        project_role_read_store: stores.project_role.clone(),
+        project_member_read_store: stores.project_member.clone(),
+        project_key_read_store: stores.project_key.clone(),
     }));
-    let jwks_provider = Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300)));
-    let member_repository = Arc::new(PgMemberRepository::new(pool.clone()));
-    let oidc_discovery_provider = Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300)));
 
-    let state = AppState {
-        health_checker,
+    AppState {
+        health_checker: Arc::new(PgHealthChecker::new(pool.clone())),
         mediator,
         context,
         auth: AuthState {
-            oidc_config_read_store,
-            jwks_provider,
-            oidc_discovery_provider,
-            member_repository,
+            oidc_config_read_store: stores.oidc_config.clone(),
+            jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
+            oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),
+            member_repository: Arc::new(PgMemberRepository::new(pool.clone())),
         },
         tenant: TenantState {
-            org_read_store,
+            org_read_store: stores.org.clone(),
             base_domain: config.base_domain.clone(),
             master_org_slug: config.master_org_slug.clone(),
         },
         auth_enabled: true,
-    };
+    }
+}
 
+async fn serve(
+    listen_addr: &str,
+    state: AppState,
+    mut shutdown: watch::Receiver<bool>,
+) -> anyhow::Result<()> {
     let router = meerkat_api::router(state);
 
-    let listener = tokio::net::TcpListener::bind(&config.listen_addr)
+    let listener = tokio::net::TcpListener::bind(listen_addr)
         .await
-        .with_context(|| format!("Failed to bind to {}", config.listen_addr))?;
+        .with_context(|| format!("Failed to bind to {}", listen_addr))?;
 
-    info!("Listening on {}", config.listen_addr);
+    info!("Listening on {}", listen_addr);
 
     axum::serve(listener, router)
         .with_graceful_shutdown(async move {
             let _ = shutdown.changed().await;
         })
         .await
-        .context("Server error")?;
+        .context("Server error")
+}
 
-    Ok(())
+async fn run_api(
+    pool: PgPool,
+    config: &MeerkatConfig,
+    shutdown: watch::Receiver<bool>,
+) -> anyhow::Result<()> {
+    let stores = build_read_stores(&pool);
+    let state = build_app_state(&pool, config, &stores);
+    serve(&config.listen_addr, state, shutdown).await
 }
