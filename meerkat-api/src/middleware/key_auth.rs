@@ -28,7 +28,6 @@ impl FromRequestParts<AppState> for ProjectContext {
             .ok_or_else(|| unauthorized("missing X-Meerkat-Key header"))?;
 
         let key = state
-            .ingest
             .project_key_read_store
             .find_by_token(token)
             .await

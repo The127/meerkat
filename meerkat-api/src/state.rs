@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
-use meerkat_application::ingestion::ingest::IngestEventHandler;
 use meerkat_application::mediator::Mediator;
 use meerkat_application::ports::health::HealthChecker;
 use meerkat_application::ports::jwks_provider::JwksProvider;
@@ -28,18 +27,12 @@ pub struct TenantState {
 }
 
 #[derive(Clone)]
-pub struct IngestState {
-    pub handler: Arc<IngestEventHandler>,
-    pub project_key_read_store: Arc<dyn ProjectKeyReadStore>,
-}
-
-#[derive(Clone)]
 pub struct AppState {
     pub health_checker: Arc<dyn HealthChecker>,
     pub mediator: Arc<Mediator<RequestContext, ApplicationError>>,
     pub context: Arc<AppContext>,
     pub auth: AuthState,
     pub tenant: TenantState,
-    pub ingest: IngestState,
+    pub project_key_read_store: Arc<dyn ProjectKeyReadStore>,
     pub auth_enabled: bool,
 }

@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use sqlx::PgPool;
 use tokio::sync::watch;
 use tracing::info;
-use meerkat_api::state::{AppState, AuthState, IngestState, TenantState};
+use meerkat_api::state::{AppState, AuthState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
@@ -46,7 +46,7 @@ use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
-use meerkat_application::ingestion::ingest::IngestEventHandler;
+use meerkat_application::events::ingest::{IngestEvent, IngestEventHandler};
 use meerkat_infrastructure::persistence::pg_event_repository::PgEventRepository;
 use meerkat_infrastructure::persistence::pg_issue_repository::PgIssueRepository;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
@@ -153,6 +153,9 @@ struct MediatorDeps {
     project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
     project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
     issue_read_store: Arc<dyn meerkat_application::ports::issue_read_store::IssueReadStore>,
+    event_repo: Arc<dyn meerkat_application::ports::event_repository::EventRepository>,
+    issue_repo: Arc<dyn meerkat_application::ports::issue_repository::IssueRepository>,
+    fingerprint_service: Arc<dyn meerkat_application::ports::fingerprint_service::FingerprintService>,
 }
 
 fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
@@ -186,6 +189,7 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<ListIssues, _>(ListIssuesHandler::new(deps.project_read_store.clone(), deps.issue_read_store));
     mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
     mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
+    mediator.register::<IngestEvent, _>(IngestEventHandler::new(deps.event_repo, deps.issue_repo, deps.fingerprint_service));
     mediator
 }
 
@@ -214,6 +218,10 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
         Arc::new(TracingAuditLogger),
     ]));
 
+    let event_repo = Arc::new(PgEventRepository::new(pool.clone()));
+    let issue_repo = Arc::new(PgIssueRepository::new(pool.clone()));
+    let fingerprint_service = Arc::new(meerkat_infrastructure::sha256_fingerprint_service::Sha256FingerprintService);
+
     let mediator = Arc::new(build_mediator(MediatorDeps {
         audit_logger,
         project_permission_store: stores.project_permission.clone(),
@@ -225,12 +233,10 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
         project_member_read_store: stores.project_member.clone(),
         project_key_read_store: stores.project_key.clone(),
         issue_read_store: stores.issue.clone(),
+        event_repo,
+        issue_repo,
+        fingerprint_service,
     }));
-
-    let event_repo = Arc::new(PgEventRepository::new(pool.clone()));
-    let issue_repo = Arc::new(PgIssueRepository::new(pool.clone()));
-    let fingerprint_service = Arc::new(meerkat_infrastructure::sha256_fingerprint_service::Sha256FingerprintService);
-    let ingest_handler = Arc::new(IngestEventHandler::new(event_repo, issue_repo, fingerprint_service));
 
     AppState {
         health_checker: Arc::new(PgHealthChecker::new(pool.clone())),
@@ -247,10 +253,7 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
             base_domain: config.base_domain.clone(),
             master_org_slug: config.master_org_slug.clone(),
         },
-        ingest: IngestState {
-            handler: ingest_handler,
-            project_key_read_store: stores.project_key.clone(),
-        },
+        project_key_read_store: stores.project_key.clone(),
         auth_enabled: true,
     }
 }

@@ -4,9 +4,11 @@ use axum::Json;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use meerkat_application::ingestion::ingest::IngestEvent;
+use meerkat_application::context::RequestContext;
+use meerkat_application::events::ingest::IngestEvent;
 use meerkat_domain::models::event::{EventId, EventLevel};
 
+use crate::error::ApiError;
 use crate::middleware::key_auth::ProjectContext;
 use crate::state::AppState;
 
@@ -54,16 +56,10 @@ pub(crate) async fn ingest_event(
     State(state): State<AppState>,
     project_ctx: ProjectContext,
     Json(body): Json<IngestEventRequestDto>,
-) -> Result<(StatusCode, Json<IngestEventResponseDto>), (StatusCode, Json<crate::error::ErrorDto>)> {
+) -> Result<(StatusCode, Json<IngestEventResponseDto>), ApiError> {
     let level = match body.level {
         Some(ref l) => l.parse::<EventLevel>().map_err(|_| {
-            (
-                StatusCode::BAD_REQUEST,
-                Json(crate::error::ErrorDto {
-                    code: "validation_error".to_string(),
-                    message: format!("invalid level: {l}"),
-                }),
-            )
+            meerkat_application::error::ApplicationError::Validation(format!("invalid level: {l}"))
         })?,
         None => EventLevel::Error,
     };
@@ -83,30 +79,8 @@ pub(crate) async fn ingest_event(
         extra: body.extra,
     };
 
-    let event_id = state
-        .ingest
-        .handler
-        .handle(cmd)
-        .await
-        .map_err(|e| {
-            let (status, code, message) = match e {
-                meerkat_application::error::ApplicationError::Validation(msg) => {
-                    (StatusCode::BAD_REQUEST, "validation_error", msg)
-                }
-                _ => (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "internal_error",
-                    "an unexpected error occurred".to_string(),
-                ),
-            };
-            (
-                status,
-                Json(crate::error::ErrorDto {
-                    code: code.to_string(),
-                    message,
-                }),
-            )
-        })?;
+    let req_ctx = RequestContext::new(state.context.clone());
+    let event_id = state.mediator.dispatch(cmd, &req_ctx).await?;
 
     Ok((StatusCode::CREATED, Json(IngestEventResponseDto { id: event_id })))
 }
