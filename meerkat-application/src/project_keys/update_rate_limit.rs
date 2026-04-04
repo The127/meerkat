@@ -45,7 +45,7 @@ impl Handler<UpdateProjectKeyRateLimit, ApplicationError, RequestContext> for Up
             .map(RateLimit::new)
             .transpose()?;
 
-        key.set_rate_limit(limit);
+        key.set_rate_limit(limit)?;
         uow.project_keys().save(key);
 
         Ok(())

@@ -108,8 +108,12 @@ impl ProjectKey {
         Ok(())
     }
 
-    pub fn set_rate_limit(&mut self, limit: Option<RateLimit>) {
+    pub fn set_rate_limit(&mut self, limit: Option<RateLimit>) -> Result<(), ProjectKeyError> {
+        if self.status == ProjectKeyStatus::Revoked {
+            return Err(ProjectKeyError::AlreadyRevoked);
+        }
         self.rate_limit = limit;
+        Ok(())
     }
 
     pub fn id(&self) -> &ProjectKeyId { &self.id }
@@ -214,10 +218,27 @@ mod tests {
         let limit = RateLimit::new(500).unwrap();
 
         // act
-        key.set_rate_limit(Some(limit));
+        key.set_rate_limit(Some(limit)).unwrap();
 
         // assert
         assert_eq!(key.rate_limit().unwrap().value(), 500);
+    }
+
+    #[test]
+    fn given_revoked_key_then_set_rate_limit_fails() {
+        // arrange
+        let mut key = test_project_key();
+        key.revoke().unwrap();
+        let limit = RateLimit::new(500).unwrap();
+
+        // act
+        let result = key.set_rate_limit(Some(limit));
+
+        // assert
+        match result {
+            Err(ProjectKeyError::AlreadyRevoked) => (),
+            other => panic!("Expected AlreadyRevoked error, got {:?}", other),
+        }
     }
 
     #[test]
