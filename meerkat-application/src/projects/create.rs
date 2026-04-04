@@ -7,7 +7,7 @@ use meerkat_domain::models::project_role::ProjectRole;
 
 use meerkat_domain::models::permission::OrgPermission;
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
+use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::events::DomainEvent;
@@ -24,10 +24,7 @@ impl Request for CreateProject {
     type Output = ProjectId;
 
     fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("CreateProject".to_string()));
-        ext.insert(RequiredPermissions(vec![OrgPermission::OrgCreateProject.into()]));
-        ext
+        org_extensions("CreateProject", vec![OrgPermission::OrgCreateProject.into()])
     }
 }
 

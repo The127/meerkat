@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::OrgPermission;
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
+use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -20,10 +20,7 @@ impl Request for ListOidcConfigs {
     type Output = Vec<OidcConfigReadModel>;
 
     fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("ListOidcConfigs".to_string()));
-        ext.insert(RequiredPermissions(vec![OrgPermission::OrgManageOidc.into()]));
-        ext
+        org_extensions("ListOidcConfigs", vec![OrgPermission::OrgManageOidc.into()])
     }
 }
 

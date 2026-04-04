@@ -5,7 +5,7 @@ use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 use meerkat_domain::models::project_key::ProjectKeyId;
 
-use crate::behaviors::authorization::{ProjectContext, RequestName, RequiredPermissions};
+use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -21,11 +21,11 @@ impl Request for RevokeProjectKey {
     type Output = ();
 
     fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("RevokeProjectKey".to_string()));
-        ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectManageKeys.into()]));
-        ext.insert(ProjectContext(ProjectIdentifier::Slug(self.org_id.clone(), self.project_slug.clone())));
-        ext
+        project_extensions(
+            "RevokeProjectKey",
+            vec![ProjectPermission::ProjectManageKeys.into()],
+            ProjectIdentifier::Slug(self.org_id.clone(), self.project_slug.clone()),
+        )
     }
 }
 

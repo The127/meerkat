@@ -4,7 +4,7 @@ use meerkat_domain::models::oidc_config::OidcConfigId;
 use meerkat_domain::models::organization::OrganizationIdentifier;
 use meerkat_domain::models::permission::OrgPermission;
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
+use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -19,10 +19,7 @@ impl Request for DeleteOidcConfig {
     type Output = ();
 
     fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("DeleteOidcConfig".to_string()));
-        ext.insert(RequiredPermissions(vec![OrgPermission::OrgManageOidc.into()]));
-        ext
+        org_extensions("DeleteOidcConfig", vec![OrgPermission::OrgManageOidc.into()])
     }
 }
 

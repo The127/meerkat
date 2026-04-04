@@ -48,6 +48,23 @@ pub mod testing {
 
 pub struct RequestName(pub String);
 
+pub fn org_extensions(name: &str, permissions: Vec<EffectivePermission>) -> Extensions {
+    let mut ext = Extensions::new();
+    ext.insert(RequestName(name.to_string()));
+    ext.insert(RequiredPermissions(permissions));
+    ext
+}
+
+pub fn project_extensions(
+    name: &str,
+    permissions: Vec<EffectivePermission>,
+    project: ProjectIdentifier,
+) -> Extensions {
+    let mut ext = org_extensions(name, permissions);
+    ext.insert(ProjectContext(project));
+    ext
+}
+
 pub struct AuthorizationBehavior {
     audit_logger: Arc<dyn AuditLogger>,
     project_permission_store: Arc<dyn ProjectPermissionReadStore>,
@@ -179,10 +196,7 @@ mod tests {
     impl Request for ProtectedCommand {
         type Output = String;
         fn extensions(&self) -> Extensions {
-            let mut ext = Extensions::new();
-            ext.insert(RequestName("ProtectedCommand".to_string()));
-            ext.insert(RequiredPermissions(vec![OrgPermission::OrgRename.into()]));
-            ext
+            org_extensions("ProtectedCommand", vec![OrgPermission::OrgRename.into()])
         }
     }
 

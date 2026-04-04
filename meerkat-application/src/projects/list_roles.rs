@@ -6,7 +6,7 @@ use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 
-use crate::behaviors::authorization::{ProjectContext, RequestName, RequiredPermissions};
+use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -23,11 +23,11 @@ impl Request for ListProjectRoles {
     type Output = Vec<ProjectRoleReadModel>;
 
     fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("ListProjectRoles".to_string()));
-        ext.insert(RequiredPermissions(vec![ProjectPermission::ProjectRead.into()]));
-        ext.insert(ProjectContext(ProjectIdentifier::Slug(self.org_id.clone(), self.slug.clone())));
-        ext
+        project_extensions(
+            "ListProjectRoles",
+            vec![ProjectPermission::ProjectRead.into()],
+            ProjectIdentifier::Slug(self.org_id.clone(), self.slug.clone()),
+        )
     }
 }
 

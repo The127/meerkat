@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::permission::OrgPermission;
 
-use crate::behaviors::authorization::{RequestName, RequiredPermissions};
+use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
@@ -20,10 +20,7 @@ impl Request for ListMemberProjects {
     type Output = Vec<MemberProjectReadModel>;
 
     fn extensions(&self) -> Extensions {
-        let mut ext = Extensions::new();
-        ext.insert(RequestName("ListMemberProjects".to_string()));
-        ext.insert(RequiredPermissions(vec![OrgPermission::OrgManageMembers.into()]));
-        ext
+        org_extensions("ListMemberProjects", vec![OrgPermission::OrgManageMembers.into()])
     }
 }
 
