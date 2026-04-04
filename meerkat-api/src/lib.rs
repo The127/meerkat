@@ -74,6 +74,8 @@ pub fn router(state: AppState) -> Router {
         .route("/{slug}/roles", get(team::list_project_roles))
         .route("/{slug}/members", get(team::list_project_members))
         .route("/{slug}/issues", get(issues::list_issues))
+        .route("/{slug}/issues/{issue_id}", get(issues::get_issue))
+        .route("/{slug}/issues/{issue_id}/events", get(issues::list_issue_events))
         .route("/{slug}/issues/{issue_id}/resolve", post(issues::resolve_issue))
         .route("/{slug}/issues/{issue_id}/reopen", post(issues::reopen_issue))
         .route("/{slug}/issues/{issue_id}/ignore", post(issues::ignore_issue))

@@ -34,8 +34,40 @@ struct IssueRow {
     total: i64,
 }
 
+fn to_read_model(row: &IssueRow) -> IssueReadModel {
+    IssueReadModel {
+        id: IssueId::from_uuid(row.id),
+        project_id: ProjectId::from_uuid(row.project_id),
+        title: row.title.clone(),
+        fingerprint_hash: row.fingerprint_hash.clone(),
+        status: row.status.clone(),
+        level: row.level.clone(),
+        event_count: row.event_count,
+        first_seen: row.first_seen,
+        last_seen: row.last_seen,
+    }
+}
+
 #[async_trait]
 impl IssueReadStore for PgIssueReadStore {
+    async fn find_by_id(
+        &self,
+        issue_id: &IssueId,
+    ) -> Result<Option<IssueReadModel>, ApplicationError> {
+        let row = sqlx::query_as::<_, IssueRow>(
+            "SELECT id, project_id, title, fingerprint_hash, status, level, event_count, \
+                    first_seen, last_seen, 0::bigint AS total \
+             FROM issues \
+             WHERE id = $1",
+        )
+        .bind(issue_id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        Ok(row.as_ref().map(to_read_model))
+    }
+
     async fn list_by_project(
         &self,
         project_id: &ProjectId,
@@ -67,21 +99,7 @@ impl IssueReadStore for PgIssueReadStore {
         .map_err(map_sqlx_error)?;
 
         let total = rows.first().map(|r| r.total).unwrap_or(0);
-
-        let items = rows
-            .into_iter()
-            .map(|row| IssueReadModel {
-                id: IssueId::from_uuid(row.id),
-                project_id: ProjectId::from_uuid(row.project_id),
-                title: row.title,
-                fingerprint_hash: row.fingerprint_hash,
-                status: row.status,
-                level: row.level,
-                event_count: row.event_count,
-                first_seen: row.first_seen,
-                last_seen: row.last_seen,
-            })
-            .collect();
+        let items = rows.iter().map(to_read_model).collect();
 
         Ok(PagedResult { items, total })
     }

@@ -74,6 +74,26 @@ export interface Issue {
   last_seen: string
 }
 
+export interface EventTag {
+  key: string
+  value: string
+}
+
+export interface Event {
+  id: string
+  message: string
+  level: 'fatal' | 'error' | 'warning' | 'info' | 'debug'
+  platform: string
+  timestamp: string
+  server_name: string | null
+  environment: string | null
+  release: string | null
+  exception_type: string | null
+  exception_value: string | null
+  tags: EventTag[]
+  extra: unknown
+}
+
 export interface CurrentUser {
   member_id: string
   preferred_name: string

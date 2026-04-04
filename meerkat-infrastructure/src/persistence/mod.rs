@@ -7,6 +7,7 @@ pub(crate) mod project_key_persistence;
 pub(crate) mod project_member_persistence;
 pub(crate) mod project_persistence;
 pub(crate) mod project_role_persistence;
+pub mod pg_event_read_store;
 pub mod pg_event_repository;
 pub mod pg_issue_read_store;
 pub mod pg_issue_repository;

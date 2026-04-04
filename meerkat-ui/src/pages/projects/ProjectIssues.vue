@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { MkCard, MkButton, MkSpinner, MkBadge } from '@/components/meerkat'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useProjectKeys } from '@/composables/useProjectKeys'
@@ -10,9 +10,11 @@ import { useReopenIssue } from '@/composables/useReopenIssue'
 import { useIgnoreIssue } from '@/composables/useIgnoreIssue'
 import { useToast } from '@/composables/useToast'
 import { useQueryClient } from '@tanstack/vue-query'
+import { levelVariant, statusVariant, formatRelativeTime } from '@/lib/issue-utils'
 import type { Issue } from '@/lib/types'
 
 const route = useRoute()
+const router = useRouter()
 const slug = computed(() => {
   const param = route.params.slug
   return typeof param === 'string' ? param : undefined
@@ -114,46 +116,7 @@ async function sendDemoEvent() {
   }
 }
 
-function levelVariant(level: Issue['level']): string {
-  switch (level) {
-    case 'fatal':
-    case 'error':
-      return 'error'
-    case 'warning':
-      return 'warning'
-    case 'info':
-      return 'default'
-    case 'debug':
-      return 'secondary'
-  }
-}
 
-function statusVariant(status: Issue['status']): string {
-  switch (status) {
-    case 'unresolved':
-      return 'destructive'
-    case 'resolved':
-      return 'success'
-    case 'ignored':
-      return 'secondary'
-  }
-}
-
-function formatRelativeTime(iso: string): string {
-  const now = Date.now()
-  const then = new Date(iso).getTime()
-  const diffMs = now - then
-
-  const seconds = Math.floor(diffMs / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return new Date(iso).toLocaleDateString()
-}
 </script>
 
 <template>
@@ -210,7 +173,12 @@ function formatRelativeTime(iso: string): string {
         >
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2 min-w-0">
-              <span class="text-sm font-medium text-foreground truncate">{{ issue.title }}</span>
+              <button
+                class="text-sm font-medium text-foreground truncate hover:text-primary transition-colors text-left"
+                @click="router.push({ name: 'issue-detail', params: { slug, issueId: issue.id } })"
+              >
+                {{ issue.title }}
+              </button>
             </div>
             <div class="flex items-center gap-2 shrink-0 ml-2">
               <MkBadge :variant="levelVariant(issue.level)">

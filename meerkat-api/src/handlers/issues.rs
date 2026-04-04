@@ -10,11 +10,15 @@ use utoipa::{IntoParams, ToSchema};
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::error::ApplicationError;
+use meerkat_application::issues::get::GetIssue;
 use meerkat_application::issues::ignore::IgnoreIssue;
 use meerkat_application::issues::list::ListIssues;
+use meerkat_application::issues::list_events::ListIssueEvents;
 use meerkat_application::issues::reopen::ReopenIssue;
 use meerkat_application::issues::resolve::ResolveIssue;
+use meerkat_application::ports::issue_read_store::IssueReadModel;
 use meerkat_application::search::SearchFilter;
+use meerkat_domain::models::event::EventId;
 use meerkat_domain::models::issue::{IssueId, IssueStatus};
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 
@@ -33,7 +37,7 @@ pub(crate) struct IssueStatusFilterQueryDto {
 }
 
 #[derive(Debug, Serialize, ToSchema)]
-pub(crate) struct IssueListItemDto {
+pub(crate) struct IssueDto {
     #[serde(rename = "id")]
     pub id: IssueId,
     #[serde(rename = "title")]
@@ -52,10 +56,25 @@ pub(crate) struct IssueListItemDto {
     pub last_seen: DateTime<Utc>,
 }
 
+impl From<IssueReadModel> for IssueDto {
+    fn from(i: IssueReadModel) -> Self {
+        Self {
+            id: i.id,
+            title: i.title,
+            fingerprint_hash: i.fingerprint_hash,
+            status: i.status,
+            level: i.level,
+            event_count: i.event_count,
+            first_seen: i.first_seen,
+            last_seen: i.last_seen,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ListIssuesResponseDto {
     #[serde(rename = "items")]
-    pub items: Vec<IssueListItemDto>,
+    pub items: Vec<IssueDto>,
     #[serde(rename = "total")]
     pub total: i64,
 }
@@ -96,20 +115,7 @@ pub(crate) async fn list_issues(
 
     let result = state.mediator.dispatch(query, &req_ctx).await?;
 
-    let items = result
-        .items
-        .into_iter()
-        .map(|i| IssueListItemDto {
-            id: i.id,
-            title: i.title,
-            fingerprint_hash: i.fingerprint_hash,
-            status: i.status,
-            level: i.level,
-            event_count: i.event_count,
-            first_seen: i.first_seen,
-            last_seen: i.last_seen,
-        })
-        .collect();
+    let items = result.items.into_iter().map(IssueDto::from).collect();
 
     Ok(Json(ListIssuesResponseDto {
         items,
@@ -193,4 +199,126 @@ pub(crate) async fn ignore_issue(
     state.mediator.dispatch(cmd, &req_ctx).await?;
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Get Issue ---
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/projects/{slug}/issues/{issue_id}",
+    responses(
+        (status = 200, description = "Issue detail", body = IssueDto),
+        (status = 404, description = "Issue not found"),
+    )
+)]
+pub(crate) async fn get_issue(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+) -> Result<Json<IssueDto>, ApiError> {
+    let query = GetIssue {
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
+        issue_id,
+    };
+
+    let issue = state.mediator.dispatch(query, &req_ctx).await?;
+
+    Ok(Json(IssueDto::from(issue)))
+}
+
+// --- List Issue Events ---
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct EventListItemDto {
+    #[serde(rename = "id")]
+    pub id: EventId,
+    #[serde(rename = "message")]
+    pub message: String,
+    #[serde(rename = "level")]
+    pub level: String,
+    #[serde(rename = "platform")]
+    pub platform: String,
+    #[serde(rename = "timestamp")]
+    pub timestamp: DateTime<Utc>,
+    #[serde(rename = "server_name")]
+    pub server_name: Option<String>,
+    #[serde(rename = "environment")]
+    pub environment: Option<String>,
+    #[serde(rename = "release")]
+    pub release: Option<String>,
+    #[serde(rename = "exception_type")]
+    pub exception_type: Option<String>,
+    #[serde(rename = "exception_value")]
+    pub exception_value: Option<String>,
+    #[serde(rename = "tags")]
+    pub tags: Vec<EventTagDto>,
+    #[serde(rename = "extra")]
+    pub extra: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct EventTagDto {
+    #[serde(rename = "key")]
+    pub key: String,
+    #[serde(rename = "value")]
+    pub value: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct ListIssueEventsResponseDto {
+    #[serde(rename = "items")]
+    pub items: Vec<EventListItemDto>,
+    #[serde(rename = "total")]
+    pub total: i64,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/projects/{slug}/issues/{issue_id}/events",
+    params(PaginationQueryDto),
+    responses(
+        (status = 200, description = "List of events for issue", body = ListIssueEventsResponseDto),
+        (status = 404, description = "Project not found"),
+    )
+)]
+pub(crate) async fn list_issue_events(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+    Query(pagination): Query<PaginationQueryDto>,
+) -> Result<Json<ListIssueEventsResponseDto>, ApiError> {
+    let query = ListIssueEvents {
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
+        issue_id,
+        limit: pagination.limit(),
+        offset: pagination.offset(),
+    };
+
+    let result = state.mediator.dispatch(query, &req_ctx).await?;
+
+    let items = result
+        .items
+        .into_iter()
+        .map(|e| EventListItemDto {
+            id: e.id,
+            message: e.message,
+            level: e.level,
+            platform: e.platform,
+            timestamp: e.timestamp,
+            server_name: e.server_name,
+            environment: e.environment,
+            release: e.release,
+            exception_type: e.exception_type,
+            exception_value: e.exception_value,
+            tags: e.tags.into_iter().map(|(k, v)| EventTagDto { key: k, value: v }).collect(),
+            extra: e.extra,
+        })
+        .collect();
+
+    Ok(Json(ListIssueEventsResponseDto {
+        items,
+        total: result.total,
+    }))
 }

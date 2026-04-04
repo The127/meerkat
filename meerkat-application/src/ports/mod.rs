@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod clock;
 pub mod error_observer;
+pub mod event_read_store;
 pub mod event_repository;
 pub mod fingerprint_service;
 pub mod health;

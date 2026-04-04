@@ -23,6 +23,11 @@ pub struct IssueReadModel {
 #[async_trait::async_trait]
 #[cfg_attr(any(test, feature = "test-utils"), mockall::automock)]
 pub trait IssueReadStore: Send + Sync {
+    async fn find_by_id(
+        &self,
+        issue_id: &IssueId,
+    ) -> Result<Option<IssueReadModel>, ApplicationError>;
+
     async fn list_by_project(
         &self,
         project_id: &ProjectId,
