@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod clock;
 pub mod error_observer;
 pub mod health;
 pub mod member_read_store;

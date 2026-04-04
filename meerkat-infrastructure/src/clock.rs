@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use meerkat_domain::ports::clock::Clock;
+use meerkat_application::ports::clock::Clock;
 
 pub struct SystemClock;
 
