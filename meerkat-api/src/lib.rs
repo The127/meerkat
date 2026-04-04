@@ -75,7 +75,8 @@ pub fn router(state: AppState) -> Router {
         .route("/{slug}/members", get(team::list_project_members))
         .route("/{slug}/issues", get(issues::list_issues))
         .route("/{slug}/keys", get(project_keys::list_project_keys).post(project_keys::create_project_key))
-        .route("/{slug}/keys/{key_id}", delete(project_keys::revoke_project_key));
+        .route("/{slug}/keys/{key_id}", delete(project_keys::revoke_project_key))
+        .route("/{slug}/keys/{key_id}/rate-limit", post(project_keys::update_project_key_rate_limit));
 
     let mut protected_routes = Router::new()
         .nest("/api/v1/organizations", org_routes)

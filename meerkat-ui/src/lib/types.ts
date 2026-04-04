@@ -57,6 +57,7 @@ export interface ProjectKey {
   key_token: string
   label: string
   status: 'active' | 'revoked'
+  rate_limit: number | null
   dsn: string
   created_at: string
 }

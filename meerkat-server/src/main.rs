@@ -21,6 +21,7 @@ use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectK
 use meerkat_application::project_keys::list::{ListProjectKeys, ListProjectKeysHandler};
 use meerkat_application::project_keys::on_project_created::GenerateProjectKeyOnProjectCreated;
 use meerkat_application::project_keys::revoke::{RevokeProjectKey, RevokeProjectKeyHandler};
+use meerkat_application::project_keys::update_rate_limit::{UpdateProjectKeyRateLimit, UpdateProjectKeyRateLimitHandler};
 use meerkat_application::organizations::create::{CreateOrganization, CreateOrganizationHandler};
 use meerkat_application::organizations::delete::{DeleteOrganization, DeleteOrganizationHandler};
 use meerkat_application::organizations::get::{GetOrganization, GetOrganizationHandler};
@@ -191,6 +192,7 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<ListIssues, _>(ListIssuesHandler::new(deps.project_read_store.clone(), deps.issue_read_store));
     mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
     mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
+    mediator.register::<UpdateProjectKeyRateLimit, _>(UpdateProjectKeyRateLimitHandler);
     mediator.register::<IngestEvent, _>(IngestEventHandler::new(deps.event_repo, deps.issue_repo, deps.fingerprint_service));
     mediator
 }

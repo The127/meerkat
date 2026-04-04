@@ -11,6 +11,7 @@ use meerkat_application::context::RequestContext;
 use meerkat_application::project_keys::create::CreateProjectKey;
 use meerkat_application::project_keys::list::ListProjectKeys;
 use meerkat_application::project_keys::revoke::RevokeProjectKey;
+use meerkat_application::project_keys::update_rate_limit::UpdateProjectKeyRateLimit;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 use meerkat_domain::models::project_key::ProjectKeyId;
@@ -166,6 +167,42 @@ pub(crate) async fn revoke_project_key(
     let cmd = RevokeProjectKey {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
         key_id,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Update rate limit ---
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct UpdateProjectKeyRateLimitRequestDto {
+    #[serde(rename = "rate_limit")]
+    pub rate_limit: Option<u64>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/keys/{key_id}/rate-limit",
+    request_body = UpdateProjectKeyRateLimitRequestDto,
+    responses(
+        (status = 204, description = "Rate limit updated"),
+        (status = 400, description = "Validation error"),
+        (status = 404, description = "Project key not found"),
+    )
+)]
+pub(crate) async fn update_project_key_rate_limit(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, key_id)): Path<(ProjectSlug, ProjectKeyId)>,
+    Json(body): Json<UpdateProjectKeyRateLimitRequestDto>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = UpdateProjectKeyRateLimit {
+        project: ProjectIdentifier::Slug(resolved_org.id, slug),
+        key_id,
+        rate_limit: body.rate_limit,
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;

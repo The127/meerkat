@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Copy, Check } from 'lucide-vue-next'
+import { Copy, Check, Pencil, X } from 'lucide-vue-next'
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useProjectKeys } from '@/composables/useProjectKeys'
 import { useCreateProjectKey } from '@/composables/useCreateProjectKey'
 import { useRevokeProjectKey } from '@/composables/useRevokeProjectKey'
+import { useUpdateProjectKeyRateLimit } from '@/composables/useUpdateProjectKeyRateLimit'
 import { useToast } from '@/composables/useToast'
 import { ApiRequestError } from '@/lib/api'
 import type { ProjectKey } from '@/lib/types'
@@ -44,6 +45,7 @@ const pagination = computed(() => pageInfo(keysData.value?.total ?? 0))
 watch(showRevokedKeys, () => resetPage())
 const { mutateAsync: createKey, isPending: isCreatingKey } = useCreateProjectKey()
 const { mutateAsync: revokeKey, isPending: isRevokingKey } = useRevokeProjectKey()
+const { mutateAsync: updateRateLimit, isPending: isUpdatingRateLimit } = useUpdateProjectKeyRateLimit()
 
 // Create key dialog
 const showCreateKeyDialog = ref(false)
@@ -110,6 +112,47 @@ async function copyDsn(key: ProjectKey) {
   setTimeout(() => {
     if (copiedKeyId.value === key.id) copiedKeyId.value = null
   }, 2000)
+}
+
+// Rate limit inline edit
+const editingRateLimitKeyId = ref<string | null>(null)
+const editRateLimitValue = ref('')
+const rateLimitError = ref('')
+
+function startEditRateLimit(key: ProjectKey) {
+  editingRateLimitKeyId.value = key.id
+  editRateLimitValue.value = key.rate_limit != null ? String(key.rate_limit) : ''
+  rateLimitError.value = ''
+}
+
+function cancelEditRateLimit() {
+  editingRateLimitKeyId.value = null
+  rateLimitError.value = ''
+}
+
+async function submitRateLimit(key: ProjectKey) {
+  if (!slug.value) return
+  rateLimitError.value = ''
+
+  const trimmed = editRateLimitValue.value.trim()
+  const rateLimit = trimmed === '' ? null : Number(trimmed)
+
+  if (rateLimit !== null && (!Number.isInteger(rateLimit) || rateLimit <= 0)) {
+    rateLimitError.value = 'Must be a positive integer or empty for default'
+    return
+  }
+
+  try {
+    await updateRateLimit({ slug: slug.value, keyId: key.id, rateLimit })
+    toast.success('Rate limit updated')
+    editingRateLimitKeyId.value = null
+  } catch (err) {
+    if (err instanceof ApiRequestError) {
+      rateLimitError.value = err.error.message
+    } else {
+      rateLimitError.value = 'An unexpected error occurred'
+    }
+  }
 }
 
 function formatDate(iso: string): string {
@@ -190,6 +233,43 @@ function formatDate(iso: string): string {
               <Check v-if="copiedKeyId === key.id" class="h-3.5 w-3.5 text-success" />
               <Copy v-else class="h-3.5 w-3.5" />
             </button>
+          </div>
+
+          <div class="flex items-center gap-2 mb-1 text-xs text-muted-foreground">
+            <template v-if="editingRateLimitKeyId === key.id">
+              <span class="font-medium">Rate limit:</span>
+              <form class="flex items-center gap-1.5" @submit.prevent="submitRateLimit(key)">
+                <input
+                  v-model="editRateLimitValue"
+                  type="text"
+                  inputmode="numeric"
+                  placeholder="Default"
+                  class="w-24 h-6 px-1.5 text-xs rounded border border-input bg-background text-foreground"
+                  :disabled="isUpdatingRateLimit"
+                />
+                <span>/min</span>
+                <MkButton type="submit" variant="ghost" size="sm" class="h-6 px-1.5" :disabled="isUpdatingRateLimit">
+                  Save
+                </MkButton>
+                <button type="button" class="p-0.5 rounded hover:bg-muted" @click="cancelEditRateLimit">
+                  <X class="h-3.5 w-3.5" />
+                </button>
+              </form>
+              <span v-if="rateLimitError" class="text-destructive">{{ rateLimitError }}</span>
+            </template>
+            <template v-else>
+              <span>
+                Rate limit: {{ key.rate_limit != null ? `${key.rate_limit}/min` : 'Default' }}
+              </span>
+              <button
+                v-if="key.status === 'active' && canManageKeys"
+                class="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                title="Edit rate limit"
+                @click="startEditRateLimit(key)"
+              >
+                <Pencil class="h-3 w-3" />
+              </button>
+            </template>
           </div>
 
           <p class="text-xs text-muted-foreground">
