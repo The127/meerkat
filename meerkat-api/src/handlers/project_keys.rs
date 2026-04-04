@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 use axum::{Extension, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::project_keys::create::CreateProjectKey;
@@ -22,6 +22,12 @@ use crate::search::SearchQueryDto;
 use crate::state::AppState;
 
 // --- List ---
+
+#[derive(Debug, Deserialize, IntoParams, ToSchema)]
+pub(crate) struct StatusFilterQueryDto {
+    #[serde(rename = "status")]
+    pub status: Option<String>,
+}
 
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ProjectKeyListItemDto {
@@ -50,7 +56,7 @@ pub(crate) struct ListProjectKeysResponseDto {
 #[utoipa::path(
     get,
     path = "/api/v1/projects/{slug}/keys",
-    params(PaginationQueryDto, SearchQueryDto),
+    params(PaginationQueryDto, SearchQueryDto, StatusFilterQueryDto),
     responses(
         (status = 200, description = "List of project keys", body = ListProjectKeysResponseDto),
         (status = 404, description = "Project not found"),
@@ -63,10 +69,12 @@ pub(crate) async fn list_project_keys(
     Path(slug): Path<ProjectSlug>,
     Query(pagination): Query<PaginationQueryDto>,
     Query(search): Query<SearchQueryDto>,
+    Query(status_filter): Query<StatusFilterQueryDto>,
 ) -> Result<Json<ListProjectKeysResponseDto>, ApiError> {
     let query = ListProjectKeys {
         project: ProjectIdentifier::Slug(resolved_org.id, slug.clone()),
         search: search.search.as_deref().and_then(SearchFilter::new),
+        status: status_filter.status,
         limit: pagination.limit(),
         offset: pagination.offset(),
     };

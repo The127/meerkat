@@ -17,6 +17,7 @@ use crate::search::SearchFilter;
 pub struct ListProjectKeys {
     pub project: ProjectIdentifier,
     pub search: Option<SearchFilter>,
+    pub status: Option<String>,
     pub limit: i64,
     pub offset: i64,
 }
@@ -63,7 +64,7 @@ impl Handler<ListProjectKeys, ApplicationError, RequestContext> for ListProjectK
             .ok_or(ApplicationError::NotFound)?;
 
         self.project_key_read_store
-            .list_by_project(&project.id, cmd.search.as_ref(), cmd.limit, cmd.offset)
+            .list_by_project(&project.id, cmd.search.as_ref(), cmd.status.as_deref(), cmd.limit, cmd.offset)
             .await
     }
 }

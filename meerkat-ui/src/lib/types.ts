@@ -52,6 +52,15 @@ export interface OidcConfigListItem {
   status: 'draft' | 'active' | 'inactive'
 }
 
+export interface ProjectKey {
+  id: string
+  key_token: string
+  label: string
+  status: 'active' | 'revoked'
+  dsn: string
+  created_at: string
+}
+
 export interface CurrentUser {
   member_id: string
   preferred_name: string

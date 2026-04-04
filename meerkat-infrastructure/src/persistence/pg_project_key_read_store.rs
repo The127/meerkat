@@ -37,6 +37,7 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
         &self,
         project_id: &ProjectId,
         search: Option<&SearchFilter>,
+        status: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<PagedResult<ProjectKeyReadModel>, ApplicationError> {
@@ -48,6 +49,7 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
              FROM project_keys \
              WHERE project_id = $1 \
                AND ($4::text IS NULL OR label ILIKE $4) \
+               AND ($5::text IS NULL OR status = $5) \
              ORDER BY created_at DESC \
              LIMIT $2 OFFSET $3",
         )
@@ -55,6 +57,7 @@ impl ProjectKeyReadStore for PgProjectKeyReadStore {
         .bind(limit)
         .bind(offset)
         .bind(pattern.as_deref())
+        .bind(status)
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;

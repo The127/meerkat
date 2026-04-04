@@ -24,6 +24,7 @@ pub trait ProjectKeyReadStore: Send + Sync {
         &self,
         project_id: &ProjectId,
         search: Option<&SearchFilter>,
+        status: Option<&str>,
         limit: i64,
         offset: i64,
     ) -> Result<PagedResult<ProjectKeyReadModel>, ApplicationError>;
