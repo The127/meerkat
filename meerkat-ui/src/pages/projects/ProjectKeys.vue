@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { MkButton, MkInput, MkSpinner, MkBadge } from '@/components/meerkat'
+import { MkButton, MkInput, MkSpinner, MkBadge, MkPagination } from '@/components/meerkat'
+import { usePagination } from '@/composables/usePagination'
 import { useRoute } from 'vue-router'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useProjectKeys } from '@/composables/useProjectKeys'
@@ -33,20 +34,14 @@ const canManageKeys = computed(() => slug.value ? hasProjectPermission(slug.valu
 // --- Project keys ---
 const showRevokedKeys = ref(false)
 const keyStatus = computed(() => showRevokedKeys.value ? undefined : 'active')
-const PAGE_SIZE = 20
-const offset = ref(0)
+const { offset, limit, prevPage, nextPage, reset: resetPage, pageInfo } = usePagination()
 const { data: keysData, isLoading: isLoadingKeys } = useProjectKeys(slug, {
   status: computed(() => keyStatus.value),
-  limit: computed(() => PAGE_SIZE),
+  limit,
   offset,
 })
-const currentPage = computed(() => Math.floor(offset.value / PAGE_SIZE) + 1)
-const totalPages = computed(() => Math.ceil((keysData.value?.total ?? 0) / PAGE_SIZE))
-const hasPrev = computed(() => offset.value > 0)
-const hasNext = computed(() => keysData.value ? offset.value + PAGE_SIZE < keysData.value.total : false)
-function prevPage() { offset.value = Math.max(0, offset.value - PAGE_SIZE) }
-function nextPage() { offset.value += PAGE_SIZE }
-watch(showRevokedKeys, () => { offset.value = 0 })
+const pagination = computed(() => pageInfo(keysData.value?.total ?? 0))
+watch(showRevokedKeys, () => resetPage())
 const { mutateAsync: createKey, isPending: isCreatingKey } = useCreateProjectKey()
 const { mutateAsync: revokeKey, isPending: isRevokingKey } = useRevokeProjectKey()
 
@@ -203,20 +198,11 @@ function formatDate(iso: string): string {
         </div>
       </div>
 
-      <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between pt-2">
-        <span class="text-xs text-muted-foreground">
-          Page {{ currentPage }} of {{ totalPages }}
-        </span>
-        <div class="flex gap-2">
-          <MkButton size="sm" variant="outline" :disabled="!hasPrev" @click="prevPage">
-            Previous
-          </MkButton>
-          <MkButton size="sm" variant="outline" :disabled="!hasNext" @click="nextPage">
-            Next
-          </MkButton>
-        </div>
-      </div>
+      <MkPagination
+        v-bind="pagination"
+        @prev="prevPage"
+        @next="nextPage"
+      />
     </div>
 
     <!-- Create key dialog -->
