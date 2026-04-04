@@ -6,7 +6,7 @@ use testcontainers::runners::AsyncRunner;
 use testcontainers_modules::postgres::Postgres;
 use tokio::net::TcpListener;
 
-use meerkat_api::state::{AppState, AuthState, TenantState};
+use meerkat_api::state::{AppState, AuthState, IngestState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
@@ -27,9 +27,13 @@ use meerkat_domain::shared::url::Url;
 use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
+use meerkat_application::ingestion::ingest::IngestEventHandler;
+use meerkat_infrastructure::persistence::pg_event_repository::PgEventRepository;
+use meerkat_infrastructure::persistence::pg_issue_repository::PgIssueRepository;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
+use meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore;
 use meerkat_infrastructure::persistence::pg_project_read_store::PgProjectReadStore;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
@@ -113,6 +117,14 @@ async fn hurl_integration_tests() {
             org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),
             base_domain: "127.0.0.1".to_string(),
             master_org_slug: "master".to_string(),
+        },
+        ingest: IngestState {
+            handler: Arc::new(IngestEventHandler::new(
+                Arc::new(PgEventRepository::new(pool.clone())),
+                Arc::new(PgIssueRepository::new(pool.clone())),
+                Arc::new(meerkat_infrastructure::sha256_fingerprint_service::Sha256FingerprintService),
+            )),
+            project_key_read_store: Arc::new(PgProjectKeyReadStore::new(pool.clone())),
         },
         auth_enabled: false,
     };

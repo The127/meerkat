@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
+use crate::models::issue::IssueId;
 use crate::models::project::ProjectId;
 
 uuid_id!(EventId);
@@ -43,6 +44,7 @@ pub enum EventError {
 pub struct Event {
     id: EventId,
     project_id: ProjectId,
+    issue_id: IssueId,
     fingerprint_hash: String,
     message: String,
     level: EventLevel,
@@ -61,6 +63,7 @@ impl Event {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_id: ProjectId,
+        issue_id: IssueId,
         fingerprint_hash: String,
         message: String,
         level: EventLevel,
@@ -89,6 +92,7 @@ impl Event {
         Ok(Self {
             id: EventId::new(),
             project_id,
+            issue_id,
             fingerprint_hash,
             message,
             level,
@@ -106,6 +110,7 @@ impl Event {
 
     pub fn id(&self) -> &EventId { &self.id }
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
+    pub fn issue_id(&self) -> &IssueId { &self.issue_id }
     pub fn fingerprint_hash(&self) -> &str { &self.fingerprint_hash }
     pub fn message(&self) -> &str { &self.message }
     pub fn level(&self) -> &EventLevel { &self.level }
@@ -123,6 +128,7 @@ impl Event {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::issue::IssueId;
     use crate::testing::test_event;
 
     #[test]
@@ -133,6 +139,7 @@ mod tests {
         // act
         let event = Event::new(
             project_id.clone(),
+            IssueId::new(),
             "abc123".into(),
             "Something broke".into(),
             EventLevel::Error,
@@ -163,6 +170,7 @@ mod tests {
         // act
         let result = Event::new(
             ProjectId::new(),
+            IssueId::new(),
             "abc123".into(),
             "  ".into(),
             EventLevel::Error,
@@ -189,6 +197,7 @@ mod tests {
         // act
         let result = Event::new(
             ProjectId::new(),
+            IssueId::new(),
             "abc123".into(),
             "Something broke".into(),
             EventLevel::Error,
@@ -215,6 +224,7 @@ mod tests {
         // act
         let event = Event::new(
             ProjectId::new(),
+            IssueId::new(),
             "abc123".into(),
             "  Something broke  ".into(),
             EventLevel::Error,

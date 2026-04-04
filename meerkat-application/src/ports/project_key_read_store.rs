@@ -28,4 +28,9 @@ pub trait ProjectKeyReadStore: Send + Sync {
         limit: i64,
         offset: i64,
     ) -> Result<PagedResult<ProjectKeyReadModel>, ApplicationError>;
+
+    async fn find_by_token(
+        &self,
+        token: &str,
+    ) -> Result<Option<ProjectKeyReadModel>, ApplicationError>;
 }

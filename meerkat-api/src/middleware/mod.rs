@@ -1,4 +1,5 @@
 mod auth;
+pub(crate) mod key_auth;
 mod subdomain;
 
 use std::sync::Arc;

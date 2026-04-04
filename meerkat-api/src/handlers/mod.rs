@@ -3,6 +3,8 @@ use meerkat_domain::models::oidc_config::RoleValues;
 use vec1::Vec1;
 
 pub mod health;
+pub mod ingest;
+pub mod issues;
 pub mod members;
 pub mod oidc;
 pub mod oidc_admin;

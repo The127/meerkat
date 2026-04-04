@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use sqlx::PgPool;
 use tokio::sync::watch;
 use tracing::info;
-use meerkat_api::state::{AppState, AuthState, TenantState};
+use meerkat_api::state::{AppState, AuthState, IngestState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
 use meerkat_application::mediator::Mediator;
@@ -15,6 +15,7 @@ use meerkat_application::behaviors::authorization::AuthorizationBehavior;
 use meerkat_application::ports::audit::AuditPipeline;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::events::EventDispatcher;
+use meerkat_application::issues::list::{ListIssues, ListIssuesHandler};
 use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectKeyHandler};
 use meerkat_application::project_keys::list::{ListProjectKeys, ListProjectKeysHandler};
 use meerkat_application::project_keys::on_project_created::GenerateProjectKeyOnProjectCreated;
@@ -45,6 +46,9 @@ use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
 use meerkat_infrastructure::persistence::pq_health_checker::PgHealthChecker;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
+use meerkat_application::ingestion::ingest::IngestEventHandler;
+use meerkat_infrastructure::persistence::pg_event_repository::PgEventRepository;
+use meerkat_infrastructure::persistence::pg_issue_repository::PgIssueRepository;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_project_permission_read_store::PgProjectPermissionReadStore;
@@ -135,6 +139,7 @@ struct ReadStores {
     project_member: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
     project_permission: Arc<dyn meerkat_application::ports::project_permission_read_store::ProjectPermissionReadStore>,
     project_key: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
+    issue: Arc<dyn meerkat_application::ports::issue_read_store::IssueReadStore>,
 }
 
 struct MediatorDeps {
@@ -147,6 +152,7 @@ struct MediatorDeps {
     project_role_read_store: Arc<dyn meerkat_application::ports::project_role_read_store::ProjectRoleReadStore>,
     project_member_read_store: Arc<dyn meerkat_application::ports::project_member_read_store::ProjectMemberReadStore>,
     project_key_read_store: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
+    issue_read_store: Arc<dyn meerkat_application::ports::issue_read_store::IssueReadStore>,
 }
 
 fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
@@ -177,6 +183,7 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(deps.project_read_store.clone(), deps.project_role_read_store));
     mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store.clone(), deps.project_member_read_store));
     mediator.register::<ListProjectKeys, _>(ListProjectKeysHandler::new(deps.project_read_store.clone(), deps.project_key_read_store));
+    mediator.register::<ListIssues, _>(ListIssuesHandler::new(deps.project_read_store.clone(), deps.issue_read_store));
     mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
     mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
     mediator
@@ -192,6 +199,7 @@ fn build_read_stores(pool: &PgPool) -> ReadStores {
         project_member: Arc::new(meerkat_infrastructure::persistence::pg_project_member_read_store::PgProjectMemberReadStore::new(pool.clone())),
         project_permission: Arc::new(PgProjectPermissionReadStore::new(pool.clone())),
         project_key: Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone())),
+        issue: Arc::new(meerkat_infrastructure::persistence::pg_issue_read_store::PgIssueReadStore::new(pool.clone())),
     }
 }
 
@@ -216,7 +224,13 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
         project_role_read_store: stores.project_role.clone(),
         project_member_read_store: stores.project_member.clone(),
         project_key_read_store: stores.project_key.clone(),
+        issue_read_store: stores.issue.clone(),
     }));
+
+    let event_repo = Arc::new(PgEventRepository::new(pool.clone()));
+    let issue_repo = Arc::new(PgIssueRepository::new(pool.clone()));
+    let fingerprint_service = Arc::new(meerkat_infrastructure::sha256_fingerprint_service::Sha256FingerprintService);
+    let ingest_handler = Arc::new(IngestEventHandler::new(event_repo, issue_repo, fingerprint_service));
 
     AppState {
         health_checker: Arc::new(PgHealthChecker::new(pool.clone())),
@@ -232,6 +246,10 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
             org_read_store: stores.org.clone(),
             base_domain: config.base_domain.clone(),
             master_org_slug: config.master_org_slug.clone(),
+        },
+        ingest: IngestState {
+            handler: ingest_handler,
+            project_key_read_store: stores.project_key.clone(),
         },
         auth_enabled: true,
     }

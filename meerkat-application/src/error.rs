@@ -1,3 +1,5 @@
+use meerkat_domain::models::event::EventError;
+use meerkat_domain::models::issue::IssueError;
 use meerkat_domain::models::oidc_config::OidcConfigError;
 use meerkat_domain::models::organization::OrganizationError;
 use meerkat_domain::models::project::ProjectError;
@@ -39,6 +41,18 @@ impl From<OidcConfigError> for ApplicationError {
 
 impl From<ProjectKeyError> for ApplicationError {
     fn from(e: ProjectKeyError) -> Self {
+        ApplicationError::Validation(e.to_string())
+    }
+}
+
+impl From<EventError> for ApplicationError {
+    fn from(e: EventError) -> Self {
+        ApplicationError::Validation(e.to_string())
+    }
+}
+
+impl From<IssueError> for ApplicationError {
+    fn from(e: IssueError) -> Self {
         ApplicationError::Validation(e.to_string())
     }
 }

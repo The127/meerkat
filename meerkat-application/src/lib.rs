@@ -4,6 +4,8 @@ pub mod context;
 pub mod extensions;
 pub mod error;
 pub mod events;
+pub mod ingestion;
+pub mod issues;
 pub mod mediator;
 pub mod members;
 pub mod organizations;

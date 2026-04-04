@@ -1,7 +1,7 @@
 use axum::Router;
 use axum::routing::{delete, get, post};
 use utoipa::OpenApi;
-use crate::handlers::{health, members, oidc, oidc_admin, organizations, project_keys, projects, team};
+use crate::handlers::{health, ingest, issues, members, oidc, oidc_admin, organizations, project_keys, projects, team};
 use crate::state::AppState;
 
 pub mod error;
@@ -73,6 +73,7 @@ pub fn router(state: AppState) -> Router {
         .route("/{slug}/rename", post(projects::rename_project))
         .route("/{slug}/roles", get(team::list_project_roles))
         .route("/{slug}/members", get(team::list_project_members))
+        .route("/{slug}/issues", get(issues::list_issues))
         .route("/{slug}/keys", get(project_keys::list_project_keys).post(project_keys::create_project_key))
         .route("/{slug}/keys/{key_id}", delete(project_keys::revoke_project_key));
 
@@ -102,8 +103,12 @@ pub fn router(state: AppState) -> Router {
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::resolve_subdomain));
 
+    let ingest_routes = Router::new()
+        .route("/api/v1/ingest", post(ingest::ingest_event));
+
     Router::new()
         .merge(api_v1_routes)
+        .merge(ingest_routes)
         .route("/api/openapi.json", get(|| async { axum::Json(ApiDoc::openapi()) }))
         .route("/health", get(health::liveness))
         .route("/health/ready", get(health::readiness))

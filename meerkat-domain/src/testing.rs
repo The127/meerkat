@@ -1,7 +1,7 @@
 use chrono::Utc;
 use vec1::vec1;
 use crate::models::event::{Event, EventLevel};
-use crate::models::issue::Issue;
+use crate::models::issue::{Issue, IssueId};
 use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, RoleValues, Url};
 use crate::models::organization::{Organization, OrganizationSlug};
 use crate::models::project::{Project, ProjectId, ProjectSlug};
@@ -57,6 +57,7 @@ pub fn test_project_key() -> ProjectKey {
 pub fn test_event() -> Event {
     Event::new(
         ProjectId::new(),
+        IssueId::new(),
         "abc123def456".into(),
         "Test error".into(),
         EventLevel::Error,

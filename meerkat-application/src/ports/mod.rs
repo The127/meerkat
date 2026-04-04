@@ -1,7 +1,11 @@
 pub mod audit;
 pub mod clock;
 pub mod error_observer;
+pub mod event_repository;
+pub mod fingerprint_service;
 pub mod health;
+pub mod issue_read_store;
+pub mod issue_repository;
 pub mod member_read_store;
 pub mod member_repository;
 pub mod jwks_provider;

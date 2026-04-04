@@ -1,5 +1,8 @@
 pub(crate) mod change_buffer;
 pub(crate) mod error;
+pub mod pg_event_repository;
+pub mod pg_issue_read_store;
+pub mod pg_issue_repository;
 pub mod pg_member_read_store;
 pub mod pg_member_repository;
 pub(crate) mod organization_persistence;

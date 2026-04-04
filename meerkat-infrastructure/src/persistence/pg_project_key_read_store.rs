@@ -31,8 +31,42 @@ struct ProjectKeyRow {
     total: i64,
 }
 
+#[derive(sqlx::FromRow)]
+struct ProjectKeyByTokenRow {
+    id: sqlx::types::Uuid,
+    project_id: sqlx::types::Uuid,
+    key_token: String,
+    label: String,
+    status: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+}
+
 #[async_trait]
 impl ProjectKeyReadStore for PgProjectKeyReadStore {
+    async fn find_by_token(
+        &self,
+        token: &str,
+    ) -> Result<Option<ProjectKeyReadModel>, ApplicationError> {
+        let row = sqlx::query_as::<_, ProjectKeyByTokenRow>(
+            "SELECT id, project_id, key_token, label, status, created_at \
+             FROM project_keys \
+             WHERE key_token = $1 AND status = 'active'",
+        )
+        .bind(token)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        Ok(row.map(|r| ProjectKeyReadModel {
+            id: ProjectKeyId::from_uuid(r.id),
+            project_id: ProjectId::from_uuid(r.project_id),
+            key_token: r.key_token,
+            label: r.label,
+            status: r.status.parse::<ProjectKeyStatus>().expect("invalid status in database"),
+            created_at: r.created_at,
+        }))
+    }
+
     async fn list_by_project(
         &self,
         project_id: &ProjectId,
