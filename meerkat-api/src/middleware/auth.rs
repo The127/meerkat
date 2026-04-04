@@ -72,10 +72,24 @@ async fn authenticate_inner(
 
     validate_issuer_and_audience(&unverified_claims, &config)?;
 
-    let jwk = resolve_decoding_jwk(state, &config, header.kid.as_deref()).await?;
+    let verified_claims = verify_token(state, token, &header, &config).await?;
+    let auth_context = resolve_identity(state, &resolved_org, &config, &verified_claims).await?;
 
-    let decoding_key = DecodingKey::from_jwk(&jwk)
-        .map_err(|_| unauthorized("unsupported key type"))?;
+    request.extensions_mut().insert(auth_context);
+
+    Ok(next.run(request).await)
+}
+
+async fn verify_token(
+    state: &AppState,
+    token: &str,
+    header: &jsonwebtoken::Header,
+    config: &OidcConfigReadModel,
+) -> Result<serde_json::Value, Response> {
+    let jwk = resolve_decoding_jwk(state, config, header.kid.as_deref()).await?;
+
+    let decoding_key =
+        DecodingKey::from_jwk(&jwk).map_err(|_| unauthorized("unsupported key type"))?;
 
     let mut validation = Validation::new(header.alg);
     validation.set_audience(&[config.audience.as_str()]);
@@ -84,7 +98,15 @@ async fn authenticate_inner(
     let token_data: TokenData<serde_json::Value> =
         decode(token, &decoding_key, &validation).map_err(|_| unauthorized("token validation failed"))?;
 
-    let claims = &token_data.claims;
+    Ok(token_data.claims)
+}
+
+async fn resolve_identity(
+    state: &AppState,
+    resolved_org: &ResolvedOrganization,
+    config: &OidcConfigReadModel,
+    claims: &serde_json::Value,
+) -> Result<AuthContext, Response> {
     let claim_mapping = &config.claim_mapping;
 
     let sub_value = claims
@@ -119,18 +141,14 @@ async fn authenticate_inner(
         .map(EffectivePermission::Org)
         .collect();
 
-    let auth_context = AuthContext {
+    Ok(AuthContext {
         sub,
-        org_id: resolved_org.id,
+        org_id: resolved_org.id.clone(),
         org_roles,
         member_id,
         preferred_name: preferred_name.to_string(),
         permissions,
-    };
-
-    request.extensions_mut().insert(auth_context);
-
-    Ok(next.run(request).await)
+    })
 }
 
 fn extract_string_values(claims: &serde_json::Value, key: &str) -> Vec<String> {
