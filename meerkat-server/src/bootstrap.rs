@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use sqlx::PgPool;
 use tracing::info;
@@ -6,7 +8,6 @@ use meerkat_application::ports::organization_read_store::OrganizationReadStore;
 use meerkat_application::ports::unit_of_work::UnitOfWorkFactory;
 use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig};
 use meerkat_domain::models::organization::{Organization, OrganizationSlug};
-use meerkat_domain::ports::clock::Clock;
 use meerkat_domain::shared::url::Url;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
 use meerkat_infrastructure::persistence::pg_unit_of_work::PgUnitOfWorkFactory;
@@ -16,7 +17,6 @@ use crate::config::MeerkatConfig;
 pub(crate) async fn bootstrap_master(
     config: &MeerkatConfig,
     pool: &PgPool,
-    clock: &dyn Clock,
 ) -> anyhow::Result<()> {
     let read_store = PgOrganizationReadStore::new(pool.clone());
 
@@ -66,7 +66,6 @@ pub(crate) async fn bootstrap_master(
         audience,
         discovery_url,
         claim_mapping,
-        clock,
     )
     .context("Failed to create master OIDC config")?;
 
@@ -74,11 +73,10 @@ pub(crate) async fn bootstrap_master(
         config.master_org_name.clone(),
         slug,
         oidc_config,
-        clock,
     )
     .context("Failed to create master organization")?;
 
-    let uow_factory = PgUnitOfWorkFactory::new(pool.clone());
+    let uow_factory = PgUnitOfWorkFactory::new(pool.clone(), Arc::new(meerkat_infrastructure::clock::SystemClock));
     let mut uow = uow_factory
         .create()
         .await

@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 use meerkat_application::error::ApplicationError;
 use meerkat_domain::models::project_member::ProjectMember;
 
@@ -9,6 +11,7 @@ impl ProjectMemberPersistence {
     pub async fn insert(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         member: &ProjectMember,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "INSERT INTO project_members (id, member_id, project_id, created_at) \
@@ -17,7 +20,7 @@ impl ProjectMemberPersistence {
         .bind(member.id().as_uuid())
         .bind(member.member_id().as_uuid())
         .bind(member.project_id().as_uuid())
-        .bind(member.created_at())
+        .bind(now)
         .execute(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;

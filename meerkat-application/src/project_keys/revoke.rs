@@ -65,7 +65,7 @@ mod tests {
     #[tokio::test]
     async fn given_active_key_then_finds_revokes_and_saves() {
         // arrange
-        let (key, _clock) = test_project_key();
+        let key = test_project_key();
         let key_id = key.id().clone();
         let expected_key_id = key_id.clone();
 

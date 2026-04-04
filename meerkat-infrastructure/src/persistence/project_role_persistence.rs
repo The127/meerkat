@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 use meerkat_application::error::ApplicationError;
 use meerkat_domain::models::project_role::ProjectRole;
 
@@ -9,6 +11,7 @@ impl ProjectRolePersistence {
     pub async fn insert(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         role: &ProjectRole,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "INSERT INTO project_roles (id, project_id, name, slug, is_default, created_at) \
@@ -19,7 +22,7 @@ impl ProjectRolePersistence {
         .bind(role.name())
         .bind(role.slug().as_str())
         .bind(role.is_default())
-        .bind(role.created_at())
+        .bind(now)
         .execute(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;

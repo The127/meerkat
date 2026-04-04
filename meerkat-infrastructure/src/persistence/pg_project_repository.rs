@@ -70,7 +70,7 @@ impl ProjectRepository for PgProjectRepository {
         let row = match identifier {
             ProjectIdentifier::Id(id) => {
                 sqlx::query_as::<_, ProjectRow>(
-                    "SELECT id, organization_id, name, slug, created_at, updated_at, version \
+                    "SELECT id, organization_id, name, slug, version \
                      FROM projects WHERE id = $1",
                 )
                 .bind(id.as_uuid())
@@ -79,7 +79,7 @@ impl ProjectRepository for PgProjectRepository {
             }
             ProjectIdentifier::Slug(org_id, slug) => {
                 sqlx::query_as::<_, ProjectRow>(
-                    "SELECT id, organization_id, name, slug, created_at, updated_at, version \
+                    "SELECT id, organization_id, name, slug, version \
                      FROM projects WHERE organization_id = $1 AND slug = $2",
                 )
                 .bind(org_id.as_uuid())
@@ -96,8 +96,6 @@ impl ProjectRepository for PgProjectRepository {
             organization_id: OrganizationId::from_uuid(row.organization_id),
             name: row.name,
             slug: ProjectSlug::new(row.slug).expect("invalid slug in database"),
-            created_at: row.created_at,
-            updated_at: row.updated_at,
             version: Version::new(row.version as u64),
         });
 
@@ -116,8 +114,6 @@ struct ProjectRow {
     organization_id: sqlx::types::Uuid,
     name: String,
     slug: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
     version: i64,
 }
 

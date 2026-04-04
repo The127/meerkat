@@ -48,7 +48,6 @@ impl Handler<AddOidcConfig, ApplicationError, RequestContext> for AddOidcConfigH
             cmd.audience,
             cmd.discovery_url,
             cmd.claim_mapping,
-            ctx.clock(),
         )?;
 
         let config_id = config.id().clone();

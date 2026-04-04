@@ -3,8 +3,6 @@ use std::sync::Arc;
 
 use tokio::sync::{Mutex, MutexGuard};
 
-use meerkat_domain::ports::clock::Clock;
-
 use crate::auth_context::AuthContext;
 use crate::events::DomainEvent;
 use crate::ports::error_observer::ErrorObserver;
@@ -27,19 +25,16 @@ impl Deref for ScopedUow<'_> {
 
 /// Shared, long-lived application services. Safe to share across requests.
 pub struct AppContext {
-    pub clock: Arc<dyn Clock>,
     pub uow_factory: Arc<dyn UnitOfWorkFactory>,
     pub error_observer: Arc<dyn ErrorObserver>,
 }
 
 impl AppContext {
     pub fn new(
-        clock: Arc<dyn Clock>,
         uow_factory: Arc<dyn UnitOfWorkFactory>,
         error_observer: Arc<dyn ErrorObserver>,
     ) -> Self {
         Self {
-            clock,
             uow_factory,
             error_observer,
         }
@@ -73,10 +68,6 @@ impl RequestContext {
         self.auth.as_ref()
     }
 
-    pub fn clock(&self) -> &dyn Clock {
-        self.app.clock.as_ref()
-    }
-
     pub fn uow_factory(&self) -> &dyn UnitOfWorkFactory {
         self.app.uow_factory.as_ref()
     }
@@ -106,7 +97,6 @@ impl RequestContext {
 impl RequestContext {
     pub fn test() -> Self {
         let app = Arc::new(AppContext::new(
-            Arc::new(meerkat_domain::ports::clock::MockClock::new(chrono::Utc::now())),
             Arc::new(crate::ports::unit_of_work::MockUnitOfWorkFactory::new()),
             Arc::new(crate::ports::error_observer::ErrorPipeline::new(vec![])),
         ));

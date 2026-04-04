@@ -40,10 +40,10 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
         cmd: CreateProject,
         ctx: &RequestContext,
     ) -> Result<ProjectId, ApplicationError> {
-        let project = Project::new(cmd.organization_id, cmd.name, cmd.slug, ctx.clock())?;
+        let project = Project::new(cmd.organization_id, cmd.name, cmd.slug)?;
         let project_id = project.id().clone();
 
-        let (default_roles, admin_role_id) = ProjectRole::default_roles(project_id.clone(), ctx.clock());
+        let (default_roles, admin_role_id) = ProjectRole::default_roles(project_id.clone());
 
         let uow = ctx.uow().await;
         uow.projects().add(project);
@@ -57,7 +57,6 @@ impl Handler<CreateProject, ApplicationError, RequestContext> for CreateProjectH
                 auth.member_id.clone(),
                 project_id.clone(),
                 vec![admin_role_id],
-                ctx.clock(),
             );
             uow.project_members().add(member);
         }

@@ -98,7 +98,7 @@ async fn main() -> anyhow::Result<()> {
             let config = MeerkatConfig::from_env()?;
             let pool = create_pool(&config).await?;
 
-            bootstrap::bootstrap_master(&config, &pool, &SystemClock).await?;
+            bootstrap::bootstrap_master(&config, &pool).await?;
 
             let (shutdown_tx, shutdown_rx) = watch::channel(false);
 
@@ -178,14 +178,13 @@ async fn run_api(
 ) -> anyhow::Result<()> {
     let health_checker = Arc::new(PgHealthChecker::new(pool.clone()));
 
-    let uow_factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone()));
+    let uow_factory = Arc::new(PgUnitOfWorkFactory::new(pool.clone(), Arc::new(SystemClock)));
 
     let error_observer = Arc::new(ErrorPipeline::new(vec![
         Arc::new(TracingErrorObserver),
     ]));
 
     let context = Arc::new(AppContext::new(
-        Arc::new(SystemClock),
         uow_factory,
         error_observer,
     ));

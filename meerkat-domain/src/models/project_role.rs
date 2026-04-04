@@ -1,9 +1,7 @@
-use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, slug_id};
 use vec1::Vec1;
 use crate::models::permission::ProjectPermission;
 use crate::models::project::ProjectId;
-use crate::ports::clock::Clock;
 
 uuid_id!(ProjectRoleId);
 slug_id!(ProjectRoleSlug);
@@ -22,7 +20,6 @@ pub struct ProjectRole {
     slug: ProjectRoleSlug,
     permissions: Vec1<ProjectPermission>,
     is_default: bool,
-    created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -38,7 +35,6 @@ impl ProjectRole {
         slug: ProjectRoleSlug,
         permissions: Vec1<ProjectPermission>,
         is_default: bool,
-        clock: &dyn Clock,
     ) -> Result<Self, ProjectRoleError> {
         let name = name.trim().to_string();
         if name.is_empty() {
@@ -52,11 +48,10 @@ impl ProjectRole {
             slug,
             permissions,
             is_default,
-            created_at: clock.now(),
         })
     }
 
-    pub fn default_roles(project_id: ProjectId, clock: &dyn Clock) -> (Vec<ProjectRole>, ProjectRoleId) {
+    pub fn default_roles(project_id: ProjectId) -> (Vec<ProjectRole>, ProjectRoleId) {
         let admin_id = ProjectRoleId::new();
 
         let roles = vec![
@@ -67,7 +62,6 @@ impl ProjectRole {
                 slug: ProjectRoleSlug::new("viewer").unwrap(),
                 permissions: Vec1::new(ProjectPermission::ProjectRead),
                 is_default: true,
-                created_at: clock.now(),
             },
             ProjectRole {
                 id: ProjectRoleId::new(),
@@ -79,7 +73,6 @@ impl ProjectRole {
                     ProjectPermission::ProjectWrite,
                 ]).unwrap(),
                 is_default: true,
-                created_at: clock.now(),
             },
             ProjectRole {
                 id: admin_id.clone(),
@@ -94,7 +87,6 @@ impl ProjectRole {
                     ProjectPermission::ProjectManageKeys,
                 ]).unwrap(),
                 is_default: true,
-                created_at: clock.now(),
             },
         ];
 
@@ -107,20 +99,16 @@ impl ProjectRole {
     pub fn slug(&self) -> &ProjectRoleSlug { &self.slug }
     pub fn permissions(&self) -> &Vec1<ProjectPermission> { &self.permissions }
     pub fn is_default(&self) -> bool { self.is_default }
-    pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::clock::MockClock;
-    use chrono::Utc;
     use vec1::vec1;
 
     #[test]
     fn given_valid_input_then_creation_succeeds() {
         // arrange
-        let clock = MockClock::new(Utc::now());
         let project_id = ProjectId::new();
 
         // act
@@ -130,7 +118,6 @@ mod tests {
             ProjectRoleSlug::new("custom-role").unwrap(),
             vec1![ProjectPermission::ProjectRead],
             false,
-            &clock,
         ).unwrap();
 
         // assert
@@ -143,9 +130,6 @@ mod tests {
 
     #[test]
     fn given_empty_name_then_creation_fails() {
-        // arrange
-        let clock = MockClock::new(Utc::now());
-
         // act
         let result = ProjectRole::new(
             ProjectId::new(),
@@ -153,7 +137,6 @@ mod tests {
             ProjectRoleSlug::new("empty").unwrap(),
             vec1![ProjectPermission::ProjectRead],
             false,
-            &clock,
         );
 
         // assert
@@ -166,11 +149,10 @@ mod tests {
     #[test]
     fn given_project_id_then_default_roles_creates_three_roles() {
         // arrange
-        let clock = MockClock::new(Utc::now());
         let project_id = ProjectId::new();
 
         // act
-        let (roles, admin_role_id) = ProjectRole::default_roles(project_id.clone(), &clock);
+        let (roles, admin_role_id) = ProjectRole::default_roles(project_id.clone());
 
         // assert
         assert_eq!(roles.len(), 3);

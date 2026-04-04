@@ -1,3 +1,5 @@
+use chrono::{DateTime, Utc};
+
 use meerkat_application::error::ApplicationError;
 use meerkat_domain::models::project::{Project, ProjectId};
 
@@ -9,6 +11,7 @@ impl ProjectPersistence {
     pub async fn insert(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         project: &Project,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "INSERT INTO projects (id, organization_id, name, slug, created_at, updated_at, version) \
@@ -18,8 +21,8 @@ impl ProjectPersistence {
         .bind(project.organization_id().as_uuid())
         .bind(project.name())
         .bind(project.slug().as_str())
-        .bind(project.created_at())
-        .bind(project.updated_at())
+        .bind(now)
+        .bind(now)
         .bind(project.version().as_u64() as i64)
         .execute(&mut **tx)
         .await
@@ -32,10 +35,10 @@ impl ProjectPersistence {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         project: &Project,
         snapshot: &Project,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         let changed = project.name() != snapshot.name()
-            || project.slug() != snapshot.slug()
-            || project.updated_at() != snapshot.updated_at();
+            || project.slug() != snapshot.slug();
 
         if !changed {
             return Ok(());
@@ -49,7 +52,7 @@ impl ProjectPersistence {
         )
         .bind(project.name())
         .bind(project.slug().as_str())
-        .bind(project.updated_at())
+        .bind(now)
         .bind(new_version.as_u64() as i64)
         .bind(project.id().as_uuid())
         .bind(snapshot.version().as_u64() as i64)
@@ -77,4 +80,3 @@ impl ProjectPersistence {
         Ok(())
     }
 }
-

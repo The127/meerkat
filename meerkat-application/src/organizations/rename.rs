@@ -62,7 +62,7 @@ mod tests {
     #[tokio::test]
     async fn given_valid_name_then_finds_org_and_saves_renamed() {
         // arrange
-        let (org, _clock) = test_org();
+        let org = test_org();
         let org_id = org.id().clone();
         let expected_id = org_id.clone();
 

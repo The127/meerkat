@@ -64,7 +64,7 @@ impl ProjectKeyRepository for PgProjectKeyRepository {
 
     async fn find(&self, id: &ProjectKeyId) -> Result<ProjectKey, ApplicationError> {
         let row = sqlx::query_as::<_, ProjectKeyRow>(
-            "SELECT id, project_id, key_token, label, status, created_at, updated_at, version \
+            "SELECT id, project_id, key_token, label, status, version \
              FROM project_keys WHERE id = $1",
         )
         .bind(id.as_uuid())
@@ -79,8 +79,6 @@ impl ProjectKeyRepository for PgProjectKeyRepository {
             key_token: KeyToken::new(row.key_token).expect("invalid key_token in database"),
             label: row.label,
             status: row.status.parse::<ProjectKeyStatus>().expect("invalid status in database"),
-            created_at: row.created_at,
-            updated_at: row.updated_at,
             version: Version::new(row.version as u64),
         });
 
@@ -100,7 +98,5 @@ struct ProjectKeyRow {
     key_token: String,
     label: String,
     status: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
     version: i64,
 }

@@ -65,8 +65,7 @@ async fn hurl_integration_tests() {
     sqlx::migrate!().run(&pool).await.unwrap();
 
     // Bootstrap a master organization so subdomain middleware resolves bare-domain requests
-    let clock = SystemClock;
-    let uow_factory = PgUnitOfWorkFactory::new(pool.clone());
+    let uow_factory = PgUnitOfWorkFactory::new(pool.clone(), Arc::new(SystemClock));
     let claim_mapping = ClaimMapping::new(
         "sub", "preferred_username", "roles",
         vec1!["owner".to_string()],
@@ -80,14 +79,12 @@ async fn hurl_integration_tests() {
         Audience::new("test-api").unwrap(),
         None,
         claim_mapping,
-        &clock,
     )
     .unwrap();
     let master_org = Organization::new(
         "Master".to_string(),
         OrganizationSlug::new("master").unwrap(),
         oidc_config,
-        &clock,
     )
     .unwrap();
     let mut uow = uow_factory.create().await.unwrap();
@@ -101,8 +98,7 @@ async fn hurl_integration_tests() {
         health_checker: Arc::new(PgHealthChecker::new(pool.clone())),
         mediator: Arc::new(build_mediator(pool.clone())),
         context: Arc::new(AppContext::new(
-            Arc::new(SystemClock),
-            Arc::new(PgUnitOfWorkFactory::new(pool.clone())),
+            Arc::new(PgUnitOfWorkFactory::new(pool.clone(), Arc::new(SystemClock))),
             Arc::new(ErrorPipeline::new(vec![])),
         )),
         org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),

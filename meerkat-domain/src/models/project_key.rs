@@ -1,8 +1,6 @@
-use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
 use crate::shared::version::Version;
 use crate::models::project::ProjectId;
-use crate::ports::clock::Clock;
 
 uuid_id!(ProjectKeyId);
 
@@ -45,8 +43,6 @@ pub struct ProjectKey {
     key_token: KeyToken,
     label: String,
     status: ProjectKeyStatus,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
     version: Version,
 }
 
@@ -64,7 +60,6 @@ impl ProjectKey {
     pub fn generate(
         project_id: ProjectId,
         label: String,
-        clock: &dyn Clock,
     ) -> Result<Self, ProjectKeyError> {
         let label = label.trim().to_string();
         if label.is_empty() {
@@ -73,7 +68,6 @@ impl ProjectKey {
 
         let id = ProjectKeyId::new();
         let key_token = KeyToken::generate();
-        let now = clock.now();
 
         Ok(ProjectKey {
             id,
@@ -81,8 +75,6 @@ impl ProjectKey {
             key_token,
             label,
             status: ProjectKeyStatus::Active,
-            created_at: now,
-            updated_at: now,
             version: Version::initial(),
         })
     }
@@ -101,43 +93,34 @@ impl ProjectKey {
     pub fn key_token(&self) -> &KeyToken { &self.key_token }
     pub fn label(&self) -> &str { &self.label }
     pub fn status(&self) -> &ProjectKeyStatus { &self.status }
-    pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
-    pub fn updated_at(&self) -> &DateTime<Utc> { &self.updated_at }
     pub fn version(&self) -> &Version { &self.version }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::clock::MockClock;
     use crate::testing::test_project_key;
 
     #[test]
     fn given_valid_input_then_generate_succeeds() {
         // arrange
         let project_id = ProjectId::new();
-        let expected_now = Utc::now();
-        let clock = MockClock::new(expected_now);
 
         // act
-        let key = ProjectKey::generate(project_id.clone(), "Default".into(), &clock)
+        let key = ProjectKey::generate(project_id.clone(), "Default".into())
             .expect("Failed to generate key");
 
         // assert
         assert_eq!(key.project_id(), &project_id);
         assert_eq!(key.label(), "Default");
         assert_eq!(key.status(), &ProjectKeyStatus::Active);
-        assert_eq!(key.created_at(), &expected_now);
         assert_eq!(key.key_token().as_str().len(), 32);
     }
 
     #[test]
     fn given_empty_label_then_generate_fails() {
-        // arrange
-        let clock = MockClock::new(Utc::now());
-
         // act
-        let result = ProjectKey::generate(ProjectId::new(), "  ".into(), &clock);
+        let result = ProjectKey::generate(ProjectId::new(), "  ".into());
 
         // assert
         match result {
@@ -149,7 +132,7 @@ mod tests {
     #[test]
     fn given_active_key_then_revoke_succeeds() {
         // arrange
-        let (mut key, _) = test_project_key();
+        let mut key = test_project_key();
 
         // act
         key.revoke().expect("Failed to revoke key");
@@ -161,7 +144,7 @@ mod tests {
     #[test]
     fn given_revoked_key_then_revoke_fails() {
         // arrange
-        let (mut key, _) = test_project_key();
+        let mut key = test_project_key();
         key.revoke().unwrap();
 
         // act
@@ -177,12 +160,11 @@ mod tests {
     #[test]
     fn given_two_generated_keys_then_key_tokens_are_unique() {
         // arrange
-        let clock = MockClock::new(Utc::now());
         let project_id = ProjectId::new();
 
         // act
-        let key1 = ProjectKey::generate(project_id.clone(), "Key 1".into(), &clock).unwrap();
-        let key2 = ProjectKey::generate(project_id, "Key 2".into(), &clock).unwrap();
+        let key1 = ProjectKey::generate(project_id.clone(), "Key 1".into()).unwrap();
+        let key2 = ProjectKey::generate(project_id, "Key 2".into()).unwrap();
 
         // assert
         assert_ne!(key1.key_token().as_str(), key2.key_token().as_str());
@@ -190,11 +172,8 @@ mod tests {
 
     #[test]
     fn given_label_with_whitespace_then_label_is_trimmed() {
-        // arrange
-        let clock = MockClock::new(Utc::now());
-
         // act
-        let key = ProjectKey::generate(ProjectId::new(), "  My Key  ".into(), &clock).unwrap();
+        let key = ProjectKey::generate(ProjectId::new(), "  My Key  ".into()).unwrap();
 
         // assert
         assert_eq!(key.label(), "My Key");

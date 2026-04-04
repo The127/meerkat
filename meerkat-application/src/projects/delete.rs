@@ -60,7 +60,7 @@ mod tests {
     #[tokio::test]
     async fn given_existing_project_then_finds_and_deletes() {
         // arrange
-        let (project, _clock) = test_project();
+        let project = test_project();
         let project_id = project.id().clone();
         let expected_id = project_id.clone();
         let expected_delete_id = project_id.clone();

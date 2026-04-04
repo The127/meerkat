@@ -1,8 +1,6 @@
-use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
 use vec1::Vec1;
 use crate::models::org_role::OrgRole;
-use crate::ports::clock::Clock;
 pub use crate::shared::url::Url;
 
 uuid_id!(OidcConfigId);
@@ -172,8 +170,6 @@ pub struct OidcConfig {
     discovery_url: Option<Url>,
     claim_mapping: ClaimMapping,
     status: OidcConfigStatus,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -198,14 +194,12 @@ impl OidcConfig {
         audience: Audience,
         discovery_url: Option<Url>,
         claim_mapping: ClaimMapping,
-        clock: &dyn Clock,
     ) -> Result<Self, OidcConfigError> {
         let name = name.trim().to_string();
         if name.is_empty() {
             return Err(OidcConfigError::EmptyName);
         }
 
-        let now = clock.now();
         let id = OidcConfigId::new();
 
         Ok(Self {
@@ -217,8 +211,6 @@ impl OidcConfig {
             discovery_url,
             claim_mapping,
             status: OidcConfigStatus::Draft,
-            created_at: now,
-            updated_at: now,
         })
     }
 
@@ -230,8 +222,6 @@ impl OidcConfig {
     pub fn discovery_url(&self) -> Option<&Url> { self.discovery_url.as_ref() }
     pub fn claim_mapping(&self) -> &ClaimMapping { &self.claim_mapping }
     pub fn status(&self) -> &OidcConfigStatus { &self.status }
-    pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
-    pub fn updated_at(&self) -> &DateTime<Utc> { &self.updated_at }
 
     pub fn is_active(&self) -> bool {
         self.status == OidcConfigStatus::Active
@@ -281,17 +271,12 @@ mod tests {
     use super::*;
     use vec1::vec1;
     use crate::models::org_role::OrgRole;
-    use crate::ports::clock::MockClock;
     use crate::testing::{test_claim_mapping, test_config};
 
     // --- creation ---
 
     #[test]
     fn given_valid_input_then_creation_succeeds_with_draft_status() {
-        // arrange
-        let expected_now = Utc::now();
-        let clock = MockClock::new(expected_now);
-
         // act
         let config = OidcConfig::new(
             "My SSO".into(),
@@ -300,7 +285,6 @@ mod tests {
             Audience::new("my-api").unwrap(),
             Some(Url::new("https://auth.example.com/.well-known/openid-configuration").unwrap()),
             test_claim_mapping(),
-            &clock,
         ).unwrap();
 
         // assert
@@ -312,13 +296,12 @@ mod tests {
         assert_eq!(config.claim_mapping().sub_claim().as_str(), "sub");
         assert_eq!(config.status(), &OidcConfigStatus::Draft);
         assert!(!config.is_active());
-        assert_eq!(config.created_at(), &expected_now);
     }
 
     #[test]
     fn given_no_discovery_url_then_discovery_url_is_none() {
         // arrange / act
-        let (config, _) = test_config();
+        let config = test_config();
 
         // assert
         assert!(config.discovery_url().is_none());
@@ -326,16 +309,13 @@ mod tests {
 
     #[test]
     fn given_empty_name_then_creation_fails() {
-        // arrange
-        let clock = MockClock::new(Utc::now());
-
         // act
         let result = OidcConfig::new(
             "  ".into(),
             ClientId::new("cid").unwrap(),
             Url::new("https://x.com").unwrap(),
             Audience::new("aud").unwrap(),
-            None, test_claim_mapping(), &clock,
+            None, test_claim_mapping(),
         );
 
         // assert
@@ -448,7 +428,7 @@ mod tests {
     #[test]
     fn given_config_then_update_claim_mapping_updates() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
         let new_mapping = ClaimMapping::new(
             "sub", "name", "groups",
             vec1!["superadmin".into()], vec1!["staff".into()], vec1!["user".into()],
@@ -464,7 +444,7 @@ mod tests {
     #[test]
     fn given_same_claim_mapping_then_update_is_idempotent() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
         let original = config.claim_mapping().clone();
 
         // act
@@ -479,7 +459,7 @@ mod tests {
     #[test]
     fn given_draft_config_then_activate_transitions_to_active() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
 
         // act
         config.activate().unwrap();
@@ -492,7 +472,7 @@ mod tests {
     #[test]
     fn given_inactive_config_then_activate_transitions_to_active() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
         config.activate().unwrap();
         config.deactivate().unwrap();
 
@@ -506,7 +486,7 @@ mod tests {
     #[test]
     fn given_active_config_then_activate_fails() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
         config.activate().unwrap();
 
         // act
@@ -527,7 +507,7 @@ mod tests {
     #[test]
     fn given_active_config_then_deactivate_transitions_to_inactive() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
         config.activate().unwrap();
 
         // act
@@ -541,7 +521,7 @@ mod tests {
     #[test]
     fn given_draft_config_then_deactivate_fails() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
 
         // act
         let result = config.deactivate();
@@ -559,7 +539,7 @@ mod tests {
     #[test]
     fn given_inactive_config_then_deactivate_fails() {
         // arrange
-        let (mut config, _) = test_config();
+        let mut config = test_config();
         config.activate().unwrap();
         config.deactivate().unwrap();
 

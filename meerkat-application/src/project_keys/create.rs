@@ -44,7 +44,7 @@ impl Handler<CreateProjectKey, ApplicationError, RequestContext> for CreateProje
             .find(&ProjectIdentifier::Slug(cmd.org_id, cmd.project_slug))
             .await?;
 
-        let key = ProjectKey::generate(project.id().clone(), cmd.label, ctx.clock())?;
+        let key = ProjectKey::generate(project.id().clone(), cmd.label)?;
         let key_id = key.id().clone();
         uow.project_keys().add(key);
 
@@ -69,7 +69,7 @@ mod tests {
     #[tokio::test]
     async fn given_valid_input_then_generates_key_and_adds_to_uow() {
         // arrange
-        let (project, _clock) = test_project();
+        let project = test_project();
         let project_id = project.id().clone();
         let expected_project_id = project_id.clone();
 

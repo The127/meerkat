@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use sqlx::PgPool;
 
@@ -8,6 +10,7 @@ use meerkat_application::ports::project_member_repository::ProjectMemberReposito
 use meerkat_application::ports::project_repository::ProjectRepository;
 use meerkat_application::ports::project_role_repository::ProjectRoleRepository;
 use meerkat_application::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
+use meerkat_domain::ports::clock::Clock;
 
 use crate::persistence::error::map_sqlx_error;
 use crate::persistence::organization_persistence::OrganizationPersistence;
@@ -23,6 +26,7 @@ use crate::persistence::project_role_persistence::ProjectRolePersistence;
 
 pub struct PgUnitOfWork {
     pool: PgPool,
+    clock: Arc<dyn Clock>,
     org_repo: PgOrganizationRepository,
     project_repo: PgProjectRepository,
     project_key_repo: PgProjectKeyRepository,
@@ -31,7 +35,7 @@ pub struct PgUnitOfWork {
 }
 
 impl PgUnitOfWork {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(pool: PgPool, clock: Arc<dyn Clock>) -> Self {
         Self {
             org_repo: PgOrganizationRepository::new(pool.clone()),
             project_repo: PgProjectRepository::new(pool.clone()),
@@ -39,6 +43,7 @@ impl PgUnitOfWork {
             project_role_repo: PgProjectRoleRepository::new(),
             project_member_repo: PgProjectMemberRepository::new(),
             pool,
+            clock,
         }
     }
 }
@@ -79,15 +84,16 @@ impl UnitOfWork for PgUnitOfWork {
             return Ok(());
         }
 
+        let now = self.clock.now();
         let mut tx = self.pool.begin().await.map_err(map_sqlx_error)?;
 
         for entry in &org_entries {
             match entry {
                 OrgEntry::Added(org) => {
-                    OrganizationPersistence::insert(&mut tx, org).await?;
+                    OrganizationPersistence::insert(&mut tx, org, now).await?;
                 }
                 OrgEntry::Modified { entity, snapshot } => {
-                    OrganizationPersistence::update(&mut tx, entity, snapshot).await?;
+                    OrganizationPersistence::update(&mut tx, entity, snapshot, now).await?;
                 }
                 OrgEntry::Deleted(id) => {
                     OrganizationPersistence::delete(&mut tx, id).await?;
@@ -98,10 +104,10 @@ impl UnitOfWork for PgUnitOfWork {
         for entry in &project_entries {
             match entry {
                 ProjectEntry::Added(project) => {
-                    ProjectPersistence::insert(&mut tx, project).await?;
+                    ProjectPersistence::insert(&mut tx, project, now).await?;
                 }
                 ProjectEntry::Modified { entity, snapshot } => {
-                    ProjectPersistence::update(&mut tx, entity, snapshot).await?;
+                    ProjectPersistence::update(&mut tx, entity, snapshot, now).await?;
                 }
                 ProjectEntry::Deleted(id) => {
                     ProjectPersistence::delete(&mut tx, id).await?;
@@ -112,20 +118,20 @@ impl UnitOfWork for PgUnitOfWork {
         for entry in &key_entries {
             match entry {
                 ProjectKeyEntry::Added(key) => {
-                    ProjectKeyPersistence::insert(&mut tx, key).await?;
+                    ProjectKeyPersistence::insert(&mut tx, key, now).await?;
                 }
                 ProjectKeyEntry::Modified { entity, snapshot } => {
-                    ProjectKeyPersistence::update(&mut tx, entity, snapshot).await?;
+                    ProjectKeyPersistence::update(&mut tx, entity, snapshot, now).await?;
                 }
             }
         }
 
         for entry in &role_entries {
-            ProjectRolePersistence::insert(&mut tx, &entry.0).await?;
+            ProjectRolePersistence::insert(&mut tx, &entry.0, now).await?;
         }
 
         for entry in &member_entries {
-            ProjectMemberPersistence::insert(&mut tx, &entry.0).await?;
+            ProjectMemberPersistence::insert(&mut tx, &entry.0, now).await?;
         }
 
         tx.commit().await.map_err(map_sqlx_error)?;
@@ -136,18 +142,18 @@ impl UnitOfWork for PgUnitOfWork {
 
 pub struct PgUnitOfWorkFactory {
     pool: PgPool,
+    clock: Arc<dyn Clock>,
 }
 
 impl PgUnitOfWorkFactory {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
+    pub fn new(pool: PgPool, clock: Arc<dyn Clock>) -> Self {
+        Self { pool, clock }
     }
 }
 
 #[async_trait]
 impl UnitOfWorkFactory for PgUnitOfWorkFactory {
     async fn create(&self) -> Result<Box<dyn UnitOfWork>, ApplicationError> {
-        Ok(Box::new(PgUnitOfWork::new(self.pool.clone())))
+        Ok(Box::new(PgUnitOfWork::new(self.pool.clone(), self.clock.clone())))
     }
 }
-

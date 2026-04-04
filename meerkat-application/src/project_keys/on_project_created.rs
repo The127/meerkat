@@ -13,7 +13,7 @@ impl DomainEventHandler for GenerateProjectKeyOnProjectCreated {
     async fn handle(&self, event: &DomainEvent, ctx: &RequestContext) -> Result<(), ApplicationError> {
         let DomainEvent::ProjectCreated { project_id } = event;
 
-        let key = ProjectKey::generate(project_id.clone(), "Default".into(), ctx.clock())?;
+        let key = ProjectKey::generate(project_id.clone(), "Default".into())?;
         ctx.uow().await.project_keys().add(key);
 
         Ok(())

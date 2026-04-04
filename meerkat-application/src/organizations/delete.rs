@@ -59,7 +59,7 @@ mod tests {
     #[tokio::test]
     async fn given_existing_org_then_finds_and_deletes() {
         // arrange
-        let (org, _clock) = test_org();
+        let org = test_org();
         let org_id = org.id().clone();
         let expected_id = org_id.clone();
         let expected_delete_id = org_id.clone();

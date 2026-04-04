@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, Utc};
+
 use meerkat_application::error::ApplicationError;
 use meerkat_domain::models::oidc_config::OidcConfig;
 use meerkat_domain::models::organization::{Organization, OrganizationId};
@@ -12,6 +14,7 @@ impl OrganizationPersistence {
     pub async fn insert(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         org: &Organization,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "INSERT INTO organizations (id, name, slug, created_at, updated_at, version) \
@@ -20,15 +23,15 @@ impl OrganizationPersistence {
         .bind(org.id().as_uuid())
         .bind(org.name())
         .bind(org.slug().as_str())
-        .bind(org.created_at())
-        .bind(org.updated_at())
+        .bind(now)
+        .bind(now)
         .bind(org.version().as_u64() as i64)
         .execute(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;
 
         for config in org.oidc_configs() {
-            Self::insert_oidc_config(tx, org.id(), config).await?;
+            Self::insert_oidc_config(tx, org.id(), config, now).await?;
         }
 
         Ok(())
@@ -38,6 +41,7 @@ impl OrganizationPersistence {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         org: &Organization,
         snapshot: &Organization,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         // Diff oidc_configs collection
         let snapshot_configs: HashMap<_, _> = snapshot
@@ -54,12 +58,12 @@ impl OrganizationPersistence {
 
             match snapshot_configs.get(config.id()) {
                 None => {
-                    Self::insert_oidc_config(tx, org.id(), config).await?;
+                    Self::insert_oidc_config(tx, org.id(), config, now).await?;
                     has_child_changes = true;
                 }
                 Some(old) => {
                     if oidc_config_changed(config, old) {
-                        Self::update_oidc_config(tx, config).await?;
+                        Self::update_oidc_config(tx, config, now).await?;
                         has_child_changes = true;
                     }
                 }
@@ -74,8 +78,7 @@ impl OrganizationPersistence {
         }
 
         let org_row_changed = org.name() != snapshot.name()
-            || org.slug() != snapshot.slug()
-            || org.updated_at() != snapshot.updated_at();
+            || org.slug() != snapshot.slug();
 
         if org_row_changed || has_child_changes {
             let new_version = snapshot.version().increment();
@@ -86,7 +89,7 @@ impl OrganizationPersistence {
             )
             .bind(org.name())
             .bind(org.slug().as_str())
-            .bind(org.updated_at())
+            .bind(now)
             .bind(new_version.as_u64() as i64)
             .bind(org.id().as_uuid())
             .bind(snapshot.version().as_u64() as i64)
@@ -119,6 +122,7 @@ impl OrganizationPersistence {
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         org_id: &OrganizationId,
         config: &OidcConfig,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "INSERT INTO oidc_configs (id, organization_id, name, client_id, issuer_url, audience, discovery_url, \
@@ -140,8 +144,8 @@ impl OrganizationPersistence {
         .bind(config.claim_mapping().admin_values().as_slice())
         .bind(config.claim_mapping().member_values().as_slice())
         .bind(config.status().as_ref())
-        .bind(config.created_at())
-        .bind(config.updated_at())
+        .bind(now)
+        .bind(now)
         .execute(&mut **tx)
         .await
         .map_err(map_sqlx_error)?;
@@ -152,6 +156,7 @@ impl OrganizationPersistence {
     async fn update_oidc_config(
         tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
         config: &OidcConfig,
+        now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         sqlx::query(
             "UPDATE oidc_configs SET name = $1, client_id = $2, issuer_url = $3, audience = $4, \
@@ -171,7 +176,7 @@ impl OrganizationPersistence {
         .bind(config.claim_mapping().admin_values().as_slice())
         .bind(config.claim_mapping().member_values().as_slice())
         .bind(config.status().as_ref())
-        .bind(config.updated_at())
+        .bind(now)
         .bind(config.id().as_uuid())
         .execute(&mut **tx)
         .await
@@ -202,6 +207,4 @@ fn oidc_config_changed(current: &OidcConfig, snapshot: &OidcConfig) -> bool {
         || current.discovery_url() != snapshot.discovery_url()
         || current.claim_mapping() != snapshot.claim_mapping()
         || current.status() != snapshot.status()
-        || current.updated_at() != snapshot.updated_at()
 }
-

@@ -75,7 +75,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         let row = match identifier {
             OrganizationIdentifier::Id(id) => {
                 sqlx::query_as::<_, OrgRow>(
-                    "SELECT id, name, slug, created_at, updated_at, version FROM organizations WHERE id = $1",
+                    "SELECT id, name, slug, version FROM organizations WHERE id = $1",
                 )
                 .bind(id.as_uuid())
                 .fetch_optional(&self.pool)
@@ -83,7 +83,7 @@ impl OrganizationRepository for PgOrganizationRepository {
             }
             OrganizationIdentifier::Slug(slug) => {
                 sqlx::query_as::<_, OrgRow>(
-                    "SELECT id, name, slug, created_at, updated_at, version FROM organizations WHERE slug = $1",
+                    "SELECT id, name, slug, version FROM organizations WHERE slug = $1",
                 )
                 .bind(slug.as_str())
                 .fetch_optional(&self.pool)
@@ -98,7 +98,7 @@ impl OrganizationRepository for PgOrganizationRepository {
         let config_rows = sqlx::query_as::<_, OidcConfigRow>(
             "SELECT id, name, client_id, issuer_url, audience, discovery_url, \
              sub_claim, name_claim, role_claim, owner_values, admin_values, member_values, \
-             status, created_at, updated_at \
+             status \
              FROM oidc_configs WHERE organization_id = $1",
         )
         .bind(org_id)
@@ -127,8 +127,6 @@ impl OrganizationRepository for PgOrganizationRepository {
                     discovery_url: r.discovery_url.map(|u| Url::new(u).expect("invalid discovery_url in database")),
                     claim_mapping,
                     status: r.status.parse::<OidcConfigStatus>().expect("invalid status in database"),
-                    created_at: r.created_at,
-                    updated_at: r.updated_at,
                 })
             })
             .collect();
@@ -138,8 +136,6 @@ impl OrganizationRepository for PgOrganizationRepository {
             name: row.name,
             slug: OrganizationSlug::new(row.slug).expect("invalid slug in database"),
             oidc_configs,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
             version: Version::new(row.version as u64),
         });
 
@@ -157,8 +153,6 @@ struct OrgRow {
     id: sqlx::types::Uuid,
     name: String,
     slug: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
     version: i64,
 }
 
@@ -177,7 +171,5 @@ struct OidcConfigRow {
     admin_values: Option<Vec<String>>,
     member_values: Option<Vec<String>>,
     status: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-    updated_at: chrono::DateTime<chrono::Utc>,
 }
 

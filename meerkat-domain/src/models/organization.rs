@@ -1,7 +1,5 @@
-use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, slug_id, Reconstitute};
 use crate::shared::version::Version;
-use crate::ports::clock::Clock;
 use crate::models::oidc_config::{ClaimMapping, OidcConfig, OidcConfigId, OidcConfigStatus};
 
 uuid_id!(OrganizationId);
@@ -27,8 +25,6 @@ pub struct Organization {
     name: String,
     slug: OrganizationSlug,
     oidc_configs: Vec<OidcConfig>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
     version: Version,
 }
 
@@ -51,7 +47,6 @@ impl Organization {
         name: String,
         slug: OrganizationSlug,
         mut oidc_config: OidcConfig,
-        clock: &dyn Clock,
     ) -> Result<Self, OrganizationError> {
         let name = name.trim();
         if name.is_empty() {
@@ -61,15 +56,12 @@ impl Organization {
         oidc_config.activate()?;
 
         let id = OrganizationId::new();
-        let now = clock.now();
 
         Ok(Organization {
             id,
             name: name.to_string(),
             slug,
             oidc_configs: vec![oidc_config],
-            created_at: now,
-            updated_at: now,
             version: Version::initial(),
         })
     }
@@ -153,27 +145,22 @@ impl Organization {
     pub fn name(&self) -> &str { &self.name }
     pub fn slug(&self) -> &OrganizationSlug { &self.slug }
     pub fn oidc_configs(&self) -> &[OidcConfig] { &self.oidc_configs }
-    pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
-    pub fn updated_at(&self) -> &DateTime<Utc> { &self.updated_at }
     pub fn version(&self) -> &Version { &self.version }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::clock::MockClock;
     use crate::testing::{draft_config, test_org};
 
     #[test]
     fn given_valid_name_and_slug_then_organization_creation_succeeds() {
         // arrange
         let slug = OrganizationSlug::new("meerkat-inc").unwrap();
-        let expected_now = Utc::now();
-        let clock = MockClock::new(expected_now);
-        let oidc_config = draft_config("Default SSO", &clock);
+        let oidc_config = draft_config("Default SSO");
 
         // act
-        let org = Organization::new("Meerkat Inc.".into(), slug.clone(), oidc_config, &clock)
+        let org = Organization::new("Meerkat Inc.".into(), slug.clone(), oidc_config)
             .expect("Failed to create organization");
 
         // assert
@@ -181,8 +168,6 @@ mod tests {
         assert_eq!(org.slug(), &slug);
         assert_eq!(org.version(), &Version::initial());
         assert!(!org.id().as_uuid().is_nil());
-        assert_eq!(org.created_at(), &expected_now);
-        assert_eq!(org.updated_at(), &expected_now);
         assert_eq!(org.oidc_configs().len(), 1);
         assert!(org.oidc_configs()[0].is_active());
     }
@@ -190,11 +175,10 @@ mod tests {
     #[test]
     fn given_an_empty_name_then_organization_creation_fails() {
         // arrange
-        let clock = MockClock::new(Utc::now());
         let slug = OrganizationSlug::new("empty-name").unwrap();
 
         // act
-        let result = Organization::new("  ".into(), slug, draft_config("Default SSO", &clock), &clock);
+        let result = Organization::new("  ".into(), slug, draft_config("Default SSO"));
 
         // assert
         match result {
@@ -206,11 +190,10 @@ mod tests {
     #[test]
     fn given_a_name_with_extra_spaces_then_organization_creation_trims() {
         // arrange
-        let clock = MockClock::new(Utc::now());
         let slug = OrganizationSlug::new("meerkat-inc").unwrap();
 
         // act
-        let org = Organization::new("  Meerkat Inc.  ".into(), slug, draft_config("Default SSO", &clock), &clock)
+        let org = Organization::new("  Meerkat Inc.  ".into(), slug, draft_config("Default SSO"))
             .expect("Failed to create organization");
 
         // assert
@@ -220,7 +203,7 @@ mod tests {
     #[test]
     fn given_existing_org_then_updating_name_succeeds() {
         // arrange
-        let (mut org, _) = test_org();
+        let mut org = test_org();
 
         // act
         org.update_name("New Name".into()).expect("Failed to update organization name");
@@ -232,7 +215,7 @@ mod tests {
     #[test]
     fn given_empty_name_then_updating_name_fails() {
         // arrange
-        let (mut org, _) = test_org();
+        let mut org = test_org();
 
         // act
         let result = org.update_name("  ".into());
@@ -247,7 +230,7 @@ mod tests {
     #[test]
     fn given_same_name_then_updating_name_is_idempotent() {
         // arrange
-        let (mut org, _) = test_org();
+        let mut org = test_org();
 
         // act
         org.update_name("Test Org".into()).expect("Update should succeed");
@@ -261,8 +244,8 @@ mod tests {
     #[test]
     fn given_a_draft_config_then_adding_it_succeeds() {
         // arrange
-        let (mut org, clock) = test_org();
-        let new_config = draft_config("Secondary SSO", &clock);
+        let mut org = test_org();
+        let new_config = draft_config("Secondary SSO");
 
         // act
         org.add_draft_oidc_config(new_config)
@@ -275,8 +258,8 @@ mod tests {
     #[test]
     fn given_a_non_draft_config_then_adding_it_fails() {
         // arrange
-        let (mut org, clock) = test_org();
-        let mut active_config = draft_config("Already Active", &clock);
+        let mut org = test_org();
+        let mut active_config = draft_config("Already Active");
         active_config.activate().unwrap();
 
         // act
@@ -294,9 +277,9 @@ mod tests {
     #[test]
     fn given_a_draft_config_then_switching_to_it_activates_it_and_deactivates_old() {
         // arrange
-        let (mut org, clock) = test_org();
+        let mut org = test_org();
         let old_active_id = org.oidc_configs()[0].id().clone();
-        let new_config = draft_config("New SSO", &clock);
+        let new_config = draft_config("New SSO");
         let new_config_id = new_config.id().clone();
         org.add_draft_oidc_config(new_config).unwrap();
 
@@ -315,7 +298,7 @@ mod tests {
     #[test]
     fn given_nonexistent_config_id_then_switching_fails() {
         // arrange
-        let (mut org, _) = test_org();
+        let mut org = test_org();
         let nonexistent_id = OidcConfigId::new();
 
         // act
@@ -331,7 +314,7 @@ mod tests {
     #[test]
     fn given_already_active_config_then_switching_is_idempotent() {
         // arrange
-        let (mut org, _) = test_org();
+        let mut org = test_org();
         let active_id = org.oidc_configs()[0].id().clone();
 
         // act
@@ -347,8 +330,8 @@ mod tests {
     #[test]
     fn given_inactive_config_then_deleting_it_removes_it() {
         // arrange
-        let (mut org, clock) = test_org();
-        let draft = draft_config("To Delete", &clock);
+        let mut org = test_org();
+        let draft = draft_config("To Delete");
         let draft_id = draft.id().clone();
         org.add_draft_oidc_config(draft).unwrap();
 
@@ -364,7 +347,7 @@ mod tests {
     #[test]
     fn given_active_config_then_deleting_it_fails() {
         // arrange
-        let (mut org, _) = test_org();
+        let mut org = test_org();
         let active_id = org.oidc_configs()[0].id().clone();
 
         // act

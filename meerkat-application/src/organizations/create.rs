@@ -38,13 +38,12 @@ impl Handler<CreateOrganization, ApplicationError, RequestContext> for CreateOrg
         let oidc = cmd.oidc_config;
         let oidc_config = OidcConfig::new(
             oidc.name, oidc.client_id, oidc.issuer_url, oidc.audience, oidc.discovery_url,
-            oidc.claim_mapping, ctx.clock(),
+            oidc.claim_mapping,
         )?;
 
         let org = Organization::new(
             cmd.name, cmd.slug,
             oidc_config,
-            ctx.clock(),
         )?;
 
         let id = org.id().clone();

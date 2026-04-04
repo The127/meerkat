@@ -63,7 +63,7 @@ mod tests {
     #[tokio::test]
     async fn given_valid_name_then_finds_project_and_saves_renamed() {
         // arrange
-        let (project, _clock) = test_project();
+        let project = test_project();
         let project_id = project.id().clone();
         let expected_id = project_id.clone();
 

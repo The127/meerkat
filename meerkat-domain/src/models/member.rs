@@ -1,7 +1,5 @@
-use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
 use crate::models::organization::OrganizationId;
-use crate::ports::clock::Clock;
 
 uuid_id!(MemberId);
 
@@ -46,8 +44,6 @@ pub struct Member {
     organization_id: OrganizationId,
     sub: Sub,
     preferred_name: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
 }
 
 impl Member {
@@ -55,14 +51,12 @@ impl Member {
         organization_id: OrganizationId,
         sub: Sub,
         preferred_name: String,
-        clock: &dyn Clock,
     ) -> Result<Self, MemberError> {
         let preferred_name = preferred_name.trim().to_string();
         if preferred_name.is_empty() {
             return Err(MemberError::EmptyPreferredName);
         }
 
-        let now = clock.now();
         let id = MemberId::new();
 
         Ok(Self {
@@ -70,8 +64,6 @@ impl Member {
             organization_id,
             sub,
             preferred_name,
-            created_at: now,
-            updated_at: now,
         })
     }
 
@@ -93,21 +85,15 @@ impl Member {
     pub fn organization_id(&self) -> &OrganizationId { &self.organization_id }
     pub fn sub(&self) -> &Sub { &self.sub }
     pub fn preferred_name(&self) -> &str { &self.preferred_name }
-    pub fn created_at(&self) -> &DateTime<Utc> { &self.created_at }
-    pub fn updated_at(&self) -> &DateTime<Utc> { &self.updated_at }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ports::clock::MockClock;
-    use chrono::Utc;
 
-    fn test_member() -> (Member, MockClock) {
-        let clock = MockClock::new(Utc::now());
+    fn test_member() -> Member {
         let org_id = OrganizationId::new();
-        let member = Member::new(org_id, Sub::new("user-123").unwrap(), "Alice".into(), &clock).unwrap();
-        (member, clock)
+        Member::new(org_id, Sub::new("user-123").unwrap(), "Alice".into()).unwrap()
     }
 
     // --- Sub ---
@@ -138,29 +124,22 @@ mod tests {
     #[test]
     fn given_valid_input_then_creation_succeeds() {
         // arrange
-        let expected_now = Utc::now();
-        let clock = MockClock::new(expected_now);
         let org_id = OrganizationId::new();
         let sub = Sub::new("user-123").unwrap();
 
         // act
-        let member = Member::new(org_id.clone(), sub, "Alice".into(), &clock).unwrap();
+        let member = Member::new(org_id.clone(), sub, "Alice".into()).unwrap();
 
         // assert
         assert_eq!(member.sub().as_str(), "user-123");
         assert_eq!(member.preferred_name(), "Alice");
         assert_eq!(member.organization_id(), &org_id);
-        assert_eq!(member.created_at(), &expected_now);
-        assert_eq!(member.updated_at(), &expected_now);
     }
 
     #[test]
     fn given_empty_preferred_name_then_creation_fails() {
-        // arrange
-        let clock = MockClock::new(Utc::now());
-
         // act
-        let result = Member::new(OrganizationId::new(), Sub::new("user-123").unwrap(), "  ".into(), &clock);
+        let result = Member::new(OrganizationId::new(), Sub::new("user-123").unwrap(), "  ".into());
 
         // assert
         match result {
@@ -171,11 +150,8 @@ mod tests {
 
     #[test]
     fn given_whitespace_preferred_name_then_creation_trims() {
-        // arrange
-        let clock = MockClock::new(Utc::now());
-
         // act
-        let member = Member::new(OrganizationId::new(), Sub::new("user-123").unwrap(), "  Alice  ".into(), &clock).unwrap();
+        let member = Member::new(OrganizationId::new(), Sub::new("user-123").unwrap(), "  Alice  ".into()).unwrap();
 
         // assert
         assert_eq!(member.preferred_name(), "Alice");
@@ -186,7 +162,7 @@ mod tests {
     #[test]
     fn given_new_name_then_update_succeeds() {
         // arrange
-        let (mut member, _) = test_member();
+        let mut member = test_member();
 
         // act
         member.update_preferred_name("Bob".into()).unwrap();
@@ -198,7 +174,7 @@ mod tests {
     #[test]
     fn given_same_name_then_update_does_nothing() {
         // arrange
-        let (mut member, _) = test_member();
+        let mut member = test_member();
 
         // act
         member.update_preferred_name("Alice".into()).unwrap();
@@ -210,7 +186,7 @@ mod tests {
     #[test]
     fn given_empty_name_then_update_fails() {
         // arrange
-        let (mut member, _) = test_member();
+        let mut member = test_member();
 
         // act
         let result = member.update_preferred_name("  ".into());
