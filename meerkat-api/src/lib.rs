@@ -85,6 +85,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/organization", delete(organizations::delete_organization))
         .route("/api/v1/organization/oidc-configs", get(oidc_admin::list_oidc_configs).post(oidc_admin::add_oidc_config))
         .route("/api/v1/organization/oidc-configs/{id}/activate", post(oidc_admin::activate_oidc_config))
+        // TODO: revisit — PUT on a sub-resource doesn't match our POST-for-mutations convention.
+        // Consider folding into a general "update OIDC config" endpoint.
         .route("/api/v1/organization/oidc-configs/{id}/claim-mapping", axum::routing::put(oidc_admin::update_oidc_claim_mapping))
         .route("/api/v1/organization/oidc-configs/{id}", delete(oidc_admin::delete_oidc_config))
         .route("/api/v1/me", get(members::get_current_user))
