@@ -8,7 +8,7 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::organization_repository::OrganizationRepository;
 use vec1::Vec1;
 use meerkat_domain::models::oidc_config::{
-    Audience, ClaimMapping, ClientId, OidcConfig, OidcConfigId, OidcConfigState, OidcConfigStatus, Url,
+    Audience, ClaimMapping, ClientId, OidcConfig, OidcConfigId, OidcConfigState, OidcConfigStatus, RoleValues, Url,
 };
 use meerkat_domain::models::organization::{
     Organization, OrganizationId, OrganizationIdentifier, OrganizationSlug, OrganizationState,
@@ -113,9 +113,11 @@ impl OrganizationRepository for PgOrganizationRepository {
                     r.sub_claim.expect("missing sub_claim in database"),
                     r.name_claim.expect("missing name_claim in database"),
                     r.role_claim.expect("missing role_claim in database"),
-                    Vec1::try_from_vec(r.owner_values.unwrap_or_default()).expect("empty owner_values in database"),
-                    Vec1::try_from_vec(r.admin_values.unwrap_or_default()).expect("empty admin_values in database"),
-                    Vec1::try_from_vec(r.member_values.unwrap_or_default()).expect("empty member_values in database"),
+                    RoleValues::new(
+                        Vec1::try_from_vec(r.owner_values.unwrap_or_default()).expect("empty owner_values in database"),
+                        Vec1::try_from_vec(r.admin_values.unwrap_or_default()).expect("empty admin_values in database"),
+                        Vec1::try_from_vec(r.member_values.unwrap_or_default()).expect("empty member_values in database"),
+                    ),
                 ).expect("invalid claim_mapping in database");
 
                 OidcConfig::reconstitute(OidcConfigState {

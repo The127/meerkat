@@ -53,9 +53,7 @@ pub(crate) async fn bootstrap_master(
         config.master_oidc_sub_claim.clone(),
         config.master_oidc_name_claim.clone(),
         config.master_oidc_role_claim.clone(),
-        config.master_oidc_owner_values.clone(),
-        config.master_oidc_admin_values.clone(),
-        config.master_oidc_member_values.clone(),
+        config.master_oidc_role_values.clone(),
     )
     .context("Failed to create master claim mapping")?;
 

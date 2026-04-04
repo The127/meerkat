@@ -13,9 +13,11 @@ Content-Type: application/json
             "sub_claim": "sub",
             "name_claim": "preferred_username",
             "role_claim": "roles",
-            "owner_values": ["owner"],
-            "admin_values": ["admin"],
-            "member_values": ["member"]
+            "role_values": {
+                "owner": ["owner"],
+                "admin": ["admin"],
+                "member": ["member"]
+            }
         }
     }
 }

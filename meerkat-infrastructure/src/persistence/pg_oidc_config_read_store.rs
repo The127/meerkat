@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use meerkat_application::error::ApplicationError;
 use vec1::Vec1;
 use meerkat_application::ports::oidc_config_read_store::{OidcConfigReadModel, OidcConfigReadStore};
-use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId, OidcConfigStatus};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId, OidcConfigStatus, RoleValues};
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::shared::url::Url;
 
@@ -50,9 +50,11 @@ impl From<OidcConfigRow> for OidcConfigReadModel {
             discovery_url: row.discovery_url.map(|u| Url::new(u).expect("invalid discovery_url in database")),
             claim_mapping: ClaimMapping::new(
                 row.sub_claim, row.name_claim, row.role_claim,
-                Vec1::try_from_vec(row.owner_values).expect("empty owner_values in database"),
-                Vec1::try_from_vec(row.admin_values).expect("empty admin_values in database"),
-                Vec1::try_from_vec(row.member_values).expect("empty member_values in database"),
+                RoleValues::new(
+                    Vec1::try_from_vec(row.owner_values).expect("empty owner_values in database"),
+                    Vec1::try_from_vec(row.admin_values).expect("empty admin_values in database"),
+                    Vec1::try_from_vec(row.member_values).expect("empty member_values in database"),
+                ),
             ).expect("invalid claim_mapping in database"),
             status: row.status.parse::<OidcConfigStatus>().expect("invalid status in database"),
         }

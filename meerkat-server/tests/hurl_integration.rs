@@ -21,7 +21,7 @@ use meerkat_application::projects::create::{CreateProject, CreateProjectHandler}
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_application::ports::unit_of_work::UnitOfWorkFactory;
 use vec1::vec1;
-use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig};
+use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, RoleValues};
 use meerkat_domain::models::organization::{Organization, OrganizationSlug};
 use meerkat_domain::shared::url::Url;
 use meerkat_infrastructure::clock::SystemClock;
@@ -68,9 +68,11 @@ async fn hurl_integration_tests() {
     let uow_factory = PgUnitOfWorkFactory::new(pool.clone(), Arc::new(SystemClock));
     let claim_mapping = ClaimMapping::new(
         "sub", "preferred_username", "roles",
-        vec1!["owner".to_string()],
-        vec1!["admin".to_string()],
-        vec1!["member".to_string()],
+        RoleValues::new(
+            vec1!["owner".to_string()],
+            vec1!["admin".to_string()],
+            vec1!["member".to_string()],
+        ),
     ).unwrap();
     let oidc_config = OidcConfig::new(
         "Default".to_string(),

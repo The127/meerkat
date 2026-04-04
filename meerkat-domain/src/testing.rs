@@ -1,15 +1,21 @@
 use vec1::vec1;
-use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, Url};
+use crate::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfig, RoleValues, Url};
 use crate::models::organization::{Organization, OrganizationSlug};
 use crate::models::project::{Project, ProjectId, ProjectSlug};
 use crate::models::project_key::ProjectKey;
 
-pub fn test_claim_mapping() -> ClaimMapping {
-    ClaimMapping::new(
-        "sub", "preferred_username", "roles",
+pub fn test_role_values() -> RoleValues {
+    RoleValues::new(
         vec1!["owner".to_string()],
         vec1!["admin".to_string()],
         vec1!["member".to_string()],
+    )
+}
+
+pub fn test_claim_mapping() -> ClaimMapping {
+    ClaimMapping::new(
+        "sub", "preferred_username", "roles",
+        test_role_values(),
     ).unwrap()
 }
 

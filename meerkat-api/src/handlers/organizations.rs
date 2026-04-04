@@ -15,12 +15,22 @@ use meerkat_application::organizations::rename::RenameOrganization;
 use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId};
 use meerkat_domain::shared::url::Url;
 
-use super::vec1_from_dto;
+use super::role_values_from_dto;
 use meerkat_domain::models::organization::{OrganizationId, OrganizationIdentifier, OrganizationSlug};
 
 use crate::error::ApiError;
 use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct RoleValuesDto {
+    #[serde(rename = "owner")]
+    pub owner: Vec<String>,
+    #[serde(rename = "admin")]
+    pub admin: Vec<String>,
+    #[serde(rename = "member")]
+    pub member: Vec<String>,
+}
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub(crate) struct ClaimMappingDto {
@@ -30,12 +40,8 @@ pub(crate) struct ClaimMappingDto {
     pub name_claim: String,
     #[serde(rename = "role_claim")]
     pub role_claim: String,
-    #[serde(rename = "owner_values")]
-    pub owner_values: Vec<String>,
-    #[serde(rename = "admin_values")]
-    pub admin_values: Vec<String>,
-    #[serde(rename = "member_values")]
-    pub member_values: Vec<String>,
+    #[serde(rename = "role_values")]
+    pub role_values: RoleValuesDto,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -88,11 +94,10 @@ pub(crate) async fn create_organization(
     let oidc = body.oidc_config;
 
     let cm = oidc.claim_mapping;
+    let role_values = role_values_from_dto(cm.role_values)?;
     let claim_mapping = ClaimMapping::new(
         cm.sub_claim, cm.name_claim, cm.role_claim,
-        vec1_from_dto(cm.owner_values, "owner_values")?,
-        vec1_from_dto(cm.admin_values, "admin_values")?,
-        vec1_from_dto(cm.member_values, "member_values")?,
+        role_values,
     ).map_err(|e| ApplicationError::Validation(e.to_string()))?;
 
     let cmd = CreateOrganization {

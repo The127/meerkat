@@ -95,13 +95,46 @@ impl std::fmt::Display for ClaimName {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoleValues {
+    owner: Vec1<String>,
+    admin: Vec1<String>,
+    member: Vec1<String>,
+}
+
+impl RoleValues {
+    pub fn new(
+        owner: Vec1<String>,
+        admin: Vec1<String>,
+        member: Vec1<String>,
+    ) -> Self {
+        Self { owner, admin, member }
+    }
+
+    pub fn resolve_roles(&self, claim_values: &[&str]) -> Vec<OrgRole> {
+        let mut roles = Vec::new();
+
+        let has_owner = claim_values.iter().any(|v| self.owner.iter().any(|o| o == v));
+        let has_admin = claim_values.iter().any(|v| self.admin.iter().any(|a| a == v));
+        let has_member = claim_values.iter().any(|v| self.member.iter().any(|m| m == v));
+
+        if has_owner { roles.push(OrgRole::Owner); }
+        if has_admin { roles.push(OrgRole::Admin); }
+        if has_member { roles.push(OrgRole::Member); }
+
+        roles
+    }
+
+    pub fn owner(&self) -> &Vec1<String> { &self.owner }
+    pub fn admin(&self) -> &Vec1<String> { &self.admin }
+    pub fn member(&self) -> &Vec1<String> { &self.member }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimMapping {
     sub_claim: ClaimName,
     name_claim: ClaimName,
     role_claim: ClaimName,
-    owner_values: Vec1<String>,
-    admin_values: Vec1<String>,
-    member_values: Vec1<String>,
+    role_values: RoleValues,
 }
 
 impl ClaimMapping {
@@ -109,9 +142,7 @@ impl ClaimMapping {
         sub_claim: impl Into<String>,
         name_claim: impl Into<String>,
         role_claim: impl Into<String>,
-        owner_values: Vec1<String>,
-        admin_values: Vec1<String>,
-        member_values: Vec1<String>,
+        role_values: RoleValues,
     ) -> Result<Self, OidcConfigError> {
         let sub_claim = ClaimName::new(sub_claim)?;
         let name_claim = ClaimName::new(name_claim)?;
@@ -121,32 +152,18 @@ impl ClaimMapping {
             sub_claim,
             name_claim,
             role_claim,
-            owner_values,
-            admin_values,
-            member_values,
+            role_values,
         })
     }
 
     pub fn resolve_roles(&self, claim_values: &[&str]) -> Vec<OrgRole> {
-        let mut roles = Vec::new();
-
-        let has_owner = claim_values.iter().any(|v| self.owner_values.iter().any(|o| o == v));
-        let has_admin = claim_values.iter().any(|v| self.admin_values.iter().any(|a| a == v));
-        let has_member = claim_values.iter().any(|v| self.member_values.iter().any(|m| m == v));
-
-        if has_owner { roles.push(OrgRole::Owner); }
-        if has_admin { roles.push(OrgRole::Admin); }
-        if has_member { roles.push(OrgRole::Member); }
-
-        roles
+        self.role_values.resolve_roles(claim_values)
     }
 
     pub fn sub_claim(&self) -> &ClaimName { &self.sub_claim }
     pub fn name_claim(&self) -> &ClaimName { &self.name_claim }
     pub fn role_claim(&self) -> &ClaimName { &self.role_claim }
-    pub fn owner_values(&self) -> &Vec1<String> { &self.owner_values }
-    pub fn admin_values(&self) -> &Vec1<String> { &self.admin_values }
-    pub fn member_values(&self) -> &Vec1<String> { &self.member_values }
+    pub fn role_values(&self) -> &RoleValues { &self.role_values }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, strum::Display, strum::EnumString, strum::AsRefStr)]
@@ -271,7 +288,7 @@ mod tests {
     use super::*;
     use vec1::vec1;
     use crate::models::org_role::OrgRole;
-    use crate::testing::{test_claim_mapping, test_config};
+    use crate::testing::{test_claim_mapping, test_config, test_role_values};
 
     // --- creation ---
 
@@ -366,7 +383,7 @@ mod tests {
     #[test]
     fn given_empty_claim_name_in_mapping_then_creation_fails() {
         // act
-        let result = ClaimMapping::new("", "name", "roles", vec1!["owner".into()], vec1!["admin".into()], vec1!["member".into()]);
+        let result = ClaimMapping::new("", "name", "roles", test_role_values());
 
         // assert
         match result {
@@ -380,7 +397,7 @@ mod tests {
         // act
         let mapping = ClaimMapping::new(
             "sub", "preferred_username", "roles",
-            vec1!["owner".into()], vec1!["admin".into()], vec1!["member".into()],
+            test_role_values(),
         ).unwrap();
 
         // assert
@@ -431,7 +448,7 @@ mod tests {
         let mut config = test_config();
         let new_mapping = ClaimMapping::new(
             "sub", "name", "groups",
-            vec1!["superadmin".into()], vec1!["staff".into()], vec1!["user".into()],
+            RoleValues::new(vec1!["superadmin".into()], vec1!["staff".into()], vec1!["user".into()]),
         ).unwrap();
 
         // act

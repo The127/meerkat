@@ -13,6 +13,16 @@ use crate::resolved_organization::ResolvedOrganization;
 use crate::state::AppState;
 
 #[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct RoleValuesResponseDto {
+    #[serde(rename = "owner")]
+    pub owner: Vec<String>,
+    #[serde(rename = "admin")]
+    pub admin: Vec<String>,
+    #[serde(rename = "member")]
+    pub member: Vec<String>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ClaimMappingResponseDto {
     #[serde(rename = "sub_claim")]
     pub sub_claim: String,
@@ -20,12 +30,8 @@ pub(crate) struct ClaimMappingResponseDto {
     pub name_claim: String,
     #[serde(rename = "role_claim")]
     pub role_claim: String,
-    #[serde(rename = "owner_values")]
-    pub owner_values: Vec<String>,
-    #[serde(rename = "admin_values")]
-    pub admin_values: Vec<String>,
-    #[serde(rename = "member_values")]
-    pub member_values: Vec<String>,
+    #[serde(rename = "role_values")]
+    pub role_values: RoleValuesResponseDto,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
@@ -69,9 +75,11 @@ pub(crate) async fn get_oidc_config(
             sub_claim: cm.sub_claim().as_str().to_string(),
             name_claim: cm.name_claim().as_str().to_string(),
             role_claim: cm.role_claim().as_str().to_string(),
-            owner_values: cm.owner_values().to_vec(),
-            admin_values: cm.admin_values().to_vec(),
-            member_values: cm.member_values().to_vec(),
+            role_values: RoleValuesResponseDto {
+                owner: cm.role_values().owner().to_vec(),
+                admin: cm.role_values().admin().to_vec(),
+                member: cm.role_values().member().to_vec(),
+            },
         },
     }))
 }
