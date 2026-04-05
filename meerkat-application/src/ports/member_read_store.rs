@@ -3,8 +3,11 @@ use chrono::{DateTime, Utc};
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::org_role::OrgRole;
 use meerkat_domain::models::organization::OrganizationId;
+use meerkat_domain::models::project::ProjectSlug;
 
 use crate::error::ApplicationError;
+use crate::ports::project_read_store::PagedResult;
+use crate::search::SearchFilter;
 
 #[derive(Debug, Clone)]
 pub struct MemberReadModel {
@@ -13,6 +16,16 @@ pub struct MemberReadModel {
     pub preferred_name: String,
     pub org_roles: Vec<OrgRole>,
     pub created_at: DateTime<Utc>,
+    pub last_seen: DateTime<Utc>,
+}
+
+pub struct ListMembersQuery {
+    pub org_id: OrganizationId,
+    pub search: Option<SearchFilter>,
+    pub role: Option<OrgRole>,
+    pub project_slug: Option<ProjectSlug>,
+    pub limit: i64,
+    pub offset: i64,
 }
 
 #[async_trait::async_trait]
@@ -20,6 +33,6 @@ pub struct MemberReadModel {
 pub trait MemberReadStore: Send + Sync {
     async fn list_by_org(
         &self,
-        org_id: &OrganizationId,
-    ) -> Result<Vec<MemberReadModel>, ApplicationError>;
+        query: &ListMembersQuery,
+    ) -> Result<PagedResult<MemberReadModel>, ApplicationError>;
 }

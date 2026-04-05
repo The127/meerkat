@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
-use meerkat_application::ports::member_read_store::{MemberReadModel, MemberReadStore};
+use meerkat_application::ports::member_read_store::{ListMembersQuery, MemberReadModel, MemberReadStore};
+use meerkat_application::ports::project_read_store::PagedResult;
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::org_role::OrgRole;
-use meerkat_domain::models::organization::OrganizationId;
 
 use super::error::map_sqlx_error;
 
@@ -26,26 +26,47 @@ struct MemberRow {
     preferred_name: String,
     org_roles: Vec<String>,
     created_at: chrono::DateTime<chrono::Utc>,
+    last_seen: chrono::DateTime<chrono::Utc>,
+    total: i64,
 }
 
 #[async_trait]
 impl MemberReadStore for PgMemberReadStore {
     async fn list_by_org(
         &self,
-        org_id: &OrganizationId,
-    ) -> Result<Vec<MemberReadModel>, ApplicationError> {
+        query: &ListMembersQuery,
+    ) -> Result<PagedResult<MemberReadModel>, ApplicationError> {
+        let pattern = query.search.as_ref().map(|s| s.contains_pattern());
+        let role_str = query.role.as_ref().map(|r| r.to_string());
+        let slug_str = query.project_slug.as_ref().map(|s| s.as_str().to_string());
+
         let rows = sqlx::query_as::<_, MemberRow>(
-            "SELECT id, sub, preferred_name, org_roles, created_at \
+            "SELECT id, sub, preferred_name, org_roles, created_at, last_seen, \
+                    COUNT(*) OVER() AS total \
              FROM members \
              WHERE organization_id = $1 \
-             ORDER BY created_at",
+               AND ($4::text IS NULL OR preferred_name ILIKE $4 OR sub ILIKE $4) \
+               AND ($5::text IS NULL OR $5 = ANY(org_roles)) \
+               AND ($6::text IS NULL OR id IN ( \
+                   SELECT pm.member_id FROM project_members pm \
+                   JOIN projects p ON pm.project_id = p.id \
+                   WHERE p.slug = $6 AND p.organization_id = $1 \
+               )) \
+             ORDER BY last_seen DESC \
+             LIMIT $2 OFFSET $3",
         )
-        .bind(org_id.as_uuid())
+        .bind(query.org_id.as_uuid())
+        .bind(query.limit)
+        .bind(query.offset)
+        .bind(pattern.as_deref())
+        .bind(role_str.as_deref())
+        .bind(slug_str.as_deref())
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;
 
-        Ok(rows
+        let total = rows.first().map(|r| r.total).unwrap_or(0);
+        let items = rows
             .into_iter()
             .map(|r| MemberReadModel {
                 id: MemberId::from_uuid(r.id),
@@ -53,7 +74,10 @@ impl MemberReadStore for PgMemberReadStore {
                 preferred_name: r.preferred_name,
                 org_roles: r.org_roles.into_iter().filter_map(|s| s.parse::<OrgRole>().ok()).collect(),
                 created_at: r.created_at,
+                last_seen: r.last_seen,
             })
-            .collect())
+            .collect();
+
+        Ok(PagedResult { items, total })
     }
 }

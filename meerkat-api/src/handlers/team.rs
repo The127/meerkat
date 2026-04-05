@@ -1,23 +1,38 @@
+use std::str::FromStr;
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::{Extension, Json};
 use chrono::{DateTime, Utc};
-use serde::Serialize;
-use utoipa::ToSchema;
+use serde::{Deserialize, Serialize};
+use utoipa::{IntoParams, ToSchema};
 
 use meerkat_application::context::RequestContext;
+use meerkat_application::error::ApplicationError;
 use meerkat_application::members::list_member_projects::ListMemberProjects;
 use meerkat_application::members::list_members::ListMembers;
+use meerkat_application::ports::member_read_store::{ListMembersQuery, MemberReadModel};
 use meerkat_application::projects::list_members::ListProjectMembers;
 use meerkat_application::projects::list_roles::ListProjectRoles;
+use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::member::MemberId;
+use meerkat_domain::models::org_role::OrgRole;
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 use meerkat_domain::models::project_role::ProjectRoleId;
 
 use crate::error::ApiError;
+use crate::pagination::PaginationQueryDto;
 use crate::resolved_organization::ResolvedOrganization;
+use crate::search::SearchQueryDto;
 use crate::state::AppState;
+
+#[derive(Debug, Deserialize, IntoParams, ToSchema)]
+pub(crate) struct MemberFilterQueryDto {
+    #[serde(rename = "role")]
+    pub role: Option<String>,
+    #[serde(rename = "project_slug")]
+    pub project_slug: Option<String>,
+}
 
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct MemberDto {
@@ -31,37 +46,86 @@ pub(crate) struct MemberDto {
     pub org_roles: Vec<String>,
     #[serde(rename = "created_at")]
     pub created_at: DateTime<Utc>,
+    #[serde(rename = "last_seen")]
+    pub last_seen: DateTime<Utc>,
+}
+
+impl From<MemberReadModel> for MemberDto {
+    fn from(m: MemberReadModel) -> Self {
+        Self {
+            id: m.id,
+            sub: m.sub,
+            preferred_name: m.preferred_name,
+            org_roles: m.org_roles.into_iter().map(|r| r.to_string()).collect(),
+            created_at: m.created_at,
+            last_seen: m.last_seen,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct ListMembersResponseDto {
+    #[serde(rename = "items")]
+    pub items: Vec<MemberDto>,
+    #[serde(rename = "total")]
+    pub total: i64,
 }
 
 #[utoipa::path(
     get,
     path = "/api/v1/members",
+    params(PaginationQueryDto, SearchQueryDto, MemberFilterQueryDto),
     responses(
-        (status = 200, description = "List of organization members", body = Vec<MemberDto>),
+        (status = 200, description = "List of organization members", body = ListMembersResponseDto),
     )
 )]
 pub(crate) async fn list_members(
     State(state): State<AppState>,
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-) -> Result<Json<Vec<MemberDto>>, ApiError> {
-    let members = state
-        .mediator
-        .dispatch(ListMembers { org_id: resolved_org.id }, &req_ctx)
-        .await?;
+    Query(pagination): Query<PaginationQueryDto>,
+    Query(search): Query<SearchQueryDto>,
+    Query(filter): Query<MemberFilterQueryDto>,
+) -> Result<Json<ListMembersResponseDto>, ApiError> {
+    let role = match filter.role.as_deref() {
+        None => None,
+        Some(raw) => Some(
+            OrgRole::from_str(raw)
+                .map_err(|_| ApplicationError::Validation(
+                    format!("invalid role filter: '{raw}'"),
+                ))?,
+        ),
+    };
 
-    let items = members
-        .into_iter()
-        .map(|m| MemberDto {
-            id: m.id,
-            sub: m.sub,
-            preferred_name: m.preferred_name,
-            org_roles: m.org_roles.into_iter().map(|r| r.to_string()).collect(),
-            created_at: m.created_at,
-        })
-        .collect();
+    let project_slug = match filter.project_slug.as_deref() {
+        None => None,
+        Some(raw) => Some(
+            ProjectSlug::new(raw)
+                .map_err(|e| ApplicationError::Validation(
+                    format!("invalid project_slug filter: {e}"),
+                ))?,
+        ),
+    };
 
-    Ok(Json(items))
+    let cmd = ListMembers {
+        query: ListMembersQuery {
+            org_id: resolved_org.id,
+            search: search.search.as_deref().and_then(SearchFilter::new),
+            role,
+            project_slug,
+            limit: pagination.limit(),
+            offset: pagination.offset(),
+        },
+    };
+
+    let result = state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    let items = result.items.into_iter().map(MemberDto::from).collect();
+
+    Ok(Json(ListMembersResponseDto {
+        items,
+        total: result.total,
+    }))
 }
 
 // --- Project roles ---
