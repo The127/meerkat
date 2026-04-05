@@ -30,7 +30,7 @@ const router = createRouter({
         {
           path: 'projects/:slug',
           name: 'project-dashboard',
-          component: () => import('@/pages/projects/ProjectDetail.vue'),
+          redirect: (to) => ({ name: 'project-issues', params: { slug: to.params.slug } }),
         },
         {
           path: 'projects/:slug/issues',
@@ -41,6 +41,11 @@ const router = createRouter({
           path: 'projects/:slug/issues/:issueNumber',
           name: 'issue-detail',
           component: () => import('@/pages/projects/IssueDetail.vue'),
+        },
+        {
+          path: 'projects/:slug/settings',
+          name: 'project-settings',
+          component: () => import('@/pages/projects/ProjectDetail.vue'),
         },
         {
           path: 'projects/:slug/keys',
