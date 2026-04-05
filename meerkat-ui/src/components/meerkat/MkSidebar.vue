@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { AlertCircle, KeyRound, Layers, PanelLeftClose, PanelLeftOpen, Settings, Wrench } from 'lucide-vue-next'
+import { AlertCircle, KeyRound, Layers, PanelLeftClose, PanelLeftOpen, Settings, Users, Wrench } from 'lucide-vue-next'
 import { useSidebar } from '@/composables/useSidebar'
+import { useCurrentUser } from '@/composables/useCurrentUser'
 import MkProjectSelector from './MkProjectSelector.vue'
 
 const route = useRoute()
 const { collapsed, toggle } = useSidebar()
+const { canManageMembers } = useCurrentUser()
 
 const slug = computed(() => {
   const param = route.params.slug
@@ -81,8 +83,23 @@ function isActive(path: string): boolean {
       </RouterLink>
     </nav>
 
-    <!-- Settings -->
-    <div class="px-2 py-2 border-t border-border">
+    <!-- Members + Settings -->
+    <div class="px-2 py-2 border-t border-border space-y-0.5">
+      <RouterLink
+        v-if="canManageMembers"
+        to="/members"
+        :title="collapsed ? 'Members' : undefined"
+        :class="[
+          'flex items-center gap-2.5 rounded-md text-sm transition-colors',
+          collapsed ? 'justify-center px-0 py-1.5' : 'px-3 py-1.5',
+          isActive('/members')
+            ? 'bg-accent text-accent-foreground font-medium'
+            : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+        ]"
+      >
+        <Users class="w-4 h-4 shrink-0" />
+        <span v-if="!collapsed">Members</span>
+      </RouterLink>
       <RouterLink
         to="/settings"
         :title="collapsed ? 'Settings' : undefined"

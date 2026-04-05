@@ -100,3 +100,32 @@ export interface CurrentUser {
   org_permissions: string[]
   project_permissions: Record<string, string[]>
 }
+
+export interface Member {
+  id: string
+  sub: string
+  preferred_name: string
+  org_roles: string[]
+  created_at: string
+  last_seen: string
+}
+
+export interface MemberAccess {
+  id: string
+  preferred_name: string
+  sub: string
+  created_at: string
+  last_seen: string
+  org_access: {
+    roles: string[]
+    permissions: string[]
+  }
+  project_access: {
+    project_name: string
+    project_slug: string
+    roles: {
+      role_name: string
+      permissions: string[]
+    }[]
+  }[]
+}

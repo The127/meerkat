@@ -119,12 +119,15 @@ impl ProjectMemberReadStore for PgProjectMemberReadStore {
 
         let rows = sqlx::query_as::<_, Row>(
             "SELECT p.name AS project_name, p.slug AS project_slug, \
-                    pr.name AS role_name, pr.permissions AS role_permissions \
+                    pr.name AS role_name, \
+                    array_agg(prp.permission ORDER BY prp.permission) AS role_permissions \
              FROM project_members pm \
              JOIN projects p ON p.id = pm.project_id \
              JOIN project_member_roles pmr ON pmr.project_member_id = pm.id \
              JOIN project_roles pr ON pr.id = pmr.role_id \
+             JOIN project_role_permissions prp ON prp.role_id = pr.id \
              WHERE pm.member_id = $1 AND p.organization_id = $2 \
+             GROUP BY p.name, p.slug, pr.name \
              ORDER BY p.name, pr.name",
         )
         .bind(member_id.as_uuid())
