@@ -1,3 +1,5 @@
+use std::fmt;
+
 use chrono::{DateTime, Utc};
 use meerkat_macros::{uuid_id, Reconstitute};
 use crate::models::event::EventLevel;
@@ -5,6 +7,25 @@ use crate::models::project::ProjectId;
 use crate::shared::version::Version;
 
 uuid_id!(IssueId);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IssueNumber(u64);
+
+impl IssueNumber {
+    pub fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub fn value(&self) -> u64 {
+        self.0
+    }
+}
+
+impl fmt::Display for IssueNumber {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "#{}", self.0)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FingerprintHash(String);
@@ -27,6 +48,7 @@ impl FingerprintHash {
 pub enum IssueIdentifier {
     Id(IssueId),
     Fingerprint(ProjectId, FingerprintHash),
+    Number(ProjectId, IssueNumber),
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, strum::Display, strum::EnumString, strum::AsRefStr)]
@@ -58,6 +80,7 @@ pub enum IssueError {
 pub struct Issue {
     id: IssueId,
     project_id: ProjectId,
+    issue_number: Option<IssueNumber>,
     title: String,
     fingerprint_hash: FingerprintHash,
     status: IssueStatus,
@@ -96,6 +119,7 @@ impl Issue {
         Ok(Self {
             id: IssueId::new(),
             project_id,
+            issue_number: None,
             title,
             fingerprint_hash,
             status: IssueStatus::Unresolved,
@@ -143,6 +167,7 @@ impl Issue {
 
     pub fn id(&self) -> &IssueId { &self.id }
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
+    pub fn issue_number(&self) -> Option<IssueNumber> { self.issue_number }
     pub fn title(&self) -> &str { &self.title }
     pub fn fingerprint_hash(&self) -> &FingerprintHash { &self.fingerprint_hash }
     pub fn status(&self) -> &IssueStatus { &self.status }
@@ -425,6 +450,16 @@ mod tests {
 
         // assert
         assert_eq!(title, "TypeError");
+    }
+
+    #[test]
+    fn given_issue_number_then_display_formats_with_hash() {
+        // act
+        let number = IssueNumber::new(42);
+
+        // assert
+        assert_eq!(number.to_string(), "#42");
+        assert_eq!(number.value(), 42);
     }
 
     #[test]

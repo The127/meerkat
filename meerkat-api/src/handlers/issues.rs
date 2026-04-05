@@ -19,7 +19,7 @@ use meerkat_application::issues::resolve::ResolveIssue;
 use meerkat_application::ports::issue_read_store::IssueReadModel;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::event::EventId;
-use meerkat_domain::models::issue::{IssueId, IssueStatus};
+use meerkat_domain::models::issue::{IssueNumber, IssueStatus};
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 
 use crate::error::ApiError;
@@ -39,7 +39,9 @@ pub(crate) struct IssueStatusFilterQueryDto {
 #[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct IssueDto {
     #[serde(rename = "id")]
-    pub id: IssueId,
+    pub id: String,
+    #[serde(rename = "issue_number")]
+    pub issue_number: i64,
     #[serde(rename = "title")]
     pub title: String,
     #[serde(rename = "fingerprint_hash")]
@@ -59,7 +61,8 @@ pub(crate) struct IssueDto {
 impl From<IssueReadModel> for IssueDto {
     fn from(i: IssueReadModel) -> Self {
         Self {
-            id: i.id,
+            id: i.id.as_uuid().to_string(),
+            issue_number: i.issue_number,
             title: i.title,
             fingerprint_hash: i.fingerprint_hash,
             status: i.status,
@@ -127,7 +130,7 @@ pub(crate) async fn list_issues(
 
 #[utoipa::path(
     post,
-    path = "/api/v1/projects/{slug}/issues/{issue_id}/resolve",
+    path = "/api/v1/projects/{slug}/issues/{issue_number}/resolve",
     responses(
         (status = 204, description = "Issue resolved"),
         (status = 404, description = "Issue not found"),
@@ -137,11 +140,11 @@ pub(crate) async fn resolve_issue(
     State(state): State<AppState>,
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+    Path((slug, issue_number)): Path<(ProjectSlug, u64)>,
 ) -> Result<StatusCode, ApiError> {
     let cmd = ResolveIssue {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
-        issue_id,
+        issue_number: IssueNumber::new(issue_number),
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;
@@ -153,7 +156,7 @@ pub(crate) async fn resolve_issue(
 
 #[utoipa::path(
     post,
-    path = "/api/v1/projects/{slug}/issues/{issue_id}/reopen",
+    path = "/api/v1/projects/{slug}/issues/{issue_number}/reopen",
     responses(
         (status = 204, description = "Issue reopened"),
         (status = 404, description = "Issue not found"),
@@ -163,11 +166,11 @@ pub(crate) async fn reopen_issue(
     State(state): State<AppState>,
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+    Path((slug, issue_number)): Path<(ProjectSlug, u64)>,
 ) -> Result<StatusCode, ApiError> {
     let cmd = ReopenIssue {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
-        issue_id,
+        issue_number: IssueNumber::new(issue_number),
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;
@@ -179,7 +182,7 @@ pub(crate) async fn reopen_issue(
 
 #[utoipa::path(
     post,
-    path = "/api/v1/projects/{slug}/issues/{issue_id}/ignore",
+    path = "/api/v1/projects/{slug}/issues/{issue_number}/ignore",
     responses(
         (status = 204, description = "Issue ignored"),
         (status = 404, description = "Issue not found"),
@@ -189,11 +192,11 @@ pub(crate) async fn ignore_issue(
     State(state): State<AppState>,
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+    Path((slug, issue_number)): Path<(ProjectSlug, u64)>,
 ) -> Result<StatusCode, ApiError> {
     let cmd = IgnoreIssue {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
-        issue_id,
+        issue_number: IssueNumber::new(issue_number),
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;
@@ -205,7 +208,7 @@ pub(crate) async fn ignore_issue(
 
 #[utoipa::path(
     get,
-    path = "/api/v1/projects/{slug}/issues/{issue_id}",
+    path = "/api/v1/projects/{slug}/issues/{issue_number}",
     responses(
         (status = 200, description = "Issue detail", body = IssueDto),
         (status = 404, description = "Issue not found"),
@@ -215,11 +218,11 @@ pub(crate) async fn get_issue(
     State(state): State<AppState>,
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+    Path((slug, issue_number)): Path<(ProjectSlug, i64)>,
 ) -> Result<Json<IssueDto>, ApiError> {
     let query = GetIssue {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
-        issue_id,
+        issue_number,
     };
 
     let issue = state.mediator.dispatch(query, &req_ctx).await?;
@@ -275,7 +278,7 @@ pub(crate) struct ListIssueEventsResponseDto {
 
 #[utoipa::path(
     get,
-    path = "/api/v1/projects/{slug}/issues/{issue_id}/events",
+    path = "/api/v1/projects/{slug}/issues/{issue_number}/events",
     params(PaginationQueryDto),
     responses(
         (status = 200, description = "List of events for issue", body = ListIssueEventsResponseDto),
@@ -286,12 +289,12 @@ pub(crate) async fn list_issue_events(
     State(state): State<AppState>,
     Extension(req_ctx): Extension<Arc<RequestContext>>,
     Extension(resolved_org): Extension<ResolvedOrganization>,
-    Path((slug, issue_id)): Path<(ProjectSlug, IssueId)>,
+    Path((slug, issue_number)): Path<(ProjectSlug, i64)>,
     Query(pagination): Query<PaginationQueryDto>,
 ) -> Result<Json<ListIssueEventsResponseDto>, ApiError> {
     let query = ListIssueEvents {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
-        issue_id,
+        issue_number,
         limit: pagination.limit(),
         offset: pagination.offset(),
     };

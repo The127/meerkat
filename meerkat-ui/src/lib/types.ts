@@ -64,7 +64,7 @@ export interface ProjectKey {
 
 export interface Issue {
   id: string
-  project_id: string
+  issue_number: number
   title: string
   fingerprint_hash: string
   status: 'unresolved' | 'resolved' | 'ignored'

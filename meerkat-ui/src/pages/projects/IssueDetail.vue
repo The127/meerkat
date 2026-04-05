@@ -25,20 +25,20 @@ const slug = computed(() => {
   return typeof param === 'string' ? param : undefined
 })
 
-const issueId = computed(() => {
-  const param = route.params.issueId
+const issueNumber = computed(() => {
+  const param = route.params.issueNumber
   return typeof param === 'string' ? param : undefined
 })
 
 const canWrite = computed(() => slug.value ? hasProjectPermission(slug.value, 'project_write') : false)
 
 // --- Issue ---
-const { data: issue, isLoading: isLoadingIssue } = useIssue(slug, issueId)
+const { data: issue, isLoading: isLoadingIssue } = useIssue(slug, issueNumber)
 
 // --- Events ---
 const { offset, limit, prevPage, nextPage, pageInfo } = usePagination(20)
 
-const { data: eventsData, isLoading: isLoadingEvents } = useIssueEvents(slug, issueId, {
+const { data: eventsData, isLoading: isLoadingEvents } = useIssueEvents(slug, issueNumber, {
   limit,
   offset,
 })
@@ -49,33 +49,33 @@ const { mutateAsync: reopenIssue } = useReopenIssue()
 const { mutateAsync: ignoreIssue } = useIgnoreIssue()
 
 async function handleResolve() {
-  if (!slug.value || !issueId.value) return
+  if (!slug.value || !issueNumber.value || !issue.value) return
   try {
-    await resolveIssue({ slug: slug.value, issueId: issueId.value })
+    await resolveIssue({ slug: slug.value, issueNumber: issue.value.issue_number })
     toast.success('Issue resolved')
-    queryClient.invalidateQueries({ queryKey: ['issue', slug.value, issueId.value] })
+    queryClient.invalidateQueries({ queryKey: ['issue', slug.value, issueNumber.value] })
   } catch {
     toast.error('Failed to resolve issue')
   }
 }
 
 async function handleReopen() {
-  if (!slug.value || !issueId.value) return
+  if (!slug.value || !issueNumber.value || !issue.value) return
   try {
-    await reopenIssue({ slug: slug.value, issueId: issueId.value })
+    await reopenIssue({ slug: slug.value, issueNumber: issue.value.issue_number })
     toast.success('Issue reopened')
-    queryClient.invalidateQueries({ queryKey: ['issue', slug.value, issueId.value] })
+    queryClient.invalidateQueries({ queryKey: ['issue', slug.value, issueNumber.value] })
   } catch {
     toast.error('Failed to reopen issue')
   }
 }
 
 async function handleIgnore() {
-  if (!slug.value || !issueId.value) return
+  if (!slug.value || !issueNumber.value || !issue.value) return
   try {
-    await ignoreIssue({ slug: slug.value, issueId: issueId.value })
+    await ignoreIssue({ slug: slug.value, issueNumber: issue.value.issue_number })
     toast.success('Issue ignored')
-    queryClient.invalidateQueries({ queryKey: ['issue', slug.value, issueId.value] })
+    queryClient.invalidateQueries({ queryKey: ['issue', slug.value, issueNumber.value] })
   } catch {
     toast.error('Failed to ignore issue')
   }
@@ -135,7 +135,10 @@ function formatTimestamp(iso: string): string {
       <div class="mb-6">
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
-            <h1 class="text-xl font-semibold text-foreground break-words">{{ issue.title }}</h1>
+            <h1 class="text-xl font-semibold text-foreground break-words">
+              <span class="text-muted-foreground font-normal">#{{ issue.issue_number }}</span>
+              {{ issue.title }}
+            </h1>
             <div class="mt-2 flex flex-wrap items-center gap-2">
               <MkBadge :variant="levelVariant(issue.level)">{{ issue.level }}</MkBadge>
               <MkBadge :variant="statusVariant(issue.status)">{{ issue.status }}</MkBadge>

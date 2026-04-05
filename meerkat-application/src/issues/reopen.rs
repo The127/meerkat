@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use meerkat_domain::models::issue::{IssueId, IssueIdentifier};
+use meerkat_domain::models::issue::{IssueIdentifier, IssueNumber};
 use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::ProjectIdentifier;
 
@@ -9,10 +9,11 @@ use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::extensions::Extensions;
 use crate::mediator::{Request, Handler};
+use crate::ports::project_read_store::ProjectReadStore;
 
 pub struct ReopenIssue {
     pub project: ProjectIdentifier,
-    pub issue_id: IssueId,
+    pub issue_number: IssueNumber,
 }
 
 impl Request for ReopenIssue {
@@ -27,7 +28,15 @@ impl Request for ReopenIssue {
     }
 }
 
-pub struct ReopenIssueHandler;
+pub struct ReopenIssueHandler {
+    project_read_store: std::sync::Arc<dyn ProjectReadStore>,
+}
+
+impl ReopenIssueHandler {
+    pub fn new(project_read_store: std::sync::Arc<dyn ProjectReadStore>) -> Self {
+        Self { project_read_store }
+    }
+}
 
 #[async_trait]
 impl Handler<ReopenIssue, ApplicationError, RequestContext> for ReopenIssueHandler {
@@ -36,10 +45,18 @@ impl Handler<ReopenIssue, ApplicationError, RequestContext> for ReopenIssueHandl
         cmd: ReopenIssue,
         ctx: &RequestContext,
     ) -> Result<(), ApplicationError> {
+        let ProjectIdentifier::Slug(ref org_id, ref slug) = cmd.project else {
+            return Err(ApplicationError::NotFound);
+        };
+        let project = self.project_read_store
+            .find_by_slug(org_id, slug)
+            .await?
+            .ok_or(ApplicationError::NotFound)?;
+
         let uow = ctx.uow().await;
         let mut issue = uow
             .issues()
-            .find(&IssueIdentifier::Id(cmd.issue_id))
+            .find(&IssueIdentifier::Number(project.id, cmd.issue_number))
             .await?;
         issue.reopen()?;
         uow.issues().save(issue);
@@ -49,7 +66,7 @@ impl Handler<ReopenIssue, ApplicationError, RequestContext> for ReopenIssueHandl
 
 #[cfg(test)]
 mod tests {
-    use meerkat_domain::models::issue::IssueStatus;
+    use meerkat_domain::models::issue::{IssueNumber, IssueStatus};
     use meerkat_domain::models::organization::OrganizationId;
     use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
     use meerkat_domain::testing::test_issue;
@@ -57,6 +74,7 @@ mod tests {
     use crate::context::RequestContext;
     use crate::mediator::Handler;
     use crate::ports::issue_repository::MockIssueRepository;
+    use crate::ports::project_read_store::MockProjectReadStore;
     use crate::ports::unit_of_work::MockUnitOfWork;
 
     use super::{ReopenIssue, ReopenIssueHandler};
@@ -66,7 +84,25 @@ mod tests {
         // arrange
         let mut issue = test_issue();
         issue.resolve().unwrap();
-        let issue_id = issue.id().clone();
+        let org_id = OrganizationId::new();
+
+        let mut project_store = MockProjectReadStore::new();
+        let org_id_clone = org_id.clone();
+        project_store.expect_find_by_slug()
+            .times(1)
+            .withf(move |o, s| *o == org_id_clone && s.as_str() == "test-project")
+            .returning(|_, _| {
+                Box::pin(std::future::ready(Ok(Some(
+                    crate::ports::project_read_store::ProjectReadModel {
+                        id: meerkat_domain::models::project::ProjectId::new(),
+                        organization_id: OrganizationId::new(),
+                        name: "Test Project".to_string(),
+                        slug: ProjectSlug::new("test-project").unwrap(),
+                        created_at: chrono::Utc::now(),
+                        updated_at: chrono::Utc::now(),
+                    }
+                ))))
+            });
 
         let mut issue_repo = MockIssueRepository::new();
         issue_repo.expect_find()
@@ -81,10 +117,10 @@ mod tests {
         let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(uow));
 
-        let handler = ReopenIssueHandler;
+        let handler = ReopenIssueHandler::new(std::sync::Arc::new(project_store));
         let cmd = ReopenIssue {
-            project: ProjectIdentifier::Slug(OrganizationId::new(), ProjectSlug::new("test-project").unwrap()),
-            issue_id,
+            project: ProjectIdentifier::Slug(org_id, ProjectSlug::new("test-project").unwrap()),
+            issue_number: IssueNumber::new(1),
         };
 
         // act

@@ -197,9 +197,9 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<GetIssue, _>(GetIssueHandler::new(deps.project_read_store.clone(), deps.issue_read_store.clone()));
     mediator.register::<ListIssues, _>(ListIssuesHandler::new(deps.project_read_store.clone(), deps.issue_read_store.clone()));
     mediator.register::<ListIssueEvents, _>(ListIssueEventsHandler::new(deps.project_read_store.clone(), deps.issue_read_store, deps.event_read_store));
-    mediator.register::<ResolveIssue, _>(ResolveIssueHandler);
-    mediator.register::<ReopenIssue, _>(ReopenIssueHandler);
-    mediator.register::<IgnoreIssue, _>(IgnoreIssueHandler);
+    mediator.register::<ResolveIssue, _>(ResolveIssueHandler::new(deps.project_read_store.clone()));
+    mediator.register::<ReopenIssue, _>(ReopenIssueHandler::new(deps.project_read_store.clone()));
+    mediator.register::<IgnoreIssue, _>(IgnoreIssueHandler::new(deps.project_read_store.clone()));
     mediator.register::<CreateProjectKey, _>(CreateProjectKeyHandler);
     mediator.register::<RevokeProjectKey, _>(RevokeProjectKeyHandler);
     mediator.register::<UpdateProjectKeyRateLimit, _>(UpdateProjectKeyRateLimitHandler);

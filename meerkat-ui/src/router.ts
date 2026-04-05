@@ -38,7 +38,7 @@ const router = createRouter({
           component: () => import('@/pages/projects/ProjectIssues.vue'),
         },
         {
-          path: 'projects/:slug/issues/:issueId',
+          path: 'projects/:slug/issues/:issueNumber',
           name: 'issue-detail',
           component: () => import('@/pages/projects/IssueDetail.vue'),
         },

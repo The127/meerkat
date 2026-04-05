@@ -4,7 +4,7 @@ use sqlx::PgPool;
 use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::issue_repository::IssueRepository;
 use meerkat_domain::models::event::EventLevel;
-use meerkat_domain::models::issue::{FingerprintHash, Issue, IssueId, IssueIdentifier, IssueState, IssueStatus};
+use meerkat_domain::models::issue::{FingerprintHash, Issue, IssueId, IssueIdentifier, IssueNumber, IssueState, IssueStatus};
 use meerkat_domain::models::project::ProjectId;
 use meerkat_domain::shared::version::Version;
 
@@ -43,6 +43,9 @@ impl PgIssueRepository {
                 IssueIdentifier::Fingerprint(project_id, hash) => {
                     issue.project_id() == project_id && issue.fingerprint_hash() == hash
                 }
+                IssueIdentifier::Number(project_id, number) => {
+                    issue.project_id() == project_id && issue.issue_number() == Some(*number)
+                }
             };
             if matches { Some(issue.clone()) } else { None }
         })
@@ -53,6 +56,7 @@ impl PgIssueRepository {
 struct IssueRow {
     id: sqlx::types::Uuid,
     project_id: sqlx::types::Uuid,
+    issue_number: i64,
     title: String,
     fingerprint_hash: String,
     status: String,
@@ -68,6 +72,7 @@ impl IssueRow {
         Issue::reconstitute(IssueState {
             id: IssueId::from_uuid(self.id),
             project_id: ProjectId::from_uuid(self.project_id),
+            issue_number: Some(IssueNumber::new(self.issue_number as u64)),
             title: self.title,
             fingerprint_hash: FingerprintHash::new(self.fingerprint_hash).expect("invalid fingerprint_hash in database"),
             status: self.status.parse::<IssueStatus>().expect("invalid status in database"),
@@ -80,7 +85,7 @@ impl IssueRow {
     }
 }
 
-const SELECT_COLUMNS: &str = "id, project_id, title, fingerprint_hash, status, level, \
+const SELECT_COLUMNS: &str = "id, project_id, issue_number, title, fingerprint_hash, status, level, \
     event_count, first_seen, last_seen, version";
 
 #[async_trait]
@@ -110,6 +115,16 @@ impl IssueRepository for PgIssueRepository {
                 )
                 .bind(project_id.as_uuid())
                 .bind(fingerprint_hash.as_str())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(map_sqlx_error)?
+            }
+            IssueIdentifier::Number(project_id, number) => {
+                sqlx::query_as::<_, IssueRow>(
+                    &format!("SELECT {SELECT_COLUMNS} FROM issues WHERE project_id = $1 AND issue_number = $2"),
+                )
+                .bind(project_id.as_uuid())
+                .bind(number.value() as i64)
                 .fetch_optional(&self.pool)
                 .await
                 .map_err(map_sqlx_error)?

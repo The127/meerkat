@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use meerkat_domain::models::issue::IssueId;
 use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::ProjectIdentifier;
 
@@ -16,7 +15,7 @@ use crate::ports::project_read_store::ProjectReadStore;
 
 pub struct GetIssue {
     pub project: ProjectIdentifier,
-    pub issue_id: IssueId,
+    pub issue_number: i64,
 }
 
 impl Request for GetIssue {
@@ -62,13 +61,9 @@ impl Handler<GetIssue, ApplicationError, RequestContext> for GetIssueHandler {
             .ok_or(ApplicationError::NotFound)?;
 
         let issue = self.issue_read_store
-            .find_by_id(&cmd.issue_id)
+            .find_by_number(&project.id, cmd.issue_number)
             .await?
             .ok_or(ApplicationError::NotFound)?;
-
-        if issue.project_id != project.id {
-            return Err(ApplicationError::NotFound);
-        }
 
         Ok(issue)
     }
@@ -91,6 +86,7 @@ mod tests {
         IssueReadModel {
             id: issue_id,
             project_id,
+            issue_number: 1,
             title: "TypeError: x is not defined".to_string(),
             fingerprint_hash: "abc123".to_string(),
             status: "unresolved".to_string(),
@@ -107,8 +103,7 @@ mod tests {
         let org_id = OrganizationId::new();
         let project_id = meerkat_domain::models::project::ProjectId::new();
         let slug = ProjectSlug::new("test-project").unwrap();
-        let issue_id = IssueId::new();
-        let expected = test_issue_read_model(issue_id.clone(), project_id.clone());
+        let expected = test_issue_read_model(IssueId::new(), project_id.clone());
 
         let mut project_store = MockProjectReadStore::new();
         let org_id_clone = org_id.clone();
@@ -131,12 +126,11 @@ mod tests {
             });
 
         let mut issue_store = MockIssueReadStore::new();
-        let issue_id_clone = issue_id.clone();
         let expected_clone = expected.clone();
-        issue_store.expect_find_by_id()
+        issue_store.expect_find_by_number()
             .times(1)
-            .withf(move |id| *id == issue_id_clone)
-            .returning(move |_| Box::pin(std::future::ready(Ok(Some(expected_clone.clone())))));
+            .withf(move |pid, num| *pid == project_id && *num == 1)
+            .returning(move |_, _| Box::pin(std::future::ready(Ok(Some(expected_clone.clone())))));
 
         let handler = GetIssueHandler::new(
             std::sync::Arc::new(project_store),
@@ -144,7 +138,7 @@ mod tests {
         );
         let cmd = GetIssue {
             project: ProjectIdentifier::Slug(org_id, slug),
-            issue_id,
+            issue_number: 1,
         };
         let ctx = RequestContext::test();
 
@@ -177,9 +171,9 @@ mod tests {
             )))));
 
         let mut issue_store = MockIssueReadStore::new();
-        issue_store.expect_find_by_id()
+        issue_store.expect_find_by_number()
             .times(1)
-            .returning(|_| Box::pin(std::future::ready(Ok(None))));
+            .returning(|_, _| Box::pin(std::future::ready(Ok(None))));
 
         let handler = GetIssueHandler::new(
             std::sync::Arc::new(project_store),
@@ -187,59 +181,7 @@ mod tests {
         );
         let cmd = GetIssue {
             project: ProjectIdentifier::Slug(org_id, slug),
-            issue_id: IssueId::new(),
-        };
-        let ctx = RequestContext::test();
-
-        // act
-        let result = handler.handle(cmd, &ctx).await;
-
-        // assert
-        assert!(matches!(result, Err(crate::error::ApplicationError::NotFound)));
-    }
-
-    #[tokio::test]
-    async fn given_issue_from_different_project_then_returns_not_found() {
-        // arrange
-        let org_id = OrganizationId::new();
-        let project_id = meerkat_domain::models::project::ProjectId::new();
-        let other_project_id = meerkat_domain::models::project::ProjectId::new();
-        let slug = ProjectSlug::new("test-project").unwrap();
-        let issue_id = IssueId::new();
-        let issue = test_issue_read_model(issue_id.clone(), other_project_id);
-
-        let mut project_store = MockProjectReadStore::new();
-        let org_id_clone = org_id.clone();
-        project_store.expect_find_by_slug()
-            .times(1)
-            .withf(move |o, s| *o == org_id_clone && s.as_str() == "test-project")
-            .returning(move |_, _| {
-                let pid = project_id.clone();
-                Box::pin(std::future::ready(Ok(Some(
-                    crate::ports::project_read_store::ProjectReadModel {
-                        id: pid,
-                        organization_id: OrganizationId::new(),
-                        name: "Test Project".to_string(),
-                        slug: ProjectSlug::new("test-project").unwrap(),
-                        created_at: chrono::Utc::now(),
-                        updated_at: chrono::Utc::now(),
-                    }
-                ))))
-            });
-
-        let mut issue_store = MockIssueReadStore::new();
-        let issue_clone = issue.clone();
-        issue_store.expect_find_by_id()
-            .times(1)
-            .returning(move |_| Box::pin(std::future::ready(Ok(Some(issue_clone.clone())))));
-
-        let handler = GetIssueHandler::new(
-            std::sync::Arc::new(project_store),
-            std::sync::Arc::new(issue_store),
-        );
-        let cmd = GetIssue {
-            project: ProjectIdentifier::Slug(org_id, slug),
-            issue_id,
+            issue_number: 999,
         };
         let ctx = RequestContext::test();
 

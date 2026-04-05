@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use meerkat_domain::models::issue::IssueId;
 use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::ProjectIdentifier;
 
@@ -17,7 +16,7 @@ use crate::ports::project_read_store::{PagedResult, ProjectReadStore};
 
 pub struct ListIssueEvents {
     pub project: ProjectIdentifier,
-    pub issue_id: IssueId,
+    pub issue_number: i64,
     pub limit: i64,
     pub offset: i64,
 }
@@ -66,16 +65,12 @@ impl Handler<ListIssueEvents, ApplicationError, RequestContext> for ListIssueEve
             .ok_or(ApplicationError::NotFound)?;
 
         let issue = self.issue_read_store
-            .find_by_id(&cmd.issue_id)
+            .find_by_number(&project.id, cmd.issue_number)
             .await?
             .ok_or(ApplicationError::NotFound)?;
 
-        if issue.project_id != project.id {
-            return Err(ApplicationError::NotFound);
-        }
-
         self.event_read_store
-            .list_by_issue(&cmd.issue_id, cmd.limit, cmd.offset)
+            .list_by_issue(&issue.id, cmd.limit, cmd.offset)
             .await
     }
 }
@@ -144,14 +139,15 @@ mod tests {
         let mut issue_store = MockIssueReadStore::new();
         let issue_id_clone = issue_id.clone();
         let project_id_clone2 = project_id.clone();
-        issue_store.expect_find_by_id()
+        issue_store.expect_find_by_number()
             .times(1)
-            .withf(move |id| *id == issue_id_clone)
-            .returning(move |_| {
-                let pid = project_id_clone2.clone();
+            .withf(move |pid, num| *pid == project_id_clone2 && *num == 1)
+            .returning(move |_, _| {
+                let iid = issue_id_clone.clone();
                 Box::pin(std::future::ready(Ok(Some(IssueReadModel {
-                    id: IssueId::new(),
-                    project_id: pid,
+                    id: iid,
+                    project_id: ProjectId::new(),
+                    issue_number: 1,
                     title: "Test".to_string(),
                     fingerprint_hash: "abc".to_string(),
                     status: "unresolved".to_string(),
@@ -163,10 +159,8 @@ mod tests {
             });
 
         let mut event_store = MockEventReadStore::new();
-        let issue_id_clone2 = issue_id.clone();
         event_store.expect_list_by_issue()
             .times(1)
-            .withf(move |id, l, o| *id == issue_id_clone2 && *l == 20 && *o == 0)
             .returning(move |_, _, _| {
                 let e = test_event_read_model(IssueId::new());
                 Box::pin(std::future::ready(Ok(PagedResult { items: vec![e], total: 1 })))
@@ -179,7 +173,7 @@ mod tests {
         );
         let cmd = ListIssueEvents {
             project: ProjectIdentifier::Slug(org_id, slug),
-            issue_id,
+            issue_number: 1,
             limit: 20,
             offset: 0,
         };

@@ -13,13 +13,31 @@ impl IssuePersistence {
         issue: &Issue,
         now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
+        // Serialize issue number assignment per project using an advisory lock
+        // scoped to this transaction. This prevents concurrent inserts from
+        // computing the same next number.
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1::text))")
+            .bind(issue.project_id().as_uuid().to_string())
+            .execute(&mut **tx)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        let (next_number,): (i64,) = sqlx::query_as(
+            "SELECT COALESCE(MAX(issue_number), 0) + 1 FROM issues WHERE project_id = $1",
+        )
+        .bind(issue.project_id().as_uuid())
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(map_sqlx_error)?;
+
         sqlx::query(
-            "INSERT INTO issues (id, project_id, title, fingerprint_hash, status, level, \
+            "INSERT INTO issues (id, project_id, issue_number, title, fingerprint_hash, status, level, \
              event_count, first_seen, last_seen, version, created_at, updated_at) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
         )
         .bind(issue.id().as_uuid())
         .bind(issue.project_id().as_uuid())
+        .bind(next_number)
         .bind(issue.title())
         .bind(issue.fingerprint_hash().as_str())
         .bind(issue.status().as_ref())

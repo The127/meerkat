@@ -24,6 +24,7 @@ impl PgIssueReadStore {
 struct IssueRow {
     id: sqlx::types::Uuid,
     project_id: sqlx::types::Uuid,
+    issue_number: i64,
     title: String,
     fingerprint_hash: String,
     status: String,
@@ -38,6 +39,7 @@ fn to_read_model(row: &IssueRow) -> IssueReadModel {
     IssueReadModel {
         id: IssueId::from_uuid(row.id),
         project_id: ProjectId::from_uuid(row.project_id),
+        issue_number: row.issue_number,
         title: row.title.clone(),
         fingerprint_hash: row.fingerprint_hash.clone(),
         status: row.status.clone(),
@@ -50,17 +52,19 @@ fn to_read_model(row: &IssueRow) -> IssueReadModel {
 
 #[async_trait]
 impl IssueReadStore for PgIssueReadStore {
-    async fn find_by_id(
+    async fn find_by_number(
         &self,
-        issue_id: &IssueId,
+        project_id: &ProjectId,
+        issue_number: i64,
     ) -> Result<Option<IssueReadModel>, ApplicationError> {
         let row = sqlx::query_as::<_, IssueRow>(
-            "SELECT id, project_id, title, fingerprint_hash, status, level, event_count, \
+            "SELECT id, project_id, issue_number, title, fingerprint_hash, status, level, event_count, \
                     first_seen, last_seen, 0::bigint AS total \
              FROM issues \
-             WHERE id = $1",
+             WHERE project_id = $1 AND issue_number = $2",
         )
-        .bind(issue_id.as_uuid())
+        .bind(project_id.as_uuid())
+        .bind(issue_number)
         .fetch_optional(&self.pool)
         .await
         .map_err(map_sqlx_error)?;
@@ -79,7 +83,7 @@ impl IssueReadStore for PgIssueReadStore {
         let pattern = search.map(|s| s.contains_pattern());
 
         let rows = sqlx::query_as::<_, IssueRow>(
-            "SELECT id, project_id, title, fingerprint_hash, status, level, event_count, \
+            "SELECT id, project_id, issue_number, title, fingerprint_hash, status, level, event_count, \
                     first_seen, last_seen, \
                     COUNT(*) OVER() AS total \
              FROM issues \

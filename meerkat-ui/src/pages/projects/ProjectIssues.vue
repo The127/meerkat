@@ -46,7 +46,7 @@ const { mutateAsync: ignoreIssue } = useIgnoreIssue()
 async function handleResolve(issue: Issue) {
   if (!slug.value) return
   try {
-    await resolveIssue({ slug: slug.value, issueId: issue.id })
+    await resolveIssue({ slug: slug.value, issueNumber: issue.issue_number })
     toast.success('Issue resolved')
   } catch {
     toast.error('Failed to resolve issue')
@@ -56,7 +56,7 @@ async function handleResolve(issue: Issue) {
 async function handleReopen(issue: Issue) {
   if (!slug.value) return
   try {
-    await reopenIssue({ slug: slug.value, issueId: issue.id })
+    await reopenIssue({ slug: slug.value, issueNumber: issue.issue_number })
     toast.success('Issue reopened')
   } catch {
     toast.error('Failed to reopen issue')
@@ -66,7 +66,7 @@ async function handleReopen(issue: Issue) {
 async function handleIgnore(issue: Issue) {
   if (!slug.value) return
   try {
-    await ignoreIssue({ slug: slug.value, issueId: issue.id })
+    await ignoreIssue({ slug: slug.value, issueNumber: issue.issue_number })
     toast.success('Issue ignored')
   } catch {
     toast.error('Failed to ignore issue')
@@ -175,8 +175,9 @@ async function sendDemoEvent() {
             <div class="flex items-center gap-2 min-w-0">
               <button
                 class="text-sm font-medium text-foreground truncate hover:text-primary transition-colors text-left"
-                @click="router.push({ name: 'issue-detail', params: { slug, issueId: issue.id } })"
+                @click="router.push({ name: 'issue-detail', params: { slug, issueNumber: issue.issue_number } })"
               >
+                <span class="text-muted-foreground font-normal">#{{ issue.issue_number }}</span>
                 {{ issue.title }}
               </button>
             </div>

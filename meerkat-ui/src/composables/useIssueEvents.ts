@@ -5,7 +5,7 @@ import type { PaginatedResponse, Event } from '@/lib/types'
 
 export function useIssueEvents(
   slug: Ref<string | undefined>,
-  issueId: Ref<string | undefined>,
+  issueNumber: Ref<string | undefined>,
   options?: {
     limit?: Ref<number>
     offset?: Ref<number>
@@ -15,15 +15,15 @@ export function useIssueEvents(
   const offset = computed(() => options?.offset?.value ?? 0)
 
   return useQuery({
-    queryKey: ['issue-events', slug, issueId, limit, offset],
+    queryKey: ['issue-events', slug, issueNumber, limit, offset],
     queryFn: () => {
       const params = new URLSearchParams()
       params.set('limit', String(limit.value))
       params.set('offset', String(offset.value))
       return api<PaginatedResponse<Event>>(
-        `/api/v1/projects/${slug.value}/issues/${issueId.value}/events?${params}`,
+        `/api/v1/projects/${slug.value}/issues/${issueNumber.value}/events?${params}`,
       )
     },
-    enabled: computed(() => !!slug.value && !!issueId.value),
+    enabled: computed(() => !!slug.value && !!issueNumber.value),
   })
 }

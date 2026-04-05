@@ -7,8 +7,8 @@ export function useIssueAction(action: IssueAction) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ slug, issueId }: { slug: string; issueId: string }) =>
-      api<void>(`/api/v1/projects/${slug}/issues/${issueId}/${action}`, {
+    mutationFn: ({ slug, issueNumber }: { slug: string; issueNumber: number }) =>
+      api<void>(`/api/v1/projects/${slug}/issues/${issueNumber}/${action}`, {
         method: 'POST',
       }),
     onSuccess: () => {
