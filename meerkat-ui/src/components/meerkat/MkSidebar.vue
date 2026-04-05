@@ -28,16 +28,13 @@ const navItems = computed(() => {
     },
     {
       name: 'Settings',
-      path: `/projects/${slug.value}`,
+      path: `/projects/${slug.value}/settings`,
       icon: Wrench,
     },
   ]
 })
 
 function isActive(path: string): boolean {
-  if (slug.value && path === `/projects/${slug.value}`) {
-    return route.path === path
-  }
   return route.path === path || route.path.startsWith(path + '/')
 }
 </script>
