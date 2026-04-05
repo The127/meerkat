@@ -260,7 +260,7 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
             oidc_config_read_store: stores.oidc_config.clone(),
             jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
             oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),
-            member_repository: Arc::new(PgMemberRepository::new(pool.clone())),
+            member_repository: Arc::new(PgMemberRepository::new(pool.clone(), Arc::new(SystemClock))),
         },
         tenant: TenantState {
             org_read_store: stores.org.clone(),

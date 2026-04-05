@@ -76,6 +76,15 @@ async fn authenticate_inner(
     let verified_claims = verify_token(state, token, &header, &config).await?;
     let auth_context = resolve_identity(state, &resolved_org, &config, &verified_claims).await?;
 
+    // Fire-and-forget last_seen update
+    let member_id = auth_context.member_id.clone();
+    let member_repo = state.auth.member_repository.clone();
+    tokio::spawn(async move {
+        if let Err(e) = member_repo.touch_last_seen(&member_id).await {
+            tracing::warn!(error = %e, "failed to update last_seen");
+        }
+    });
+
     request.extensions_mut().insert(auth_context);
 
     Ok(next.run(request).await)

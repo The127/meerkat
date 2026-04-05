@@ -14,4 +14,6 @@ pub trait MemberRepository: Send + Sync {
         preferred_name: &str,
         org_roles: &[OrgRole],
     ) -> Result<MemberId, ApplicationError>;
+
+    async fn touch_last_seen(&self, member_id: &MemberId) -> Result<(), ApplicationError>;
 }
