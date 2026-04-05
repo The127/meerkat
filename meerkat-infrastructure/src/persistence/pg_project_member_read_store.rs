@@ -2,8 +2,10 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
-use meerkat_application::ports::project_member_read_store::{MemberProjectReadModel, ProjectMemberReadModel, ProjectMemberReadStore};
+use meerkat_application::ports::project_member_read_store::{MemberProjectAccessReadModel, MemberProjectReadModel, ProjectMemberReadModel, ProjectMemberReadStore};
 use meerkat_domain::models::member::MemberId;
+use meerkat_domain::models::organization::OrganizationId;
+use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::{ProjectId, ProjectSlug};
 use meerkat_domain::models::project_role::ProjectRoleId;
 
@@ -98,6 +100,49 @@ impl ProjectMemberReadStore for PgProjectMemberReadStore {
                 project_slug: ProjectSlug::new(r.project_slug).expect("invalid slug in database"),
                 role_id: ProjectRoleId::from_uuid(r.role_id),
                 role_name: r.role_name,
+            })
+            .collect())
+    }
+
+    async fn list_access_by_member(
+        &self,
+        member_id: &MemberId,
+        org_id: &OrganizationId,
+    ) -> Result<Vec<MemberProjectAccessReadModel>, ApplicationError> {
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            project_name: String,
+            project_slug: String,
+            role_name: String,
+            role_permissions: Vec<String>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
+            "SELECT p.name AS project_name, p.slug AS project_slug, \
+                    pr.name AS role_name, pr.permissions AS role_permissions \
+             FROM project_members pm \
+             JOIN projects p ON p.id = pm.project_id \
+             JOIN project_member_roles pmr ON pmr.project_member_id = pm.id \
+             JOIN project_roles pr ON pr.id = pmr.role_id \
+             WHERE pm.member_id = $1 AND p.organization_id = $2 \
+             ORDER BY p.name, pr.name",
+        )
+        .bind(member_id.as_uuid())
+        .bind(org_id.as_uuid())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| MemberProjectAccessReadModel {
+                project_name: r.project_name,
+                project_slug: ProjectSlug::new(r.project_slug).expect("invalid slug in database"),
+                role_name: r.role_name,
+                role_permissions: r.role_permissions
+                    .into_iter()
+                    .filter_map(|s| s.parse::<ProjectPermission>().ok())
+                    .collect(),
             })
             .collect())
     }

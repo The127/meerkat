@@ -36,6 +36,7 @@ pub mod state;
         team::list_project_roles,
         team::list_project_members,
         team::list_member_projects,
+        team::get_member_access,
     ),
     components(schemas(
         error::ErrorDto,
@@ -59,6 +60,10 @@ pub mod state;
         team::ProjectRoleDto,
         team::ProjectMemberDto,
         team::MemberProjectDto,
+        team::MemberAccessDto,
+        team::OrgAccessDto,
+        team::ProjectAccessDto,
+        team::ProjectRoleAccessDto,
     ))
 )]
 struct ApiDoc;
@@ -97,6 +102,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/v1/me", get(members::get_current_user))
         .route("/api/v1/members", get(team::list_members))
         .route("/api/v1/members/{id}/projects", get(team::list_member_projects))
+        .route("/api/v1/members/{id}/access", get(team::get_member_access))
         .layer(axum::middleware::from_fn_with_state(state.clone(), middleware::request_context));
 
     if state.auth_enabled {

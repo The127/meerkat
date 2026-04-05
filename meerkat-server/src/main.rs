@@ -45,6 +45,7 @@ use meerkat_application::projects::list::{ListProjects, ListProjectsHandler};
 use meerkat_application::projects::list_members::{ListProjectMembers, ListProjectMembersHandler};
 use meerkat_application::projects::list_roles::{ListProjectRoles, ListProjectRolesHandler};
 use meerkat_application::members::get_current_user::{GetCurrentUser, GetCurrentUserHandler};
+use meerkat_application::members::get_member_access::{GetMemberAccess, GetMemberAccessHandler};
 use meerkat_application::members::list_member_projects::{ListMemberProjects, ListMemberProjectsHandler};
 use meerkat_application::members::list_members::{ListMembers, ListMembersHandler};
 use meerkat_application::projects::rename::{RenameProject, RenameProjectHandler};
@@ -189,7 +190,8 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<GetProject, _>(GetProjectHandler::new(deps.project_read_store.clone()));
     mediator.register::<ListProjects, _>(ListProjectsHandler::new(deps.project_read_store.clone()));
     mediator.register::<GetCurrentUser, _>(GetCurrentUserHandler::new(deps.project_permission_store.clone()));
-    mediator.register::<ListMembers, _>(ListMembersHandler::new(deps.member_read_store));
+    mediator.register::<ListMembers, _>(ListMembersHandler::new(deps.member_read_store.clone()));
+    mediator.register::<GetMemberAccess, _>(GetMemberAccessHandler::new(deps.member_read_store, deps.project_member_read_store.clone()));
     mediator.register::<ListMemberProjects, _>(ListMemberProjectsHandler::new(deps.project_member_read_store.clone()));
     mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(deps.project_read_store.clone(), deps.project_role_read_store));
     mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store.clone(), deps.project_member_read_store));

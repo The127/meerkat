@@ -35,4 +35,10 @@ pub trait MemberReadStore: Send + Sync {
         &self,
         query: &ListMembersQuery,
     ) -> Result<PagedResult<MemberReadModel>, ApplicationError>;
+
+    async fn find_member_for_access(
+        &self,
+        member_id: &MemberId,
+        org_id: &OrganizationId,
+    ) -> Result<Option<MemberReadModel>, ApplicationError>;
 }
