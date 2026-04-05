@@ -115,6 +115,7 @@ async fn hurl_integration_tests() {
             jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
             oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),
             member_repository: Arc::new(PgMemberRepository::new(pool.clone(), Arc::new(SystemClock))),
+            warning_store: Arc::new(meerkat_infrastructure::persistence::pg_oidc_config_warning_store::PgOidcConfigWarningStore::new(pool.clone(), Arc::new(SystemClock))),
         },
         tenant: TenantState {
             org_read_store: Arc::new(PgOrganizationReadStore::new(pool.clone())),

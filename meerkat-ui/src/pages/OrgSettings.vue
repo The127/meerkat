@@ -22,6 +22,7 @@ import { ApiRequestError } from '@/lib/api'
 import type { OidcConfigListItem } from '@/lib/types'
 import AddOidcConfigDialog from './AddOidcConfigDialog.vue'
 import EditOidcClaimMappingDialog from './EditOidcClaimMappingDialog.vue'
+import OidcConfigWarnings from './OidcConfigWarnings.vue'
 
 const toast = useToast()
 const { data: org } = useOrganization()
@@ -173,25 +174,27 @@ function statusIcon(status: string) {
           <div
             v-for="config in oidcConfigs"
             :key="config.id"
-            class="flex items-center justify-between rounded-md border border-border px-4 py-3"
           >
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <component :is="statusIcon(config.status)" class="w-4 h-4 shrink-0 text-muted-foreground" />
-                <p class="text-sm font-medium text-foreground truncate">{{ config.name }}</p>
-                <MkBadge :variant="statusBadgeVariant(config.status)">{{ config.status }}</MkBadge>
+            <div class="flex items-center justify-between rounded-md border border-border px-4 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <component :is="statusIcon(config.status)" class="w-4 h-4 shrink-0 text-muted-foreground" />
+                  <p class="text-sm font-medium text-foreground truncate">{{ config.name }}</p>
+                  <MkBadge :variant="statusBadgeVariant(config.status)">{{ config.status }}</MkBadge>
+                </div>
+                <p class="text-xs text-muted-foreground mt-0.5 ml-6 truncate">{{ config.issuer_url }}</p>
               </div>
-              <p class="text-xs text-muted-foreground mt-0.5 ml-6 truncate">{{ config.issuer_url }}</p>
+              <div class="flex items-center gap-1.5 shrink-0 ml-4">
+                <MkButton size="sm" variant="outline" @click="openEditClaimMapping(config)">
+                  <Pencil class="h-3.5 w-3.5" />
+                </MkButton>
+                <template v-if="config.status !== 'active'">
+                  <MkButton size="sm" variant="outline" @click="handleActivateConfig(config.id)">Activate</MkButton>
+                  <MkButton size="sm" variant="destructive" @click="handleDeleteConfig(config.id)">Delete</MkButton>
+                </template>
+              </div>
             </div>
-            <div class="flex items-center gap-1.5 shrink-0 ml-4">
-              <MkButton size="sm" variant="outline" @click="openEditClaimMapping(config)">
-                <Pencil class="h-3.5 w-3.5" />
-              </MkButton>
-              <template v-if="config.status !== 'active'">
-                <MkButton size="sm" variant="outline" @click="handleActivateConfig(config.id)">Activate</MkButton>
-                <MkButton size="sm" variant="destructive" @click="handleDeleteConfig(config.id)">Delete</MkButton>
-              </template>
-            </div>
+            <OidcConfigWarnings :config-id="config.id" />
           </div>
 
           <MkButton size="sm" variant="outline" @click="showAddOidcDialog = true">

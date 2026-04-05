@@ -48,6 +48,8 @@ use meerkat_application::members::get_current_user::{GetCurrentUser, GetCurrentU
 use meerkat_application::members::get_member_access::{GetMemberAccess, GetMemberAccessHandler};
 use meerkat_application::members::list_member_projects::{ListMemberProjects, ListMemberProjectsHandler};
 use meerkat_application::members::list_members::{ListMembers, ListMembersHandler};
+use meerkat_application::organizations::list_oidc_config_warnings::{ListOidcConfigWarnings, ListOidcConfigWarningsHandler};
+use meerkat_application::organizations::dismiss_oidc_config_warning::{DismissOidcConfigWarning, DismissOidcConfigWarningHandler};
 use meerkat_application::projects::rename::{RenameProject, RenameProjectHandler};
 use meerkat_application::ports::error_observer::ErrorPipeline;
 use meerkat_infrastructure::clock::SystemClock;
@@ -148,6 +150,7 @@ struct ReadStores {
     project_key: Arc<dyn meerkat_application::ports::project_key_read_store::ProjectKeyReadStore>,
     issue: Arc<dyn meerkat_application::ports::issue_read_store::IssueReadStore>,
     event: Arc<dyn meerkat_application::ports::event_read_store::EventReadStore>,
+    oidc_config_warning: Arc<dyn meerkat_application::ports::oidc_config_warning_store::OidcConfigWarningStore>,
 }
 
 struct MediatorDeps {
@@ -163,6 +166,7 @@ struct MediatorDeps {
     issue_read_store: Arc<dyn meerkat_application::ports::issue_read_store::IssueReadStore>,
     event_read_store: Arc<dyn meerkat_application::ports::event_read_store::EventReadStore>,
     fingerprint_service: Arc<dyn meerkat_application::ports::fingerprint_service::FingerprintService>,
+    oidc_config_warning_store: Arc<dyn meerkat_application::ports::oidc_config_warning_store::OidcConfigWarningStore>,
 }
 
 fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationError> {
@@ -184,6 +188,8 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<ActivateOidcConfig, _>(ActivateOidcConfigHandler);
     mediator.register::<DeleteOidcConfig, _>(DeleteOidcConfigHandler);
     mediator.register::<UpdateOidcClaimMapping, _>(UpdateOidcClaimMappingHandler);
+    mediator.register::<ListOidcConfigWarnings, _>(ListOidcConfigWarningsHandler::new(deps.oidc_config_warning_store.clone()));
+    mediator.register::<DismissOidcConfigWarning, _>(DismissOidcConfigWarningHandler::new(deps.oidc_config_warning_store));
     mediator.register::<CreateProject, _>(CreateProjectHandler);
     mediator.register::<RenameProject, _>(RenameProjectHandler);
     mediator.register::<DeleteProject, _>(DeleteProjectHandler);
@@ -221,6 +227,7 @@ fn build_read_stores(pool: &PgPool) -> ReadStores {
         project_key: Arc::new(meerkat_infrastructure::persistence::pg_project_key_read_store::PgProjectKeyReadStore::new(pool.clone())),
         issue: Arc::new(meerkat_infrastructure::persistence::pg_issue_read_store::PgIssueReadStore::new(pool.clone())),
         event: Arc::new(meerkat_infrastructure::persistence::pg_event_read_store::PgEventReadStore::new(pool.clone())),
+        oidc_config_warning: Arc::new(meerkat_infrastructure::persistence::pg_oidc_config_warning_store::PgOidcConfigWarningStore::new(pool.clone(), Arc::new(SystemClock))),
     }
 }
 
@@ -250,6 +257,7 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
         issue_read_store: stores.issue.clone(),
         event_read_store: stores.event.clone(),
         fingerprint_service,
+        oidc_config_warning_store: stores.oidc_config_warning.clone(),
     }));
 
     AppState {
@@ -261,6 +269,7 @@ fn build_app_state(pool: &PgPool, config: &MeerkatConfig, stores: &ReadStores) -
             jwks_provider: Arc::new(CachedJwksProvider::new(std::time::Duration::from_secs(300))),
             oidc_discovery_provider: Arc::new(CachedOidcDiscoveryProvider::new(std::time::Duration::from_secs(300))),
             member_repository: Arc::new(PgMemberRepository::new(pool.clone(), Arc::new(SystemClock))),
+            warning_store: stores.oidc_config_warning.clone(),
         },
         tenant: TenantState {
             org_read_store: stores.org.clone(),

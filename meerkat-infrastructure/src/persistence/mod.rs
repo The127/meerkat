@@ -14,6 +14,7 @@ pub mod pg_issue_repository;
 pub mod pg_member_read_store;
 pub mod pg_member_repository;
 pub mod pg_oidc_config_read_store;
+pub mod pg_oidc_config_warning_store;
 pub mod pg_organization_read_store;
 pub mod pg_project_key_read_store;
 pub mod pg_project_key_repository;

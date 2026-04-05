@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { api } from '@/lib/api'
+import type { ClaimMapping } from '@/lib/types'
 
 interface AddOidcConfigRequest {
   name: string
@@ -7,12 +8,7 @@ interface AddOidcConfigRequest {
   issuer_url: string
   audience: string
   discovery_url?: string
-  sub_claim: string
-  name_claim: string
-  role_claim: string
-  owner_values: string[]
-  admin_values: string[]
-  member_values: string[]
+  claim_mapping: ClaimMapping
 }
 
 export function useAddOidcConfig() {

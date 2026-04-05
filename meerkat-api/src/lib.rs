@@ -32,6 +32,8 @@ pub mod state;
         oidc_admin::activate_oidc_config,
         oidc_admin::delete_oidc_config,
         oidc_admin::update_oidc_claim_mapping,
+        oidc_admin::list_oidc_config_warnings,
+        oidc_admin::dismiss_oidc_config_warning,
         team::list_members,
         team::list_project_roles,
         team::list_project_members,
@@ -56,6 +58,7 @@ pub mod state;
         oidc_admin::OidcConfigListItemDto,
         oidc_admin::AddOidcConfigRequestDto,
         oidc_admin::AddOidcConfigResponseDto,
+        oidc_admin::OidcConfigWarningDto,
         team::MemberDto,
         team::ProjectRoleDto,
         team::ProjectMemberDto,
@@ -99,6 +102,8 @@ pub fn router(state: AppState) -> Router {
         // Consider folding into a general "update OIDC config" endpoint.
         .route("/api/v1/organization/oidc-configs/{id}/claim-mapping", axum::routing::put(oidc_admin::update_oidc_claim_mapping))
         .route("/api/v1/organization/oidc-configs/{id}", delete(oidc_admin::delete_oidc_config))
+        .route("/api/v1/organization/oidc-configs/{id}/warnings", get(oidc_admin::list_oidc_config_warnings))
+        .route("/api/v1/organization/oidc-configs/{id}/warnings/{warning_key}", delete(oidc_admin::dismiss_oidc_config_warning))
         .route("/api/v1/me", get(members::get_current_user))
         .route("/api/v1/members", get(team::list_members))
         .route("/api/v1/members/{id}/projects", get(team::list_member_projects))

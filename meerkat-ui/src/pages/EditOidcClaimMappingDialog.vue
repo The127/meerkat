@@ -33,9 +33,9 @@ watch(() => props.config, (c) => {
   subClaim.value = c.claim_mapping.sub_claim
   nameClaim.value = c.claim_mapping.name_claim
   roleClaim.value = c.claim_mapping.role_claim
-  ownerValues.value = c.claim_mapping.owner_values.join(', ')
-  adminValues.value = c.claim_mapping.admin_values.join(', ')
-  memberValues.value = c.claim_mapping.member_values.join(', ')
+  ownerValues.value = c.claim_mapping.role_values.owner.join(', ')
+  adminValues.value = c.claim_mapping.role_values.admin.join(', ')
+  memberValues.value = c.claim_mapping.role_values.member.join(', ')
   errorMessage.value = ''
 }, { immediate: true })
 
@@ -58,9 +58,11 @@ async function submit() {
         sub_claim: subClaim.value.trim(),
         name_claim: nameClaim.value.trim(),
         role_claim: roleClaim.value.trim(),
-        owner_values: splitCsv(ownerValues.value),
-        admin_values: splitCsv(adminValues.value),
-        member_values: splitCsv(memberValues.value),
+        role_values: {
+          owner: splitCsv(ownerValues.value),
+          admin: splitCsv(adminValues.value),
+          member: splitCsv(memberValues.value),
+        },
       },
     })
     toast.success('Claim mapping updated')

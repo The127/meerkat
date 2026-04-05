@@ -10,8 +10,11 @@ use meerkat_application::context::RequestContext;
 use meerkat_application::organizations::activate_oidc_config::ActivateOidcConfig;
 use meerkat_application::organizations::add_oidc_config::AddOidcConfig;
 use meerkat_application::organizations::delete_oidc_config::DeleteOidcConfig;
+use meerkat_application::organizations::dismiss_oidc_config_warning::DismissOidcConfigWarning;
+use meerkat_application::organizations::list_oidc_config_warnings::ListOidcConfigWarnings;
 use meerkat_application::organizations::list_oidc_configs::ListOidcConfigs;
 use meerkat_application::organizations::update_oidc_claim_mapping::UpdateOidcClaimMapping;
+use meerkat_application::ports::oidc_config_warning_store::OidcConfigWarningReadModel;
 use meerkat_domain::models::oidc_config::{Audience, ClaimMapping, ClientId, OidcConfigId};
 use meerkat_domain::models::organization::OrganizationIdentifier;
 use meerkat_domain::shared::url::Url;
@@ -213,6 +216,86 @@ pub(crate) async fn update_oidc_claim_mapping(
         org_identifier: OrganizationIdentifier::Id(resolved_org.id),
         config_id,
         claim_mapping,
+    };
+
+    state.mediator.dispatch(cmd, &req_ctx).await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// --- Warnings ---
+
+#[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct OidcConfigWarningDto {
+    #[serde(rename = "warning_key")]
+    pub warning_key: String,
+    #[serde(rename = "message")]
+    pub message: String,
+    #[serde(rename = "context")]
+    pub context: Option<serde_json::Value>,
+    #[serde(rename = "first_seen")]
+    pub first_seen: chrono::DateTime<chrono::Utc>,
+    #[serde(rename = "last_seen")]
+    pub last_seen: chrono::DateTime<chrono::Utc>,
+    #[serde(rename = "occurrence_count")]
+    pub occurrence_count: i64,
+}
+
+impl From<OidcConfigWarningReadModel> for OidcConfigWarningDto {
+    fn from(m: OidcConfigWarningReadModel) -> Self {
+        Self {
+            warning_key: m.warning_key,
+            message: m.message,
+            context: m.context,
+            first_seen: m.first_seen,
+            last_seen: m.last_seen,
+            occurrence_count: m.occurrence_count,
+        }
+    }
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/v1/organization/oidc-configs/{id}/warnings",
+    responses(
+        (status = 200, description = "List of warnings for OIDC config", body = Vec<OidcConfigWarningDto>),
+    )
+)]
+pub(crate) async fn list_oidc_config_warnings(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(config_id): Path<OidcConfigId>,
+) -> Result<Json<Vec<OidcConfigWarningDto>>, ApiError> {
+    let warnings = state
+        .mediator
+        .dispatch(
+            ListOidcConfigWarnings { org_id: resolved_org.id, config_id },
+            &req_ctx,
+        )
+        .await?;
+
+    let items = warnings.into_iter().map(OidcConfigWarningDto::from).collect();
+    Ok(Json(items))
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/organization/oidc-configs/{id}/warnings/{warning_key}",
+    responses(
+        (status = 204, description = "Warning dismissed"),
+    )
+)]
+pub(crate) async fn dismiss_oidc_config_warning(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((config_id, warning_key)): Path<(OidcConfigId, String)>,
+) -> Result<StatusCode, ApiError> {
+    let cmd = DismissOidcConfigWarning {
+        org_id: resolved_org.id,
+        config_id,
+        warning_key,
     };
 
     state.mediator.dispatch(cmd, &req_ctx).await?;

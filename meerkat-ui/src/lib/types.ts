@@ -32,13 +32,17 @@ export interface PaginatedResponse<T> {
   total: number
 }
 
+export interface RoleValues {
+  owner: string[]
+  admin: string[]
+  member: string[]
+}
+
 export interface ClaimMapping {
   sub_claim: string
   name_claim: string
   role_claim: string
-  owner_values: string[]
-  admin_values: string[]
-  member_values: string[]
+  role_values: RoleValues
 }
 
 export interface OidcConfigListItem {
@@ -92,6 +96,15 @@ export interface Event {
   exception_value: string | null
   tags: EventTag[]
   extra: unknown
+}
+
+export interface OidcConfigWarning {
+  warning_key: string
+  message: string
+  context: Record<string, unknown> | null
+  first_seen: string
+  last_seen: string
+  occurrence_count: number
 }
 
 export interface CurrentUser {

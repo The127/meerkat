@@ -66,12 +66,16 @@ async function submit() {
       issuer_url: issuerUrl.value.trim(),
       audience: audience.value.trim(),
       discovery_url: discoveryUrl.value.trim() || undefined,
-      sub_claim: subClaim.value.trim(),
-      name_claim: nameClaim.value.trim(),
-      role_claim: roleClaim.value.trim(),
-      owner_values: splitCsv(ownerValues.value),
-      admin_values: splitCsv(adminValues.value),
-      member_values: splitCsv(memberValues.value),
+      claim_mapping: {
+        sub_claim: subClaim.value.trim(),
+        name_claim: nameClaim.value.trim(),
+        role_claim: roleClaim.value.trim(),
+        role_values: {
+          owner: splitCsv(ownerValues.value),
+          admin: splitCsv(adminValues.value),
+          member: splitCsv(memberValues.value),
+        },
+      },
     })
     toast.success('OIDC configuration added')
     resetForm()

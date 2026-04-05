@@ -85,6 +85,28 @@ async fn authenticate_inner(
         }
     });
 
+    // Fire-and-forget OIDC config warning if name claim is missing
+    if auth_context.preferred_name == auth_context.sub.as_str() {
+        let warning_store = state.auth.warning_store.clone();
+        let config_id = config.id.clone();
+        let sub_str = auth_context.sub.as_str().to_string();
+        let name_claim = config.claim_mapping.name_claim().as_str().to_string();
+        tokio::spawn(async move {
+            let context = serde_json::json!({
+                "sub": sub_str,
+                "expected_claim": name_claim,
+            });
+            if let Err(e) = warning_store.upsert(
+                &config_id,
+                "missing_name_claim",
+                "Name claim missing from token \u{2014} member name falls back to subject identifier",
+                Some(&context),
+            ).await {
+                tracing::warn!(error = %e, "failed to upsert OIDC config warning");
+            }
+        });
+    }
+
     request.extensions_mut().insert(auth_context);
 
     Ok(next.run(request).await)
@@ -134,10 +156,20 @@ async fn resolve_identity(
         return Err(unauthorized("no matching org role"));
     }
 
-    let preferred_name = claims
+    let preferred_name = match claims
         .get(claim_mapping.name_claim().as_str())
         .and_then(|v| v.as_str())
-        .unwrap_or(sub_value);
+    {
+        Some(name) => name,
+        None => {
+            tracing::warn!(
+                sub = sub_value,
+                name_claim = claim_mapping.name_claim().as_str(),
+                "name claim missing from token, falling back to sub — check OIDC claim mapping",
+            );
+            sub_value
+        }
+    };
 
     let member_id = state
         .auth

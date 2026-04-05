@@ -12,6 +12,7 @@ pub mod member_repository;
 pub mod jwks_provider;
 pub mod oidc_discovery_provider;
 pub mod oidc_config_read_store;
+pub mod oidc_config_warning_store;
 pub mod organization_read_store;
 pub mod organization_repository;
 pub mod project_key_read_store;
