@@ -12,7 +12,7 @@ import { usePagination } from '@/composables/usePagination'
 import { useToast } from '@/composables/useToast'
 import { useQueryClient } from '@tanstack/vue-query'
 import { levelVariant, statusVariant, formatRelativeTime } from '@/lib/issue-utils'
-import type { Issue, Event } from '@/lib/types'
+
 
 const route = useRoute()
 const toast = useToast()

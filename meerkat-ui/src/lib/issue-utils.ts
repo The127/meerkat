@@ -2,29 +2,29 @@ import type { Issue } from '@/lib/types'
 
 export { formatRelativeTime } from '@/lib/date-utils'
 
-export function levelVariant(level: Issue['level']): string {
+export function levelVariant(level: Issue['level']) {
   switch (level) {
     case 'fatal':
     case 'error':
-      return 'error'
+      return 'error' as const
     case 'warning':
-      return 'warning'
+      return 'warning' as const
     case 'info':
-      return 'default'
+      return 'default' as const
     case 'debug':
-      return 'secondary'
+      return 'secondary' as const
   }
 }
 
-export function statusVariant(status: Issue['status']): string {
+export function statusVariant(status: Issue['status']) {
   switch (status) {
     case 'unresolved':
-      return 'destructive'
+      return 'destructive' as const
     case 'resolved':
-      return 'success'
+      return 'success' as const
     case 'ignored':
-      return 'secondary'
+      return 'secondary' as const
     case 'regressed':
-      return 'warning'
+      return 'warning' as const
   }
 }

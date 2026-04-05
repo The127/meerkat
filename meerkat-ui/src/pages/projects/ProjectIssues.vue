@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { MkCard, MkButton, MkSpinner, MkBadge } from '@/components/meerkat'
+import { MkButton, MkSpinner, MkBadge } from '@/components/meerkat'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useProjectKeys } from '@/composables/useProjectKeys'
 import { useIssues } from '@/composables/useIssues'
