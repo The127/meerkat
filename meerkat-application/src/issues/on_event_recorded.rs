@@ -6,10 +6,10 @@ use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::events::{DomainEvent, DomainEventHandler};
 
-pub struct ReopenResolvedIssueOnNewEvent;
+pub struct RegressResolvedIssueOnNewEvent;
 
 #[async_trait]
-impl DomainEventHandler for ReopenResolvedIssueOnNewEvent {
+impl DomainEventHandler for RegressResolvedIssueOnNewEvent {
     async fn handle(&self, event: &DomainEvent, ctx: &RequestContext) -> Result<(), ApplicationError> {
         let DomainEvent::EventRecorded { issue_id } = event else {
             return Ok(());
@@ -25,7 +25,7 @@ impl DomainEventHandler for ReopenResolvedIssueOnNewEvent {
             return Ok(());
         }
 
-        issue.reopen()?;
+        issue.regress()?;
         uow.issues().save(issue);
 
         Ok(())
@@ -42,10 +42,10 @@ mod tests {
     use crate::ports::issue_repository::MockIssueRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 
-    use super::ReopenResolvedIssueOnNewEvent;
+    use super::RegressResolvedIssueOnNewEvent;
 
     #[tokio::test]
-    async fn given_resolved_issue_then_reopens() {
+    async fn given_resolved_issue_then_regresses() {
         // arrange
         let mut issue = test_issue();
         issue.resolve().unwrap();
@@ -57,14 +57,14 @@ mod tests {
             .returning(move |_| Box::pin(std::future::ready(Ok(issue.clone()))));
         issue_repo.expect_save()
             .times(1)
-            .withf(|issue| *issue.status() == IssueStatus::Unresolved)
+            .withf(|issue| *issue.status() == IssueStatus::Regressed)
             .returning(|_| ());
 
         let uow = MockUnitOfWork::new().with_issue_repo(issue_repo);
         let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(uow));
 
-        let handler = ReopenResolvedIssueOnNewEvent;
+        let handler = RegressResolvedIssueOnNewEvent;
         let event = DomainEvent::EventRecorded { issue_id };
 
         // act
@@ -92,7 +92,7 @@ mod tests {
         let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(uow));
 
-        let handler = ReopenResolvedIssueOnNewEvent;
+        let handler = RegressResolvedIssueOnNewEvent;
         let event = DomainEvent::EventRecorded { issue_id };
 
         // act
@@ -121,7 +121,7 @@ mod tests {
         let ctx = RequestContext::test()
             .with_scoped_uow(Box::new(uow));
 
-        let handler = ReopenResolvedIssueOnNewEvent;
+        let handler = RegressResolvedIssueOnNewEvent;
         let event = DomainEvent::EventRecorded { issue_id };
 
         // act

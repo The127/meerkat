@@ -20,7 +20,7 @@ use meerkat_application::issues::get::{GetIssue, GetIssueHandler};
 use meerkat_application::issues::ignore::{IgnoreIssue, IgnoreIssueHandler};
 use meerkat_application::issues::list::{ListIssues, ListIssuesHandler};
 use meerkat_application::issues::list_events::{ListIssueEvents, ListIssueEventsHandler};
-use meerkat_application::issues::on_event_recorded::ReopenResolvedIssueOnNewEvent;
+use meerkat_application::issues::on_event_recorded::RegressResolvedIssueOnNewEvent;
 use meerkat_application::issues::reopen::{ReopenIssue, ReopenIssueHandler};
 use meerkat_application::issues::resolve::{ResolveIssue, ResolveIssueHandler};
 use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectKeyHandler};
@@ -171,7 +171,7 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
 
     let mut event_dispatcher = EventDispatcher::new();
     event_dispatcher.register(Arc::new(GenerateProjectKeyOnProjectCreated));
-    event_dispatcher.register(Arc::new(ReopenResolvedIssueOnNewEvent));
+    event_dispatcher.register(Arc::new(RegressResolvedIssueOnNewEvent));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(Arc::new(event_dispatcher))));
     mediator.register::<CreateOrganization, _>(CreateOrganizationHandler);
     mediator.register::<RenameOrganization, _>(RenameOrganizationHandler);

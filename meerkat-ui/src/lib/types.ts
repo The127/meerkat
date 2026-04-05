@@ -67,7 +67,7 @@ export interface Issue {
   issue_number: number
   title: string
   fingerprint_hash: string
-  status: 'unresolved' | 'resolved' | 'ignored'
+  status: 'unresolved' | 'resolved' | 'ignored' | 'regressed'
   level: 'fatal' | 'error' | 'warning' | 'info' | 'debug'
   event_count: number
   first_seen: string

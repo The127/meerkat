@@ -5,7 +5,7 @@ use meerkat_application::error::ApplicationError;
 use meerkat_application::ports::issue_read_store::{IssueReadModel, IssueReadStore};
 use meerkat_application::ports::project_read_store::PagedResult;
 use meerkat_application::search::SearchFilter;
-use meerkat_domain::models::issue::IssueId;
+use meerkat_domain::models::issue::{IssueId, IssueStatus};
 use meerkat_domain::models::project::ProjectId;
 
 use super::error::map_sqlx_error;
@@ -75,12 +75,13 @@ impl IssueReadStore for PgIssueReadStore {
     async fn list_by_project(
         &self,
         project_id: &ProjectId,
-        status: Option<&str>,
+        statuses: &[IssueStatus],
         search: Option<&SearchFilter>,
         limit: i64,
         offset: i64,
     ) -> Result<PagedResult<IssueReadModel>, ApplicationError> {
         let pattern = search.map(|s| s.contains_pattern());
+        let status_strings: Vec<String> = statuses.iter().map(|s| s.to_string()).collect();
 
         let rows = sqlx::query_as::<_, IssueRow>(
             "SELECT id, project_id, issue_number, title, fingerprint_hash, status, level, event_count, \
@@ -88,7 +89,7 @@ impl IssueReadStore for PgIssueReadStore {
                     COUNT(*) OVER() AS total \
              FROM issues \
              WHERE project_id = $1 \
-               AND ($4::text IS NULL OR status = $4) \
+               AND (cardinality($4::text[]) = 0 OR status = ANY($4)) \
                AND ($5::text IS NULL OR title ILIKE $5) \
              ORDER BY last_seen DESC \
              LIMIT $2 OFFSET $3",
@@ -96,7 +97,7 @@ impl IssueReadStore for PgIssueReadStore {
         .bind(project_id.as_uuid())
         .bind(limit)
         .bind(offset)
-        .bind(status)
+        .bind(&status_strings)
         .bind(pattern.as_deref())
         .fetch_all(&self.pool)
         .await

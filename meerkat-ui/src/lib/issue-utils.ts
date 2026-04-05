@@ -22,6 +22,8 @@ export function statusVariant(status: Issue['status']): string {
       return 'success'
     case 'ignored':
       return 'secondary'
+    case 'regressed':
+      return 'warning'
   }
 }
 

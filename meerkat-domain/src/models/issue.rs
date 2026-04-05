@@ -60,6 +60,8 @@ pub enum IssueStatus {
     Resolved,
     #[strum(serialize = "ignored")]
     Ignored,
+    #[strum(serialize = "regressed")]
+    Regressed,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -74,6 +76,8 @@ pub enum IssueError {
     AlreadyUnresolved,
     #[error("issue is already ignored")]
     AlreadyIgnored,
+    #[error("issue is not resolved")]
+    NotResolved,
 }
 
 #[derive(Debug, Clone, Reconstitute)]
@@ -162,6 +166,14 @@ impl Issue {
             return Err(IssueError::AlreadyIgnored);
         }
         self.status = IssueStatus::Ignored;
+        Ok(())
+    }
+
+    pub fn regress(&mut self) -> Result<(), IssueError> {
+        if self.status != IssueStatus::Resolved {
+            return Err(IssueError::NotResolved);
+        }
+        self.status = IssueStatus::Regressed;
         Ok(())
     }
 
@@ -432,6 +444,76 @@ mod tests {
 
         // assert
         assert_eq!(issue.status(), &IssueStatus::Unresolved);
+    }
+
+    #[test]
+    fn given_resolved_issue_then_regress_succeeds() {
+        // arrange
+        let mut issue = test_issue();
+        issue.resolve().unwrap();
+
+        // act
+        issue.regress().expect("Failed to regress");
+
+        // assert
+        assert_eq!(issue.status(), &IssueStatus::Regressed);
+    }
+
+    #[test]
+    fn given_unresolved_issue_then_regress_fails() {
+        // arrange
+        let mut issue = test_issue();
+
+        // act
+        let result = issue.regress();
+
+        // assert
+        match result {
+            Err(IssueError::NotResolved) => (),
+            other => panic!("Expected NotResolved error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn given_regressed_issue_then_resolve_succeeds() {
+        // arrange
+        let mut issue = test_issue();
+        issue.resolve().unwrap();
+        issue.regress().unwrap();
+
+        // act
+        issue.resolve().expect("Failed to resolve regressed issue");
+
+        // assert
+        assert_eq!(issue.status(), &IssueStatus::Resolved);
+    }
+
+    #[test]
+    fn given_regressed_issue_then_reopen_succeeds() {
+        // arrange
+        let mut issue = test_issue();
+        issue.resolve().unwrap();
+        issue.regress().unwrap();
+
+        // act
+        issue.reopen().expect("Failed to reopen regressed issue");
+
+        // assert
+        assert_eq!(issue.status(), &IssueStatus::Unresolved);
+    }
+
+    #[test]
+    fn given_regressed_issue_then_ignore_succeeds() {
+        // arrange
+        let mut issue = test_issue();
+        issue.resolve().unwrap();
+        issue.regress().unwrap();
+
+        // act
+        issue.ignore().expect("Failed to ignore regressed issue");
+
+        // assert
+        assert_eq!(issue.status(), &IssueStatus::Ignored);
     }
 
     #[test]

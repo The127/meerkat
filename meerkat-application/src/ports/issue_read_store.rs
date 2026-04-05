@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use meerkat_domain::models::issue::IssueId;
+use meerkat_domain::models::issue::{IssueId, IssueStatus};
 use meerkat_domain::models::project::ProjectId;
 
 use crate::error::ApplicationError;
@@ -33,7 +33,7 @@ pub trait IssueReadStore: Send + Sync {
     async fn list_by_project(
         &self,
         project_id: &ProjectId,
-        status: Option<&str>,
+        statuses: &[IssueStatus],
         search: Option<&SearchFilter>,
         limit: i64,
         offset: i64,

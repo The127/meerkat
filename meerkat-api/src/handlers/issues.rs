@@ -100,18 +100,24 @@ pub(crate) async fn list_issues(
     Query(search): Query<SearchQueryDto>,
     Query(status_filter): Query<IssueStatusFilterQueryDto>,
 ) -> Result<Json<ListIssuesResponseDto>, ApiError> {
-    let status = status_filter.status
-        .as_deref()
-        .map(IssueStatus::from_str)
-        .transpose()
-        .map_err(|_| ApplicationError::Validation(
-            format!("invalid status filter: '{}'", status_filter.status.as_deref().unwrap_or_default()),
-        ))?;
+    let statuses = match status_filter.status.as_deref() {
+        None => vec![],
+        Some(raw) => {
+            let parsed = IssueStatus::from_str(raw)
+                .map_err(|_| ApplicationError::Validation(
+                    format!("invalid status filter: '{raw}'"),
+                ))?;
+            match parsed {
+                IssueStatus::Unresolved => vec![IssueStatus::Unresolved, IssueStatus::Regressed],
+                other => vec![other],
+            }
+        }
+    };
 
     let query = ListIssues {
         project: ProjectIdentifier::Slug(resolved_org.id, slug),
         search: search.search.as_deref().and_then(SearchFilter::new),
-        status: status.map(|s| s.to_string()),
+        statuses,
         limit: pagination.limit(),
         offset: pagination.offset(),
     };

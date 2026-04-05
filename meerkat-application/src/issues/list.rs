@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use meerkat_domain::models::issue::IssueStatus;
 use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::ProjectIdentifier;
 
@@ -16,7 +17,7 @@ use crate::search::SearchFilter;
 
 pub struct ListIssues {
     pub project: ProjectIdentifier,
-    pub status: Option<String>,
+    pub statuses: Vec<IssueStatus>,
     pub search: Option<SearchFilter>,
     pub limit: i64,
     pub offset: i64,
@@ -64,7 +65,7 @@ impl Handler<ListIssues, ApplicationError, RequestContext> for ListIssuesHandler
             .ok_or(ApplicationError::NotFound)?;
 
         self.issue_read_store
-            .list_by_project(&project.id, cmd.status.as_deref(), cmd.search.as_ref(), cmd.limit, cmd.offset)
+            .list_by_project(&project.id, &cmd.statuses, cmd.search.as_ref(), cmd.limit, cmd.offset)
             .await
     }
 }

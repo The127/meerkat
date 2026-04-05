@@ -28,7 +28,7 @@ use meerkat_infrastructure::clock::SystemClock;
 use meerkat_infrastructure::jwks::CachedJwksProvider;
 use meerkat_infrastructure::oidc_discovery::CachedOidcDiscoveryProvider;
 use meerkat_application::events::ingest::{IngestEvent, IngestEventHandler};
-use meerkat_application::issues::on_event_recorded::ReopenResolvedIssueOnNewEvent;
+use meerkat_application::issues::on_event_recorded::RegressResolvedIssueOnNewEvent;
 use meerkat_infrastructure::persistence::pg_member_repository::PgMemberRepository;
 use meerkat_infrastructure::persistence::pg_oidc_config_read_store::PgOidcConfigReadStore;
 use meerkat_infrastructure::persistence::pg_organization_read_store::PgOrganizationReadStore;
@@ -42,7 +42,7 @@ fn build_mediator(pool: PgPool) -> Mediator<RequestContext, ApplicationError> {
 
     let mut event_dispatcher = EventDispatcher::new();
     event_dispatcher.register(Arc::new(GenerateProjectKeyOnProjectCreated));
-    event_dispatcher.register(Arc::new(ReopenResolvedIssueOnNewEvent));
+    event_dispatcher.register(Arc::new(RegressResolvedIssueOnNewEvent));
     mediator.add_behavior(Arc::new(UnitOfWorkBehavior::new(Arc::new(event_dispatcher))));
 
     let project_read_store: Arc<dyn meerkat_application::ports::project_read_store::ProjectReadStore> =
