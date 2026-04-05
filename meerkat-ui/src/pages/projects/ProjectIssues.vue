@@ -174,7 +174,7 @@ async function sendDemoEvent() {
           <div class="flex items-center justify-between mb-1">
             <div class="flex items-center gap-2 min-w-0">
               <button
-                class="text-sm font-medium text-foreground truncate hover:text-primary transition-colors text-left"
+                class="text-sm font-medium text-foreground truncate hover:text-primary transition-colors text-left cursor-pointer"
                 @click="router.push({ name: 'issue-detail', params: { slug, issueNumber: issue.issue_number } })"
               >
                 <span class="text-muted-foreground font-normal">#{{ issue.issue_number }}</span>
