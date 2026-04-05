@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Shield, FolderOpen } from 'lucide-vue-next'
-import { MkSpinner, MkBadge, MkEmptyState } from '@/components/meerkat'
+import { MkSpinner, MkBadge, MkEmptyState, MkBackLink } from '@/components/meerkat'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useMemberAccess } from '@/composables/useMemberAccess'
 import { formatRelativeTime, formatDate } from '@/lib/date-utils'
@@ -25,16 +25,7 @@ const { data: access, isLoading } = useMemberAccess(memberId)
     You don't have permission to view member details.
   </div>
   <div v-else>
-    <!-- Back link -->
-    <button
-      class="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-      @click="router.push({ name: 'members' })"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-      </svg>
-      Back to members
-    </button>
+    <MkBackLink :to="{ name: 'members' }">Back to members</MkBackLink>
 
     <!-- Loading -->
     <div v-if="isLoading" class="flex justify-center py-12">

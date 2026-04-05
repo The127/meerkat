@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { MkButton, MkSpinner, MkBadge, MkPagination } from '@/components/meerkat'
+import { useRoute } from 'vue-router'
+import { MkButton, MkSpinner, MkBadge, MkPagination, MkBackLink } from '@/components/meerkat'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import { useIssue } from '@/composables/useIssue'
 import { useIssueEvents } from '@/composables/useIssueEvents'
@@ -15,7 +15,6 @@ import { levelVariant, statusVariant, formatRelativeTime } from '@/lib/issue-uti
 import type { Issue, Event } from '@/lib/types'
 
 const route = useRoute()
-const router = useRouter()
 const toast = useToast()
 const queryClient = useQueryClient()
 const { hasProjectPermission } = useCurrentUser()
@@ -114,16 +113,7 @@ function formatTimestamp(iso: string): string {
 
 <template>
   <div>
-    <!-- Back link -->
-    <button
-      class="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-      @click="router.push({ name: 'project-issues', params: { slug } })"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-      </svg>
-      Back to issues
-    </button>
+    <MkBackLink :to="{ name: 'project-issues', params: { slug } }">Back to issues</MkBackLink>
 
     <!-- Loading -->
     <div v-if="isLoadingIssue" class="flex justify-center py-12">
