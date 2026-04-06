@@ -20,4 +20,9 @@ pub trait ProjectRoleReadStore: Send + Sync {
         &self,
         project_id: &ProjectId,
     ) -> Result<Vec<ProjectRoleReadModel>, ApplicationError>;
+
+    async fn find_by_id(
+        &self,
+        id: &ProjectRoleId,
+    ) -> Result<Option<ProjectRoleReadModel>, ApplicationError>;
 }

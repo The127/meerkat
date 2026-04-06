@@ -2,10 +2,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
 use axum::{Extension, Json};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
+use vec1::Vec1;
 
 use meerkat_application::context::RequestContext;
 use meerkat_application::error::ApplicationError;
@@ -13,11 +15,18 @@ use meerkat_application::members::get_member_access::{GetMemberAccess, MemberAcc
 use meerkat_application::members::list_member_projects::ListMemberProjects;
 use meerkat_application::members::list_members::ListMembers;
 use meerkat_application::ports::member_read_store::{ListMembersQuery, MemberReadModel};
+use meerkat_application::ports::project_member_read_store::ProjectMemberRoleReadModel;
+use meerkat_application::projects::assign_role_to_member::AssignRoleToProjectMember;
+use meerkat_application::projects::create_role::CreateProjectRole;
+use meerkat_application::projects::delete_role::DeleteProjectRole;
 use meerkat_application::projects::list_members::ListProjectMembers;
 use meerkat_application::projects::list_roles::ListProjectRoles;
+use meerkat_application::projects::remove_role_from_member::RemoveRoleFromProjectMember;
+use meerkat_application::projects::update_role::UpdateProjectRole;
 use meerkat_application::search::SearchFilter;
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::org_role::OrgRole;
+use meerkat_domain::models::permission::ProjectPermission;
 use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 use meerkat_domain::models::project_role::ProjectRoleId;
 
@@ -181,6 +190,20 @@ pub(crate) async fn list_project_roles(
 // --- Project members ---
 
 #[derive(Debug, Serialize, ToSchema)]
+pub(crate) struct ProjectMemberRoleDto {
+    #[serde(rename = "role_id")]
+    pub role_id: ProjectRoleId,
+    #[serde(rename = "role_name")]
+    pub role_name: String,
+}
+
+impl From<ProjectMemberRoleReadModel> for ProjectMemberRoleDto {
+    fn from(r: ProjectMemberRoleReadModel) -> Self {
+        Self { role_id: r.role_id, role_name: r.role_name }
+    }
+}
+
+#[derive(Debug, Serialize, ToSchema)]
 pub(crate) struct ProjectMemberDto {
     #[serde(rename = "member_id")]
     pub member_id: MemberId,
@@ -188,10 +211,8 @@ pub(crate) struct ProjectMemberDto {
     pub preferred_name: String,
     #[serde(rename = "sub")]
     pub sub: String,
-    #[serde(rename = "role_id")]
-    pub role_id: ProjectRoleId,
-    #[serde(rename = "role_name")]
-    pub role_name: String,
+    #[serde(rename = "roles")]
+    pub roles: Vec<ProjectMemberRoleDto>,
     #[serde(rename = "created_at")]
     pub created_at: DateTime<Utc>,
 }
@@ -221,13 +242,199 @@ pub(crate) async fn list_project_members(
             member_id: m.member_id,
             preferred_name: m.preferred_name,
             sub: m.sub,
-            role_id: m.role_id,
-            role_name: m.role_name,
+            roles: m.roles.into_iter().map(ProjectMemberRoleDto::from).collect(),
             created_at: m.created_at,
         })
         .collect();
 
     Ok(Json(items))
+}
+
+// --- Project role mutation ---
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct ProjectRoleRequestDto {
+    #[serde(rename = "name")]
+    pub name: String,
+    #[serde(rename = "permissions")]
+    pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub(crate) struct AssignRoleRequestDto {
+    #[serde(rename = "role_id")]
+    pub role_id: ProjectRoleId,
+}
+
+fn parse_permissions(raw: Vec<String>) -> Result<Vec1<ProjectPermission>, ApplicationError> {
+    let parsed: Vec<ProjectPermission> = raw
+        .into_iter()
+        .map(|s| {
+            s.parse::<ProjectPermission>()
+                .map_err(|_| ApplicationError::Validation(format!("invalid permission: '{s}'")))
+        })
+        .collect::<Result<_, _>>()?;
+    Vec1::try_from_vec(parsed)
+        .map_err(|_| ApplicationError::Validation("at least one permission is required".into()))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/roles",
+    responses(
+        (status = 201, description = "Role created", body = ProjectRoleDto),
+        (status = 400, description = "Validation error"),
+    )
+)]
+pub(crate) async fn create_project_role(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path(slug): Path<ProjectSlug>,
+    Json(body): Json<ProjectRoleRequestDto>,
+) -> Result<(StatusCode, Json<ProjectRoleDto>), ApiError> {
+    let permissions = parse_permissions(body.permissions)?;
+    let role = state
+        .mediator
+        .dispatch(
+            CreateProjectRole {
+                project: ProjectIdentifier::Slug(resolved_org.id, slug),
+                name: body.name,
+                permissions,
+            },
+            &req_ctx,
+        )
+        .await?;
+
+    let dto = ProjectRoleDto {
+        id: role.id().clone(),
+        name: role.name().to_string(),
+        slug: role.slug().as_str().to_string(),
+        permissions: role.permissions().iter().map(|p| p.to_string()).collect(),
+        is_default: role.is_default(),
+    };
+
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+#[utoipa::path(
+    put,
+    path = "/api/v1/projects/{slug}/roles/{role_id}",
+    responses(
+        (status = 204, description = "Role updated"),
+        (status = 400, description = "Validation error"),
+        (status = 404, description = "Role not found"),
+    )
+)]
+pub(crate) async fn update_project_role(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, role_id)): Path<(ProjectSlug, ProjectRoleId)>,
+    Json(body): Json<ProjectRoleRequestDto>,
+) -> Result<StatusCode, ApiError> {
+    let permissions = parse_permissions(body.permissions)?;
+    state
+        .mediator
+        .dispatch(
+            UpdateProjectRole {
+                project: ProjectIdentifier::Slug(resolved_org.id, slug),
+                role_id,
+                name: body.name,
+                permissions,
+            },
+            &req_ctx,
+        )
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/projects/{slug}/roles/{role_id}",
+    responses(
+        (status = 204, description = "Role deleted"),
+        (status = 404, description = "Role not found"),
+    )
+)]
+pub(crate) async fn delete_project_role(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, role_id)): Path<(ProjectSlug, ProjectRoleId)>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .mediator
+        .dispatch(
+            DeleteProjectRole {
+                project: ProjectIdentifier::Slug(resolved_org.id, slug),
+                role_id,
+            },
+            &req_ctx,
+        )
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/projects/{slug}/members/{member_id}/roles",
+    responses(
+        (status = 204, description = "Role assigned"),
+        (status = 404, description = "Member or role not found"),
+    )
+)]
+pub(crate) async fn assign_role_to_member(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, member_id)): Path<(ProjectSlug, MemberId)>,
+    Json(body): Json<AssignRoleRequestDto>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .mediator
+        .dispatch(
+            AssignRoleToProjectMember {
+                project: ProjectIdentifier::Slug(resolved_org.id, slug),
+                member_id,
+                role_id: body.role_id,
+            },
+            &req_ctx,
+        )
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    delete,
+    path = "/api/v1/projects/{slug}/members/{member_id}/roles/{role_id}",
+    responses(
+        (status = 204, description = "Role removed"),
+        (status = 404, description = "Member not found"),
+    )
+)]
+pub(crate) async fn remove_role_from_member(
+    State(state): State<AppState>,
+    Extension(req_ctx): Extension<Arc<RequestContext>>,
+    Extension(resolved_org): Extension<ResolvedOrganization>,
+    Path((slug, member_id, role_id)): Path<(ProjectSlug, MemberId, ProjectRoleId)>,
+) -> Result<StatusCode, ApiError> {
+    state
+        .mediator
+        .dispatch(
+            RemoveRoleFromProjectMember {
+                project: ProjectIdentifier::Slug(resolved_org.id, slug),
+                member_id,
+                role_id,
+            },
+            &req_ctx,
+        )
+        .await?;
+
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // --- Member project memberships ---

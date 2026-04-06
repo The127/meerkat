@@ -50,8 +50,8 @@ impl PgUnitOfWork {
             org_repo: PgOrganizationRepository::new(pool.clone()),
             project_repo: PgProjectRepository::new(pool.clone()),
             project_key_repo: PgProjectKeyRepository::new(pool.clone()),
-            project_role_repo: PgProjectRoleRepository::new(),
-            project_member_repo: PgProjectMemberRepository::new(),
+            project_role_repo: PgProjectRoleRepository::new(pool.clone()),
+            project_member_repo: PgProjectMemberRepository::new(pool.clone()),
             event_repo: PgEventRepository::new(),
             issue_repo: PgIssueRepository::new(pool.clone()),
             pool,
@@ -125,7 +125,17 @@ impl PgUnitOfWork {
         now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         for entry in entries {
-            ProjectRolePersistence::insert(tx, &entry.0, now).await?;
+            match entry {
+                DeletableEntry::Added(role) => {
+                    ProjectRolePersistence::insert(tx, role, now).await?;
+                }
+                DeletableEntry::Modified { entity, snapshot } => {
+                    ProjectRolePersistence::update(tx, entity, snapshot, now).await?;
+                }
+                DeletableEntry::Deleted(id) => {
+                    ProjectRolePersistence::delete(tx, id).await?;
+                }
+            }
         }
         Ok(())
     }
@@ -136,7 +146,14 @@ impl PgUnitOfWork {
         now: DateTime<Utc>,
     ) -> Result<(), ApplicationError> {
         for entry in entries {
-            ProjectMemberPersistence::insert(tx, &entry.0, now).await?;
+            match entry {
+                Entry::Added(member) => {
+                    ProjectMemberPersistence::insert(tx, member, now).await?;
+                }
+                Entry::Modified { entity, snapshot } => {
+                    ProjectMemberPersistence::update(tx, entity, snapshot, now).await?;
+                }
+            }
         }
         Ok(())
     }

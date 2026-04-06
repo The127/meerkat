@@ -1,4 +1,4 @@
-use meerkat_macros::{uuid_id, slug_id};
+use meerkat_macros::{uuid_id, slug_id, Reconstitute};
 use vec1::Vec1;
 use crate::models::permission::ProjectPermission;
 use crate::models::project::ProjectId;
@@ -12,7 +12,7 @@ pub enum ProjectRoleIdentifier {
     Slug(ProjectId, ProjectRoleSlug),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reconstitute)]
 pub struct ProjectRole {
     id: ProjectRoleId,
     project_id: ProjectId,
@@ -93,6 +93,16 @@ impl ProjectRole {
         (roles, admin_id)
     }
 
+    pub fn update(&mut self, name: String, permissions: Vec1<ProjectPermission>) -> Result<(), ProjectRoleError> {
+        let name = name.trim().to_string();
+        if name.is_empty() {
+            return Err(ProjectRoleError::EmptyName);
+        }
+        self.name = name;
+        self.permissions = permissions;
+        Ok(())
+    }
+
     pub fn id(&self) -> &ProjectRoleId { &self.id }
     pub fn project_id(&self) -> &ProjectId { &self.project_id }
     pub fn name(&self) -> &str { &self.name }
@@ -144,6 +154,43 @@ mod tests {
             Err(ProjectRoleError::EmptyName) => (),
             _ => panic!("Expected EmptyName error, got {:?}", result),
         }
+    }
+
+    #[test]
+    fn given_valid_update_then_name_and_permissions_change() {
+        // arrange
+        let mut role = ProjectRole::new(
+            ProjectId::new(),
+            "Original".into(),
+            ProjectRoleSlug::new("original").unwrap(),
+            vec1![ProjectPermission::ProjectRead],
+            false,
+        ).unwrap();
+
+        // act
+        role.update("Updated".into(), vec1![ProjectPermission::ProjectRead, ProjectPermission::ProjectWrite]).unwrap();
+
+        // assert
+        assert_eq!(role.name(), "Updated");
+        assert_eq!(role.permissions().len(), 2);
+    }
+
+    #[test]
+    fn given_empty_name_on_update_then_fails() {
+        // arrange
+        let mut role = ProjectRole::new(
+            ProjectId::new(),
+            "Original".into(),
+            ProjectRoleSlug::new("original").unwrap(),
+            vec1![ProjectPermission::ProjectRead],
+            false,
+        ).unwrap();
+
+        // act
+        let result = role.update("  ".into(), vec1![ProjectPermission::ProjectRead]);
+
+        // assert
+        assert!(matches!(result, Err(ProjectRoleError::EmptyName)));
     }
 
     #[test]

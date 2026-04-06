@@ -25,6 +25,19 @@ struct RoleRow {
     name: String,
     slug: String,
     is_default: bool,
+    permissions: Vec<String>,
+}
+
+impl From<RoleRow> for ProjectRoleReadModel {
+    fn from(row: RoleRow) -> Self {
+        Self {
+            id: ProjectRoleId::from_uuid(row.id),
+            name: row.name,
+            slug: ProjectRoleSlug::new(row.slug).expect("invalid slug in database"),
+            permissions: row.permissions.into_iter().filter_map(|s| s.parse::<ProjectPermission>().ok()).collect(),
+            is_default: row.is_default,
+        }
+    }
 }
 
 #[async_trait]
@@ -34,35 +47,41 @@ impl ProjectRoleReadStore for PgProjectRoleReadStore {
         project_id: &ProjectId,
     ) -> Result<Vec<ProjectRoleReadModel>, ApplicationError> {
         let roles = sqlx::query_as::<_, RoleRow>(
-            "SELECT id, name, slug, is_default \
-             FROM project_roles \
-             WHERE project_id = $1 \
-             ORDER BY is_default DESC, name",
+            "SELECT r.id, r.name, r.slug, r.is_default, \
+                    COALESCE(array_agg(p.permission ORDER BY p.permission) \
+                             FILTER (WHERE p.permission IS NOT NULL), '{}') AS permissions \
+             FROM project_roles r \
+             LEFT JOIN project_role_permissions p ON p.role_id = r.id \
+             WHERE r.project_id = $1 \
+             GROUP BY r.id, r.name, r.slug, r.is_default \
+             ORDER BY r.is_default DESC, r.name",
         )
         .bind(project_id.as_uuid())
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;
 
-        let mut result = Vec::with_capacity(roles.len());
-        for role in roles {
-            let permissions = sqlx::query_scalar::<_, String>(
-                "SELECT permission FROM project_role_permissions WHERE role_id = $1",
-            )
-            .bind(role.id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(map_sqlx_error)?;
+        Ok(roles.into_iter().map(ProjectRoleReadModel::from).collect())
+    }
 
-            result.push(ProjectRoleReadModel {
-                id: ProjectRoleId::from_uuid(role.id),
-                name: role.name,
-                slug: ProjectRoleSlug::new(role.slug).expect("invalid slug in database"),
-                permissions: permissions.into_iter().filter_map(|s| s.parse::<ProjectPermission>().ok()).collect(),
-                is_default: role.is_default,
-            });
-        }
+    async fn find_by_id(
+        &self,
+        id: &ProjectRoleId,
+    ) -> Result<Option<ProjectRoleReadModel>, ApplicationError> {
+        let row = sqlx::query_as::<_, RoleRow>(
+            "SELECT r.id, r.name, r.slug, r.is_default, \
+                    COALESCE(array_agg(p.permission ORDER BY p.permission) \
+                             FILTER (WHERE p.permission IS NOT NULL), '{}') AS permissions \
+             FROM project_roles r \
+             LEFT JOIN project_role_permissions p ON p.role_id = r.id \
+             WHERE r.id = $1 \
+             GROUP BY r.id, r.name, r.slug, r.is_default",
+        )
+        .bind(id.as_uuid())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(map_sqlx_error)?;
 
-        Ok(result)
+        Ok(row.map(ProjectRoleReadModel::from))
     }
 }

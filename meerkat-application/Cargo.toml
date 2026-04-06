@@ -8,6 +8,7 @@ test-utils = ["parking_lot", "mockall", "meerkat-domain/test-utils"]
 
 [dependencies]
 meerkat-domain = { path = "../meerkat-domain" }
+vec1 = { version = "1.12.1", features = ["serde"] }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 thiserror = "2"
 parking_lot = { version = "0.12", optional = true }

@@ -1,5 +1,5 @@
 use axum::Router;
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use utoipa::OpenApi;
 use crate::handlers::{health, ingest, issues, members, oidc, oidc_admin, organizations, project_keys, projects, team};
 use crate::state::AppState;
@@ -36,7 +36,12 @@ pub mod state;
         oidc_admin::dismiss_oidc_config_warning,
         team::list_members,
         team::list_project_roles,
+        team::create_project_role,
+        team::update_project_role,
+        team::delete_project_role,
         team::list_project_members,
+        team::assign_role_to_member,
+        team::remove_role_from_member,
         team::list_member_projects,
         team::get_member_access,
     ),
@@ -61,7 +66,10 @@ pub mod state;
         oidc_admin::OidcConfigWarningDto,
         team::MemberDto,
         team::ProjectRoleDto,
+        team::ProjectRoleRequestDto,
         team::ProjectMemberDto,
+        team::ProjectMemberRoleDto,
+        team::AssignRoleRequestDto,
         team::MemberProjectDto,
         team::MemberAccessDto,
         team::OrgAccessDto,
@@ -79,8 +87,11 @@ pub fn router(state: AppState) -> Router {
         .route("/", get(projects::list_projects).post(projects::create_project))
         .route("/{slug}", get(projects::get_project).delete(projects::delete_project))
         .route("/{slug}/rename", post(projects::rename_project))
-        .route("/{slug}/roles", get(team::list_project_roles))
+        .route("/{slug}/roles", get(team::list_project_roles).post(team::create_project_role))
+        .route("/{slug}/roles/{role_id}", put(team::update_project_role).delete(team::delete_project_role))
         .route("/{slug}/members", get(team::list_project_members))
+        .route("/{slug}/members/{member_id}/roles", post(team::assign_role_to_member))
+        .route("/{slug}/members/{member_id}/roles/{role_id}", delete(team::remove_role_from_member))
         .route("/{slug}/issues", get(issues::list_issues))
         .route("/{slug}/issues/{issue_number}", get(issues::get_issue))
         .route("/{slug}/issues/{issue_number}/events", get(issues::list_issue_events))

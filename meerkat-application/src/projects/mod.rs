@@ -1,7 +1,12 @@
+pub mod assign_role_to_member;
 pub mod create;
+pub mod create_role;
 pub mod delete;
+pub mod delete_role;
 pub mod get;
 pub mod list;
 pub mod list_members;
 pub mod list_roles;
+pub mod remove_role_from_member;
 pub mod rename;
+pub mod update_role;

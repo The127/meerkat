@@ -72,7 +72,9 @@ mod tests {
     use crate::context::RequestContext;
     use crate::events::DomainEvent;
     use crate::mediator::Handler;
+    use crate::ports::project_member_repository::MockProjectMemberRepository;
     use crate::ports::project_repository::MockProjectRepository;
+    use crate::ports::project_role_repository::MockProjectRoleRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 
     use super::{CreateProject, CreateProjectHandler};
@@ -93,8 +95,19 @@ mod tests {
             })
             .returning(|_| ());
 
+        let mut role_repo = MockProjectRoleRepository::new();
+        role_repo.expect_add().times(3).returning(|_| ());
+
+        let mut member_repo = MockProjectMemberRepository::new();
+        member_repo.expect_add().returning(|_| ());
+
         let ctx = RequestContext::test()
-            .with_scoped_uow(Box::new(MockUnitOfWork::new().with_project_repo(repo)));
+            .with_scoped_uow(Box::new(
+                MockUnitOfWork::new()
+                    .with_project_repo(repo)
+                    .with_project_role_repo(role_repo)
+                    .with_project_member_repo(member_repo),
+            ));
 
         let handler = CreateProjectHandler;
         let cmd = CreateProject {

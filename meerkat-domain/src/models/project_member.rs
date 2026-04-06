@@ -1,4 +1,4 @@
-use meerkat_macros::uuid_id;
+use meerkat_macros::{uuid_id, Reconstitute};
 use crate::models::member::{MemberId, Sub};
 use crate::models::project::ProjectId;
 use crate::models::project_role::ProjectRoleId;
@@ -11,7 +11,7 @@ pub enum ProjectMemberIdentifier {
     ProjectSub(ProjectId, Sub),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Reconstitute)]
 pub struct ProjectMember {
     id: ProjectMemberId,
     member_id: MemberId,

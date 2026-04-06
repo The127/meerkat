@@ -42,8 +42,13 @@ use meerkat_application::projects::create::{CreateProject, CreateProjectHandler}
 use meerkat_application::projects::delete::{DeleteProject, DeleteProjectHandler};
 use meerkat_application::projects::get::{GetProject, GetProjectHandler};
 use meerkat_application::projects::list::{ListProjects, ListProjectsHandler};
+use meerkat_application::projects::assign_role_to_member::{AssignRoleToProjectMember, AssignRoleToProjectMemberHandler};
+use meerkat_application::projects::create_role::{CreateProjectRole, CreateProjectRoleHandler};
+use meerkat_application::projects::delete_role::{DeleteProjectRole, DeleteProjectRoleHandler};
 use meerkat_application::projects::list_members::{ListProjectMembers, ListProjectMembersHandler};
 use meerkat_application::projects::list_roles::{ListProjectRoles, ListProjectRolesHandler};
+use meerkat_application::projects::remove_role_from_member::{RemoveRoleFromProjectMember, RemoveRoleFromProjectMemberHandler};
+use meerkat_application::projects::update_role::{UpdateProjectRole, UpdateProjectRoleHandler};
 use meerkat_application::members::get_current_user::{GetCurrentUser, GetCurrentUserHandler};
 use meerkat_application::members::get_member_access::{GetMemberAccess, GetMemberAccessHandler};
 use meerkat_application::members::list_member_projects::{ListMemberProjects, ListMemberProjectsHandler};
@@ -200,7 +205,12 @@ fn build_mediator(deps: MediatorDeps) -> Mediator<RequestContext, ApplicationErr
     mediator.register::<GetMemberAccess, _>(GetMemberAccessHandler::new(deps.member_read_store, deps.project_member_read_store.clone()));
     mediator.register::<ListMemberProjects, _>(ListMemberProjectsHandler::new(deps.project_member_read_store.clone()));
     mediator.register::<ListProjectRoles, _>(ListProjectRolesHandler::new(deps.project_read_store.clone(), deps.project_role_read_store));
+    mediator.register::<CreateProjectRole, _>(CreateProjectRoleHandler);
+    mediator.register::<UpdateProjectRole, _>(UpdateProjectRoleHandler);
+    mediator.register::<DeleteProjectRole, _>(DeleteProjectRoleHandler);
     mediator.register::<ListProjectMembers, _>(ListProjectMembersHandler::new(deps.project_read_store.clone(), deps.project_member_read_store));
+    mediator.register::<AssignRoleToProjectMember, _>(AssignRoleToProjectMemberHandler);
+    mediator.register::<RemoveRoleFromProjectMember, _>(RemoveRoleFromProjectMemberHandler);
     mediator.register::<ListProjectKeys, _>(ListProjectKeysHandler::new(deps.project_read_store.clone(), deps.project_key_read_store));
     mediator.register::<GetIssue, _>(GetIssueHandler::new(deps.project_read_store.clone(), deps.issue_read_store.clone()));
     mediator.register::<ListIssues, _>(ListIssuesHandler::new(deps.project_read_store.clone(), deps.issue_read_store.clone()));

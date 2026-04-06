@@ -48,6 +48,16 @@ const router = createRouter({
           component: () => import('@/pages/projects/ProjectDetail.vue'),
         },
         {
+          path: 'projects/:slug/roles',
+          name: 'project-roles',
+          component: () => import('@/pages/projects/ProjectRoles.vue'),
+        },
+        {
+          path: 'projects/:slug/members',
+          name: 'project-members',
+          component: () => import('@/pages/projects/ProjectMembers.vue'),
+        },
+        {
           path: 'projects/:slug/keys',
           name: 'project-keys',
           component: () => import('@/pages/projects/ProjectKeys.vue'),

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { AlertCircle, KeyRound, Layers, PanelLeftClose, PanelLeftOpen, Settings, Users, Wrench } from 'lucide-vue-next'
+import { AlertCircle, KeyRound, Layers, PanelLeftClose, PanelLeftOpen, Settings, Shield, UserCog, Users, Wrench } from 'lucide-vue-next'
 import { useSidebar } from '@/composables/useSidebar'
 import { useCurrentUser } from '@/composables/useCurrentUser'
 import MkProjectSelector from './MkProjectSelector.vue'
@@ -27,6 +27,16 @@ const navItems = computed(() => {
       name: 'Client Keys',
       path: `/projects/${slug.value}/keys`,
       icon: KeyRound,
+    },
+    {
+      name: 'Roles',
+      path: `/projects/${slug.value}/roles`,
+      icon: Shield,
+    },
+    {
+      name: 'Members',
+      path: `/projects/${slug.value}/members`,
+      icon: UserCog,
     },
     {
       name: 'Settings',

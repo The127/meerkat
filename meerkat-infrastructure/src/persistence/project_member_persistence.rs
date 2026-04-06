@@ -38,4 +38,30 @@ impl ProjectMemberPersistence {
 
         Ok(())
     }
+
+    pub async fn update(
+        tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        member: &ProjectMember,
+        _snapshot: &ProjectMember,
+        _now: DateTime<Utc>,
+    ) -> Result<(), ApplicationError> {
+        sqlx::query("DELETE FROM project_member_roles WHERE project_member_id = $1")
+            .bind(member.id().as_uuid())
+            .execute(&mut **tx)
+            .await
+            .map_err(map_sqlx_error)?;
+
+        for role_id in member.role_ids() {
+            sqlx::query(
+                "INSERT INTO project_member_roles (project_member_id, role_id) VALUES ($1, $2)",
+            )
+            .bind(member.id().as_uuid())
+            .bind(role_id.as_uuid())
+            .execute(&mut **tx)
+            .await
+            .map_err(map_sqlx_error)?;
+        }
+
+        Ok(())
+    }
 }

@@ -9,12 +9,17 @@ use meerkat_domain::models::project_role::ProjectRoleId;
 use crate::error::ApplicationError;
 
 #[derive(Debug, Clone)]
+pub struct ProjectMemberRoleReadModel {
+    pub role_id: ProjectRoleId,
+    pub role_name: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct ProjectMemberReadModel {
     pub member_id: MemberId,
     pub preferred_name: String,
     pub sub: String,
-    pub role_id: ProjectRoleId,
-    pub role_name: String,
+    pub roles: Vec<ProjectMemberRoleReadModel>,
     pub created_at: DateTime<Utc>,
 }
 

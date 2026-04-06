@@ -1,8 +1,13 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
-use meerkat_application::ports::project_member_read_store::{MemberProjectAccessReadModel, MemberProjectReadModel, ProjectMemberReadModel, ProjectMemberReadStore};
+use meerkat_application::ports::project_member_read_store::{
+    MemberProjectAccessReadModel, MemberProjectReadModel, ProjectMemberReadModel,
+    ProjectMemberRoleReadModel, ProjectMemberReadStore,
+};
 use meerkat_domain::models::member::MemberId;
 use meerkat_domain::models::organization::OrganizationId;
 use meerkat_domain::models::permission::ProjectPermission;
@@ -21,23 +26,23 @@ impl PgProjectMemberReadStore {
     }
 }
 
-#[derive(sqlx::FromRow)]
-struct ProjectMemberRow {
-    member_id: sqlx::types::Uuid,
-    preferred_name: String,
-    sub: String,
-    role_id: sqlx::types::Uuid,
-    role_name: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-}
-
 #[async_trait]
 impl ProjectMemberReadStore for PgProjectMemberReadStore {
     async fn list_by_project(
         &self,
         project_id: &ProjectId,
     ) -> Result<Vec<ProjectMemberReadModel>, ApplicationError> {
-        let rows = sqlx::query_as::<_, ProjectMemberRow>(
+        #[derive(sqlx::FromRow)]
+        struct Row {
+            member_id: sqlx::types::Uuid,
+            preferred_name: String,
+            sub: String,
+            role_id: sqlx::types::Uuid,
+            role_name: String,
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+
+        let rows = sqlx::query_as::<_, Row>(
             "SELECT m.id AS member_id, m.preferred_name, m.sub, \
                     pr.id AS role_id, pr.name AS role_name, \
                     pm.created_at \
@@ -46,24 +51,36 @@ impl ProjectMemberReadStore for PgProjectMemberReadStore {
              JOIN project_member_roles pmr ON pmr.project_member_id = pm.id \
              JOIN project_roles pr ON pr.id = pmr.role_id \
              WHERE pm.project_id = $1 \
-             ORDER BY m.preferred_name",
+             ORDER BY m.preferred_name, pr.name",
         )
         .bind(project_id.as_uuid())
         .fetch_all(&self.pool)
         .await
         .map_err(map_sqlx_error)?;
 
-        Ok(rows
-            .into_iter()
-            .map(|r| ProjectMemberReadModel {
-                member_id: MemberId::from_uuid(r.member_id),
-                preferred_name: r.preferred_name,
-                sub: r.sub,
+        // group roles per member, preserving order
+        let mut order: Vec<MemberId> = Vec::new();
+        let mut map: HashMap<MemberId, ProjectMemberReadModel> = HashMap::new();
+
+        for r in rows {
+            let mid = MemberId::from_uuid(r.member_id);
+            let entry = map.entry(mid.clone()).or_insert_with(|| {
+                order.push(mid.clone());
+                ProjectMemberReadModel {
+                    member_id: mid,
+                    preferred_name: r.preferred_name.clone(),
+                    sub: r.sub.clone(),
+                    roles: Vec::new(),
+                    created_at: r.created_at,
+                }
+            });
+            entry.roles.push(ProjectMemberRoleReadModel {
                 role_id: ProjectRoleId::from_uuid(r.role_id),
                 role_name: r.role_name,
-                created_at: r.created_at,
-            })
-            .collect())
+            });
+        }
+
+        Ok(order.into_iter().filter_map(|id| map.remove(&id)).collect())
     }
 
     async fn list_by_member(

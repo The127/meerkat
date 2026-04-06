@@ -123,6 +123,27 @@ export interface Member {
   last_seen: string
 }
 
+export interface ProjectRole {
+  id: string
+  name: string
+  slug: string
+  permissions: string[]
+  is_default: boolean
+}
+
+export interface ProjectMemberRole {
+  role_id: string
+  role_name: string
+}
+
+export interface ProjectMember {
+  member_id: string
+  preferred_name: string
+  sub: string
+  roles: ProjectMemberRole[]
+  created_at: string
+}
+
 export interface MemberAccess {
   id: string
   preferred_name: string

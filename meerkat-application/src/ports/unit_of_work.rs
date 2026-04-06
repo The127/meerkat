@@ -33,8 +33,8 @@ pub struct MockUnitOfWork {
     org_repo: crate::ports::organization_repository::MockOrganizationRepository,
     project_repo: crate::ports::project_repository::MockProjectRepository,
     project_key_repo: crate::ports::project_key_repository::MockProjectKeyRepository,
-    project_role_repo: crate::ports::project_role_repository::NoOpProjectRoleRepository,
-    project_member_repo: crate::ports::project_member_repository::NoOpProjectMemberRepository,
+    project_role_repo: crate::ports::project_role_repository::MockProjectRoleRepository,
+    project_member_repo: crate::ports::project_member_repository::MockProjectMemberRepository,
     event_repo: Box<dyn EventRepository>,
     issue_repo: Box<dyn IssueRepository>,
     save_changes_result: Option<Result<(), ApplicationError>>,
@@ -47,8 +47,8 @@ impl Default for MockUnitOfWork {
             org_repo: crate::ports::organization_repository::MockOrganizationRepository::new(),
             project_repo: crate::ports::project_repository::MockProjectRepository::new(),
             project_key_repo: crate::ports::project_key_repository::MockProjectKeyRepository::new(),
-            project_role_repo: crate::ports::project_role_repository::NoOpProjectRoleRepository,
-            project_member_repo: crate::ports::project_member_repository::NoOpProjectMemberRepository,
+            project_role_repo: crate::ports::project_role_repository::MockProjectRoleRepository::new(),
+            project_member_repo: crate::ports::project_member_repository::MockProjectMemberRepository::new(),
             event_repo: Box::new(crate::ports::event_repository::NoOpEventRepository),
             issue_repo: Box::new(crate::ports::issue_repository::NoOpIssueRepository),
             save_changes_result: Some(Ok(())),
@@ -74,6 +74,16 @@ impl MockUnitOfWork {
 
     pub fn with_project_key_repo(mut self, repo: crate::ports::project_key_repository::MockProjectKeyRepository) -> Self {
         self.project_key_repo = repo;
+        self
+    }
+
+    pub fn with_project_role_repo(mut self, repo: crate::ports::project_role_repository::MockProjectRoleRepository) -> Self {
+        self.project_role_repo = repo;
+        self
+    }
+
+    pub fn with_project_member_repo(mut self, repo: crate::ports::project_member_repository::MockProjectMemberRepository) -> Self {
+        self.project_member_repo = repo;
         self
     }
 
