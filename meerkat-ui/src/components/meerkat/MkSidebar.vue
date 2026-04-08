@@ -81,8 +81,7 @@ function isActive(path: string): boolean {
         :to="item.path"
         :title="collapsed ? item.name : undefined"
         :class="[
-          'flex items-center gap-2.5 rounded-md text-sm transition-colors',
-          collapsed ? 'justify-center px-0 py-1.5' : 'px-3 py-1.5',
+          'flex items-center gap-2.5 rounded-md text-sm transition-colors px-3 py-1.5',
           isActive(item.path)
             ? 'bg-accent text-accent-foreground font-medium'
             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -100,8 +99,7 @@ function isActive(path: string): boolean {
         to="/members"
         :title="collapsed ? 'Members' : undefined"
         :class="[
-          'flex items-center gap-2.5 rounded-md text-sm transition-colors',
-          collapsed ? 'justify-center px-0 py-1.5' : 'px-3 py-1.5',
+          'flex items-center gap-2.5 rounded-md text-sm transition-colors px-3 py-1.5',
           isActive('/members')
             ? 'bg-accent text-accent-foreground font-medium'
             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -114,8 +112,7 @@ function isActive(path: string): boolean {
         to="/settings"
         :title="collapsed ? 'Settings' : undefined"
         :class="[
-          'flex items-center gap-2.5 rounded-md text-sm transition-colors',
-          collapsed ? 'justify-center px-0 py-1.5' : 'px-3 py-1.5',
+          'flex items-center gap-2.5 rounded-md text-sm transition-colors px-3 py-1.5',
           isActive('/settings')
             ? 'bg-accent text-accent-foreground font-medium'
             : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
@@ -130,10 +127,7 @@ function isActive(path: string): boolean {
     <div class="px-2 py-3 border-t border-border">
       <button
         :title="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
-        :class="[
-          'flex items-center gap-2.5 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors cursor-pointer w-full',
-          collapsed ? 'justify-center px-0 py-1.5' : 'px-3 py-1.5',
-        ]"
+        class="flex items-center gap-2.5 rounded-md text-sm text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors cursor-pointer w-full px-3 py-1.5"
         @click="toggle"
       >
         <PanelLeftClose v-if="!collapsed" class="w-4 h-4 shrink-0" />
