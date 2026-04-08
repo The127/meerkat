@@ -4,7 +4,7 @@ use meerkat_domain::models::organization::OrganizationId;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Request, Handler};
 use crate::ports::oidc_config_read_store::{OidcConfigReadModel, OidcConfigReadStore};
 
 pub struct GetOidcConfig {

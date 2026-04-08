@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
-use meerkat_application::mediator::Mediator;
+use mediator_rs::Mediator;
 use meerkat_application::ports::health::HealthChecker;
 use meerkat_application::ports::jwks_provider::JwksProvider;
 use meerkat_application::ports::member_repository::MemberRepository;

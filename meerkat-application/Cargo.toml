@@ -17,6 +17,8 @@ async-trait = "0.1.89"
 tokio = { version = "1", features = ["sync"] }
 serde_json = "1"
 dashmap = "6"
+mediator-rs = "0.1.5"
+raccoon-clock-rs = "0.1.1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

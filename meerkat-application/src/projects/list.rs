@@ -4,7 +4,7 @@ use meerkat_domain::models::organization::OrganizationId;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Request, Handler};
 use crate::ports::project_read_store::{PagedResult, ProjectReadModel, ProjectReadStore};
 use crate::search::SearchFilter;
 

@@ -7,8 +7,7 @@ use meerkat_domain::models::permission::ProjectPermission;
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 
 pub struct DeleteProject {
     pub identifier: ProjectIdentifier,
@@ -51,7 +50,7 @@ mod tests {
     use meerkat_domain::testing::test_project;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::project_repository::MockProjectRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 

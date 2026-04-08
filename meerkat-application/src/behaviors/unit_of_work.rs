@@ -6,8 +6,7 @@ use async_trait::async_trait;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::events::EventDispatcher;
-use crate::extensions::Extensions;
-use crate::mediator::{PipelineBehavior, PipelineNext};
+use mediator_rs::{Extensions, PipelineBehavior, PipelineNext};
 
 pub struct UnitOfWorkBehavior {
     event_dispatcher: Arc<EventDispatcher>,

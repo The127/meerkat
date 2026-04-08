@@ -7,8 +7,7 @@ use meerkat_domain::models::project_key::{ProjectKeyId, RateLimit};
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 
 pub struct UpdateProjectKeyRateLimit {
     pub project: ProjectIdentifier,
@@ -59,7 +58,7 @@ mod tests {
     use meerkat_domain::testing::test_project_key;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::project_key_repository::MockProjectKeyRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 

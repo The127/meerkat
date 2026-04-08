@@ -7,8 +7,7 @@ use meerkat_domain::models::project::ProjectIdentifier;
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 use crate::ports::project_read_store::ProjectReadStore;
 
 pub struct ReopenIssue {
@@ -72,7 +71,7 @@ mod tests {
     use meerkat_domain::testing::test_issue;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::issue_repository::MockIssueRepository;
     use crate::ports::project_read_store::MockProjectReadStore;
     use crate::ports::unit_of_work::MockUnitOfWork;

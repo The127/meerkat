@@ -6,8 +6,7 @@ use dashmap::DashMap;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{PipelineBehavior, PipelineNext};
+use mediator_rs::{Extensions, PipelineBehavior, PipelineNext};
 
 pub struct RateLimitKey {
     pub key_token: String,
@@ -105,8 +104,7 @@ mod tests {
 
     use crate::context::RequestContext;
     use crate::error::ApplicationError;
-    use crate::extensions::Extensions;
-    use crate::mediator::{Handler, Mediator, Request};
+    use mediator_rs::{Extensions, Handler, Mediator, Request};
 
     use super::*;
 
@@ -203,7 +201,7 @@ mod tests {
 
         // assert
         match result {
-            Err(crate::mediator::MediatorError::HandlerError(ApplicationError::RateLimited { retry_after_secs })) => {
+            Err(mediator_rs::MediatorError::HandlerError(ApplicationError::RateLimited { retry_after_secs })) => {
                 assert!(retry_after_secs >= 1);
             }
             other => panic!("Expected RateLimited, got {:?}", other),
@@ -238,7 +236,7 @@ mod tests {
 
         // assert
         match result {
-            Err(crate::mediator::MediatorError::HandlerError(ApplicationError::RateLimited { .. })) => (),
+            Err(mediator_rs::MediatorError::HandlerError(ApplicationError::RateLimited { .. })) => (),
             other => panic!("Expected RateLimited for key-a, got {:?}", other),
         }
     }
@@ -263,7 +261,7 @@ mod tests {
 
         // assert
         match result {
-            Err(crate::mediator::MediatorError::HandlerError(ApplicationError::RateLimited { .. })) => (),
+            Err(mediator_rs::MediatorError::HandlerError(ApplicationError::RateLimited { .. })) => (),
             other => panic!("Expected RateLimited, got {:?}", other),
         }
     }

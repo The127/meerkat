@@ -12,8 +12,7 @@ use meerkat_domain::models::project::ProjectSlug;
 use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Handler, Request};
+use mediator_rs::{Extensions, Handler, Request};
 use crate::ports::member_read_store::MemberReadStore;
 use crate::ports::project_member_read_store::{MemberProjectAccessReadModel, ProjectMemberReadStore};
 

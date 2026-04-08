@@ -10,8 +10,7 @@ use crate::behaviors::rate_limit::RateLimitKey;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::events::DomainEvent;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 use crate::ports::fingerprint_service::FingerprintService;
 
 pub struct IngestEvent {
@@ -129,7 +128,7 @@ impl Handler<IngestEvent, ApplicationError, RequestContext> for IngestEventHandl
 mod tests {
     use super::*;
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::event_repository::MockEventRepository;
     use crate::ports::fingerprint_service::MockFingerprintService;
     use crate::ports::issue_repository::MockIssueRepository;

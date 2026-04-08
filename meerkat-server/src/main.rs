@@ -10,7 +10,7 @@ use tracing::info;
 use meerkat_api::state::{AppState, AuthState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
-use meerkat_application::mediator::Mediator;
+use mediator_rs::Mediator;
 use meerkat_application::behaviors::authorization::AuthorizationBehavior;
 use meerkat_application::behaviors::rate_limit::RateLimitBehavior;
 use meerkat_application::ports::audit::AuditPipeline;

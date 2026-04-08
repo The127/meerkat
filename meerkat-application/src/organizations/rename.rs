@@ -7,8 +7,7 @@ use meerkat_domain::models::permission::OrgPermission;
 use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 
 pub struct RenameOrganization {
     pub identifier: OrganizationIdentifier,
@@ -50,7 +49,7 @@ mod tests {
     use meerkat_domain::testing::test_org;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::organization_repository::MockOrganizationRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 

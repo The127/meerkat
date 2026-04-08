@@ -11,8 +11,7 @@ use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
 use crate::events::DomainEvent;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 
 pub struct CreateProject {
     pub organization_id: OrganizationId,
@@ -71,7 +70,7 @@ mod tests {
 
     use crate::context::RequestContext;
     use crate::events::DomainEvent;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::project_member_repository::MockProjectMemberRepository;
     use crate::ports::project_repository::MockProjectRepository;
     use crate::ports::project_role_repository::MockProjectRoleRepository;

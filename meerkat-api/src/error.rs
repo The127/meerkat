@@ -5,7 +5,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 use meerkat_application::error::ApplicationError;
-use meerkat_application::mediator::MediatorError;
+use mediator_rs::MediatorError;
 use meerkat_application::ports::error_observer::{ErrorReport, ErrorSeverity};
 
 #[derive(Debug, Clone, Serialize, ToSchema)]

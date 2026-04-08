@@ -1,4 +1,5 @@
-use meerkat_macros::{uuid_id, Reconstitute};
+use raccoon_typed_id::uuid_id;
+use reconstitute::Reconstitute;
 use crate::models::member::{MemberId, Sub};
 use crate::models::project::ProjectId;
 use crate::models::project_role::ProjectRoleId;

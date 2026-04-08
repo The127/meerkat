@@ -13,7 +13,7 @@ use meerkat_application::ports::project_member_repository::ProjectMemberReposito
 use meerkat_application::ports::project_repository::ProjectRepository;
 use meerkat_application::ports::project_role_repository::ProjectRoleRepository;
 use meerkat_application::ports::unit_of_work::{UnitOfWork, UnitOfWorkFactory};
-use meerkat_application::ports::clock::Clock;
+use raccoon_clock_rs::Clock;
 
 use crate::persistence::error::map_sqlx_error;
 use crate::persistence::event_persistence::EventPersistence;

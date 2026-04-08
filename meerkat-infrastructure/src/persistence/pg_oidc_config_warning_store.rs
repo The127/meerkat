@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use meerkat_application::error::ApplicationError;
-use meerkat_application::ports::clock::Clock;
+use raccoon_clock_rs::Clock;
 use meerkat_application::ports::oidc_config_warning_store::{
     OidcConfigWarningReadModel, OidcConfigWarningStore,
 };

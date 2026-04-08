@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use meerkat_application::ports::clock::Clock;
+use raccoon_clock_rs::Clock;
 
 pub struct SystemClock;
 

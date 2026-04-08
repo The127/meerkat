@@ -1,7 +1,8 @@
 use std::fmt;
 
 use chrono::{DateTime, Utc};
-use meerkat_macros::{uuid_id, Reconstitute};
+use raccoon_typed_id::uuid_id;
+use reconstitute::Reconstitute;
 use crate::models::event::EventLevel;
 use crate::models::project::ProjectId;
 use crate::shared::version::Version;

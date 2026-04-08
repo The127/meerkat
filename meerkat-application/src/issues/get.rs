@@ -8,8 +8,7 @@ use meerkat_domain::models::project::ProjectIdentifier;
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 use crate::ports::issue_read_store::{IssueReadModel, IssueReadStore};
 use crate::ports::project_read_store::ProjectReadStore;
 
@@ -76,7 +75,7 @@ mod tests {
     use meerkat_domain::models::project::{ProjectIdentifier, ProjectSlug};
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::issue_read_store::{IssueReadModel, MockIssueReadStore};
     use crate::ports::project_read_store::MockProjectReadStore;
 

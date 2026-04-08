@@ -7,8 +7,7 @@ use meerkat_domain::models::permission::OrgPermission;
 use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 use crate::ports::member_read_store::{ListMembersQuery, MemberReadModel, MemberReadStore};
 use crate::ports::project_read_store::PagedResult;
 

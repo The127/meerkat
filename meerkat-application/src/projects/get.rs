@@ -6,8 +6,7 @@ use meerkat_domain::models::project::ProjectIdentifier;
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 use crate::ports::project_read_store::{ProjectReadModel, ProjectReadStore};
 
 pub struct GetProject {

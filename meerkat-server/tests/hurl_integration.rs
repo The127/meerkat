@@ -9,7 +9,7 @@ use tokio::net::TcpListener;
 use meerkat_api::state::{AppState, AuthState, TenantState};
 use meerkat_application::context::{AppContext, RequestContext};
 use meerkat_application::error::ApplicationError;
-use meerkat_application::mediator::Mediator;
+use mediator_rs::Mediator;
 use meerkat_application::behaviors::unit_of_work::UnitOfWorkBehavior;
 use meerkat_application::events::EventDispatcher;
 use meerkat_application::project_keys::create::{CreateProjectKey, CreateProjectKeyHandler};

@@ -8,8 +8,7 @@ use meerkat_domain::shared::url::Url;
 use crate::behaviors::authorization::org_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 
 pub struct AddOidcConfig {
     pub identifier: OrganizationIdentifier,

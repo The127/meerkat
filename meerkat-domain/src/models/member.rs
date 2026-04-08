@@ -1,4 +1,5 @@
-use meerkat_macros::{uuid_id, Reconstitute};
+use raccoon_typed_id::uuid_id;
+use reconstitute::Reconstitute;
 use crate::models::organization::OrganizationId;
 
 uuid_id!(MemberId);

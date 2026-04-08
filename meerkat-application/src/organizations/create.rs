@@ -5,7 +5,7 @@ use meerkat_domain::models::organization::{Organization, OrganizationId, Organiz
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Request, Handler};
 
 pub struct CreateOrganizationOidcConfig {
     pub name: String,
@@ -61,7 +61,7 @@ mod tests {
     use meerkat_domain::models::organization::OrganizationSlug;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::organization_repository::MockOrganizationRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;
 

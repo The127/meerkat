@@ -1,4 +1,5 @@
-use meerkat_macros::{uuid_id, Reconstitute};
+use raccoon_typed_id::uuid_id;
+use reconstitute::Reconstitute;
 use vec1::Vec1;
 use crate::models::org_role::OrgRole;
 pub use crate::shared::url::Url;

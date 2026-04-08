@@ -7,8 +7,7 @@ use meerkat_domain::models::project_key::{ProjectKey, ProjectKeyId};
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Extensions, Request, Handler};
 
 pub struct CreateProjectKey {
     pub project: ProjectIdentifier,
@@ -57,7 +56,7 @@ mod tests {
     use meerkat_domain::testing::test_project;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::project_key_repository::MockProjectKeyRepository;
     use crate::ports::project_repository::MockProjectRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;

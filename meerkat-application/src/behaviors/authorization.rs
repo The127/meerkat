@@ -8,8 +8,7 @@ use meerkat_domain::models::project::ProjectIdentifier;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{PipelineBehavior, PipelineNext};
+use mediator_rs::{Extensions, PipelineBehavior, PipelineNext};
 use crate::ports::audit::{AuditEvent, AuditLogger, AuditOutcome};
 use crate::ports::project_permission_read_store::ProjectPermissionReadStore;
 use crate::ports::project_read_store::ProjectReadStore;
@@ -181,8 +180,7 @@ mod tests {
     use crate::behaviors::authorization::testing::CapturingAuditLogger;
     use crate::context::RequestContext;
     use crate::error::ApplicationError;
-    use crate::extensions::Extensions;
-    use crate::mediator::{Request, Handler, Mediator};
+    use mediator_rs::{Extensions, Request, Handler, Mediator};
     use crate::ports::audit::AuditOutcome;
 
     use super::*;
@@ -287,7 +285,7 @@ mod tests {
 
         // assert
         match result {
-            Err(crate::mediator::MediatorError::HandlerError(ApplicationError::Unauthorized)) => (),
+            Err(mediator_rs::MediatorError::HandlerError(ApplicationError::Unauthorized)) => (),
             other => panic!("Expected Unauthorized, got {:?}", other),
         }
         let events = logger.events().await;
@@ -308,7 +306,7 @@ mod tests {
 
         // assert
         match result {
-            Err(crate::mediator::MediatorError::HandlerError(ApplicationError::Forbidden)) => (),
+            Err(mediator_rs::MediatorError::HandlerError(ApplicationError::Forbidden)) => (),
             other => panic!("Expected Forbidden, got {:?}", other),
         }
         let events = logger.events().await;

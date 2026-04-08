@@ -8,8 +8,7 @@ use meerkat_domain::models::project_role::{ProjectRole, ProjectRoleSlug};
 use crate::behaviors::authorization::project_extensions;
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::extensions::Extensions;
-use crate::mediator::{Handler, Request};
+use mediator_rs::{Extensions, Handler, Request};
 
 pub struct CreateProjectRole {
     pub project: ProjectIdentifier,
@@ -87,7 +86,7 @@ mod tests {
     use meerkat_domain::testing::test_project;
 
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::project_repository::MockProjectRepository;
     use crate::ports::project_role_repository::MockProjectRoleRepository;
     use crate::ports::unit_of_work::MockUnitOfWork;

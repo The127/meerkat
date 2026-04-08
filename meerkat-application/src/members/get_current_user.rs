@@ -9,7 +9,7 @@ use meerkat_domain::models::project::ProjectSlug;
 
 use crate::context::RequestContext;
 use crate::error::ApplicationError;
-use crate::mediator::{Request, Handler};
+use mediator_rs::{Request, Handler};
 use crate::ports::project_permission_read_store::ProjectPermissionReadStore;
 
 pub struct GetCurrentUser;
@@ -82,7 +82,7 @@ mod tests {
 
     use crate::auth_context::AuthContext;
     use crate::context::RequestContext;
-    use crate::mediator::Handler;
+    use mediator_rs::Handler;
     use crate::ports::project_permission_read_store::MockProjectPermissionReadStore;
 
     use super::*;
